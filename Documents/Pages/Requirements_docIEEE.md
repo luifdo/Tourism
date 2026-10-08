@@ -18,6 +18,38 @@
 > *Asignación de roles técnicos y de gestión: ver [Apéndice D. Equipo de trabajo y asignación de roles](#apéndice-d-equipo-de-trabajo-y-asignación-de-roles). Plan, cronograma y presupuesto: ver [Apéndice E](#apéndice-e-plan-de-proyecto-cronograma-y-presupuesto).*
 ---
 
+## Tabla de Contenido
+
+* [1. Introducción](#1-introducción)
+  * [1.1 Propósito del documento](#11-propósito-del-documento)
+  * [1.2 Alcance del sistema](#12-alcance-del-sistema)
+  * [1.3 Definiciones, acrónimos y abreviaturas](#13-definiciones-acrónimos-y-abreviaturas)
+  * [1.4 Referencias](#14-referencias)
+* [2. Descripción General](#2-descripción-general)
+  * [2.1 Perspectiva del producto](#21-perspectiva-del-producto)
+  * [2.2 Funciones del producto](#22-funciones-del-producto)
+  * [2.3 Características de los usuarios / Stakeholders](#23-características-de-los-usuarios--stakeholders)
+  * [2.4 Restricciones generales](#24-restricciones-generales)
+  * [2.5 Supuestos y dependencias](#25-supuestos-y-dependencias)
+* [3. Requerimientos Específicos](#3-requerimientos-específicos)
+  * [3.1 Requerimientos funcionales](#31-requerimientos-funcionales)
+  * [3.2 Casos de uso](#32-casos-de-uso)
+  * [3.3 Requerimientos de interfaz](#33-requerimientos-de-interfaz)
+  * [3.4 Requerimientos no funcionales / atributos de calidad](#34-requerimientos-no-funcionales--atributos-de-calidad)
+  * [3.5 Escenarios de atributos de calidad](#35-escenarios-de-atributos-de-calidad)
+  * [3.6 Requerimientos de diseño y restricciones de arquitectura](#36-requerimientos-de-diseño-y-restricciones-de-arquitectura)
+  * [3.7 Modelo de datos preliminar](#37-modelo-de-datos-preliminar)
+* [4. Verificación](#4-verificación)
+  * [4.1 Criterios de verificación por requerimiento](#41-criterios-de-verificación-por-requerimiento)
+* [5. Apéndices](#5-apéndices)
+  * [Apéndice A. Matriz de trazabilidad global](#apéndice-a-matriz-de-trazabilidad-global)
+  * [Apéndice B. Matriz de riesgos del proyecto](#apéndice-b-matriz-de-riesgos-del-proyecto)
+  * [Apéndice C. Lineamientos de mockups y prototipado](#apéndice-c-lineamientos-de-mockups-y-prototipado)
+  * [Apéndice D. Equipo de trabajo y asignación de roles](#apéndice-d-equipo-de-trabajo-y-asignación-de-roles)
+  * [Apéndice E. Plan de proyecto, cronograma y presupuesto](#apéndice-e-plan-de-proyecto-cronograma-y-presupuesto)
+
+---
+
 ## 1. Introducción
 
 ### 1.1 Propósito del documento

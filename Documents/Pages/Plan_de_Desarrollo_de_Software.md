@@ -8,6 +8,21 @@
 
 ---
 
+## Tabla de Contenido
+
+* [1. Condiciones Generales del Proyecto](#1-condiciones-generales-del-proyecto)
+* [2. Cronograma de Ejecución y Plan de Fases](#2-cronograma-de-ejecución-y-plan-de-fases)
+  * [2.1 Diagrama de Gantt (14 Semanas)](#21-diagrama-de-gantt-14-semanas)
+  * [2.2 Desglose de Fases y Entregables Principales](#22-desglose-de-fases-y-entregables-principales)
+* [3. Metodología de Desarrollo y Control de Calidad](#3-metodología-de-desarrollo-y-control-de-calidad)
+  * [3.1 Selección y Justificación del Proceso de Desarrollo](#31-selección-y-justificación-del-proceso-de-desarrollo)
+* [4. Modelo de Negocio y Sostenibilidad Institucional](#4-modelo-de-negocio-y-sostenibilidad-institucional)
+* [5. Modelos Presupuestales y Asignación de Recursos](#5-modelos-presupuestales-y-asignación-de-recursos)
+  * [5.1 Escenario A: Prototipo Académico y Validación Semestral (Austeridad FOSS / Free-Tier)](#51-escenario-a-prototipo-académico-y-validación-semestral-austeridad-foss--free-tier)
+  * [5.2 Escenario B: Despliegue Piloto a Escala Real / Producción Institucional (Uso Total: USD 20.000)](#52-escenario-b-despliegue-piloto-a-escala-real--producción-institucional-uso-total-usd-20000)
+
+---
+
 ## 1. Condiciones Generales del Proyecto
 
 * **Equipo de Trabajo:** 5 ingenieros en formación, cada uno con un rol técnico y un rol de gestión (detalle de responsabilidades en el [Apéndice D del SRS](./Requirements_docIEEE.md#apéndice-d-equipo-de-trabajo-y-asignación-de-roles)):
