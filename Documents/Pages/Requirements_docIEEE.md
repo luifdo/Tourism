@@ -14,6 +14,8 @@
 > * **Valentina  Sarait Nieves Hernandez** 
 > * **Andres Felipe Gamero Sanchez**
 > * **Juan Francisco Gonzalez Pacheco**
+>
+> *Asignación de roles técnicos y de gestión: ver [Apéndice D. Equipo de trabajo y asignación de roles](#apéndice-d-equipo-de-trabajo-y-asignación-de-roles). Plan, cronograma y presupuesto: ver [Apéndice E](#apéndice-e-plan-de-proyecto-cronograma-y-presupuesto).*
 ---
 
 ## 1. Introducción
@@ -40,7 +42,7 @@ El sistema garantiza atributos de calidad esenciales como escalabilidad elástic
 
 > [!NOTE]
 > **Alcance Delimitado (Exclusiones Justificadas del Prototipo):**
-> * **Pasarela de Pagos en Línea (UC34 / UC35):** Fuera de alcance en esta iteración. El prototipo opera bajo un modelo de solicitud y confirmación de reserva; las transacciones monetarias se efectúan de manera directa e independiente entre el turista y el prestador de servicios.
+> * **Pasarela de Pagos en Línea (UC34 / UC35):** Fuera de alcance en esta iteración. El prototipo opera bajo un modelo de solicitud y confirmación de reserva; las transacciones monetarias se efectúan de manera directa e independiente entre el turista y el prestador de servicios. Alternativas evaluadas, criterios y *trade-offs* en [ADR-001: Exclusión de la Pasarela de Pagos](./ADR-001_Exclusion_Pasarela_Pagos.md).
 > * **Registro de Menores de Edad:** Restringido formalmente a mayores de 18 años para resguardar el marco normativo de Habeas Data infantil.
 > * **Repositorio documental en GitHub:** https://github.com/luifdo/tourism-platform/tree/Documents/Documents/Pages
 
@@ -210,7 +212,7 @@ Conforme al estándar ISO/IEC/IEEE 29148:2018, los interesados del sistema se cl
 * **Compatibilidad Multiplataforma:** Interfaz web responsiva compatible con navegadores móviles y de escritorio modernos sin requerir instalación de aplicativos nativos.
 
 #### 2.4.2 Restricciones Económicas y de Recursos
-* **Techo Presupuestal:** Límite financiero estricto de **USD 20.000**, con esquemas de ejecución transparente para prototipo académico (USD 6.900) o despliegue institucional piloto (USD 20.000).
+* **Techo Presupuestal:** Límite financiero estricto de **USD 20.000**, con esquemas de ejecución transparente para prototipo académico (USD 6.900) o despliegue institucional piloto (USD 20.000). Desglose en el [Apéndice E](#apéndice-e-plan-de-proyecto-cronograma-y-presupuesto).
 * **Talento Humano:** Proyecto ejecutado por un equipo de 5 ingenieros en un marco temporal de 14 semanas lectivas.
 * **Modelo Gratuito:** Sin monetización directa ni comisiones sobre transacciones de reserva.
 
@@ -317,9 +319,163 @@ A continuación se detalla la especificación completa de los requerimientos fun
 | **UC37** | Cargar documentos de verificación (RNT, RUT) | Prestador | `<<include>>` en UC28 | Módulo 1: Seguridad & IAM |
 | **UC38** | Exportar reportes analíticos (CSV / PDF) | Entidad | `<<extend>>` UC25 | Módulo 6: Analítica & Destino |
 
-#### 3.2.3 Diagrama General de Casos de Uso
+#### 3.2.3 Diagramas de Casos de Uso por Actor
 
-![Diagrama de Casos de Uso - Plataforma Digital de Turismo Santa Marta](./CasosDeUso_PlataformaTurismoSantaMarta.svg)
+Para garantizar la legibilidad, el modelo de casos de uso se presenta en **cuatro vistas por actor principal**, agrupando los casos de uso según el módulo que los implementa. Convenciones:
+
+* Las líneas continuas asocian al actor con los casos de uso que inicia.
+* Las líneas punteadas indican relaciones `«include»`, `«extend»` o disparo de eventos (`«trigger»`), según la Sección 3.2.2.
+* Todos los casos de uso que requieren autenticación incluyen UC2 (*Iniciar sesión*); esa relación se omite en los diagramas para no saturarlos.
+
+La vista general con todos los actores se conserva como referencia en [CasosDeUso_PlataformaTurismoSantaMarta.svg](./CasosDeUso_PlataformaTurismoSantaMarta.svg).
+
+##### Vista 1: Turista
+
+```mermaid
+flowchart LR
+    Tur(("Turista"))
+
+    subgraph M1["Módulo 1: Seguridad & IAM / Transversal"]
+        UC1(["UC1 · Registrarse (18+)"])
+        UC6(["UC6 · Aceptar política de datos"])
+        UC2(["UC2 · Iniciar sesión"])
+        UC3(["UC3 · Recuperar contraseña"])
+        UC4(["UC4 · Gestionar perfil"])
+        UC5(["UC5 · Cambiar idioma ES/EN"])
+    end
+
+    subgraph M2["Módulo 2: Catálogo & GIS"]
+        UC7(["UC7 · Consultar catálogo"])
+        UC8(["UC8 · Buscar y filtrar"])
+        UC9(["UC9 · Ver detalle de servicio"])
+        UC16(["UC16 · Ver mapa interactivo"])
+    end
+
+    subgraph M3["Módulo 3: Reservas & Cupos"]
+        UC10(["UC10 · Consultar disponibilidad"])
+        UC11(["UC11 · Solicitar reserva"])
+        UC12(["UC12 · Cancelar / modificar reserva"])
+        UC13(["UC13 · Ver historial de reservas"])
+    end
+
+    subgraph M45["Módulos 4 y 5: Reseñas e IA"]
+        UC15(["UC15 · Calificar y reseñar"])
+        UC14(["UC14 · Recibir recomendaciones"])
+    end
+
+    Tur --- UC1 & UC2 & UC3 & UC4 & UC5
+    Tur --- UC7 & UC8 & UC9 & UC16
+    Tur --- UC11 & UC12 & UC13 & UC15
+
+    UC1 -.->|"«include»"| UC6
+    UC8 -.->|"«include»"| UC7
+    UC9 -.->|"«include»"| UC7
+    UC11 -.->|"«include»"| UC10
+    UC12 -.->|"«include»"| UC13
+    UC14 -.->|"«extend» (async)"| UC13
+```
+
+##### Vista 2: Prestador de Servicios Turísticos
+
+```mermaid
+flowchart LR
+    Prest(("Prestador"))
+    Admin(("Administrador"))
+    Sys(("Sistema / Correo SMTP"))
+
+    subgraph M1["Módulo 1: Seguridad & IAM"]
+        UC1(["UC1 · Registrarse (18+)"])
+        UC4(["UC4 · Gestionar perfil"])
+        UC37(["UC37 · Cargar documentos RNT / RUT"])
+        UC28(["UC28 · Aprobar / rechazar prestador"])
+    end
+
+    subgraph M2["Módulo 2: Catálogo & GIS"]
+        UC17(["UC17 · Registrar oferta turística"])
+        UC18(["UC18 · Editar servicio"])
+    end
+
+    subgraph M3["Módulo 3: Reservas & Cupos"]
+        UC19(["UC19 · Gestionar cupos y tarifas"])
+        UC20(["UC20 · Confirmar / rechazar reservas"])
+    end
+
+    subgraph M46["Módulos 4 y 6: Reseñas y Analítica"]
+        UC21(["UC21 · Responder reseñas"])
+        UC22(["UC22 · Ver métricas de su oferta"])
+        UC36(["UC36 · Enviar correo de confirmación"])
+    end
+
+    Prest --- UC1 & UC4 & UC37
+    Prest --- UC17 & UC18 & UC19 & UC20
+    Prest --- UC21 & UC22
+    Admin --- UC28
+
+    UC17 -.->|"«include»"| UC28
+    UC28 -.->|"«include»"| UC37
+    UC20 -.->|"«trigger»"| UC36
+    UC36 --- Sys
+```
+
+##### Vista 3: Entidad de Gestión del Destino
+
+```mermaid
+flowchart LR
+    Ent(("Entidad de Gestión"))
+
+    subgraph TR["Transversal y Catálogo"]
+        UC2(["UC2 · Iniciar sesión"])
+        UC5(["UC5 · Cambiar idioma ES/EN"])
+        UC16(["UC16 · Ver mapa interactivo"])
+    end
+
+    subgraph M6["Módulo 6: Analítica & Destino"]
+        UC23(["UC23 · Indicadores de demanda"])
+        UC24(["UC24 · Monitorear capacidad de carga"])
+        UC25(["UC25 · Generar tableros de planificación"])
+        UC38(["UC38 · Exportar reportes CSV / PDF"])
+        UC26(["UC26 · Publicar alertas oficiales"])
+    end
+
+    Ent --- UC2 & UC5 & UC16
+    Ent --- UC25 & UC26
+
+    UC25 -.->|"«include»"| UC23
+    UC25 -.->|"«include»"| UC24
+    UC38 -.->|"«extend»"| UC25
+```
+
+##### Vista 4: Administrador del Sistema
+
+```mermaid
+flowchart LR
+    Admin(("Administrador"))
+
+    subgraph M1["Módulo 1: Seguridad & IAM"]
+        UC27(["UC27 · Administrar usuarios y roles"])
+        UC28(["UC28 · Aprobar / rechazar prestadores"])
+        UC37(["UC37 · Documentos RNT / RUT"])
+        UC32(["UC32 · Políticas de seguridad y rate limiting"])
+        UC33(["UC33 · Consultar bitácora de auditoría"])
+    end
+
+    subgraph M4["Módulo 4: Reseñas & Moderación"]
+        UC15(["UC15 · Calificar y reseñar"])
+        UC29(["UC29 · Moderar reseñas"])
+    end
+
+    subgraph TR["Transversal: Gateway y Observabilidad"]
+        UC30(["UC30 · Configurar integraciones de datos"])
+        UC31(["UC31 · Monitorear telemetría"])
+    end
+
+    Admin --- UC27 & UC28 & UC32 & UC33
+    Admin --- UC29
+    Admin --- UC30 & UC31
+
+    UC28 -.->|"«include»"| UC37
+    UC29 -.->|"«extend»"| UC15
+```
 
 ---
 
@@ -388,6 +544,7 @@ Formato de especificación formal: **Fuente $\rightarrow$ Estímulo $\rightarrow
 | **ESC-05** | **Mantenibilidad** | *Fuente:* Equipo de ingeniería. *Estímulo:* Sustitución o ajuste del algoritmo de recomendación en el microservicio de IA. *Ambiente:* Ciclo de desarrollo. *Artefacto:* Módulo 5 (IA). *Respuesta:* Reentrenamiento y despliegue del nuevo worker de IA sin reiniciar ni alterar los microservicios de Reservas o Catálogo. *Medida:* Cero tiempo de inactividad (*zero-downtime*) en el núcleo transaccional. |
 | **ESC-06** | **Recuperación ante Fallos** | *Fuente:* Administrador del sistema. *Estímulo:* Simulación de corrupción de la base de datos de reservas. *Ambiente:* Prueba de contingencia. *Artefacto:* Script de respaldo y PostgreSQL. *Respuesta:* Restauración del último volcado (*dump*) programado. *Medida:* Tiempo de recuperación objetivo ($RTO) \le 30$ minutos; pérdida máxima de datos ($RPO) \le 24$ horas. |
 | **ESC-07** | **Usabilidad** | *Fuente:* Turista primerizo. *Estímulo:* Búsqueda, selección y envío de solicitud de reserva para un tour ecológico. *Ambiente:* Dispositivo móvil con conexión estándar 4G. *Artefacto:* Interfaz de usuario web. *Respuesta:* Navegación guiada en un flujo de 4 pantallas consecutivas sin bloqueos. *Medida:* Tasa de éxito en la tarea $\ge 90\%$ en pruebas de usabilidad asistidas. |
+| **ESC-08** | **Escalabilidad** | *Fuente:* Turistas concurrentes durante temporada alta (vacaciones de fin de año, Semana Santa). *Estímulo:* El tráfico sostenido sobre catálogo y reservas se duplica respecto al escenario ESC-02, pasando de 500 a 1.000 solicitudes por segundo durante al menos 30 minutos. *Ambiente:* Despliegue piloto en temporada alta. *Artefacto:* Módulo 2 (Catálogo & GIS), Módulo 3 (Reservas & Cupos) y orquestador de contenedores. *Respuesta:* Se agregan réplicas horizontales únicamente de los servicios presionados, sin reiniciar ni escalar los demás microservicios; al descender la demanda, las réplicas adicionales se retiran. En el prototipo, el escalado se ejecuta manualmente con `docker compose up --scale`. *Medida:* Réplicas adicionales operativas en $\le 2$ minutos; la capacidad atendida crece al menos 1,8 veces al duplicar las réplicas; se mantiene $p95 < 2.0$ segundos y tasa de errores HTTP 5xx $< 1\%$ durante todo el pico. |
 
 ---
 
@@ -396,6 +553,9 @@ Formato de especificación formal: **Fuente $\rightarrow$ Estímulo $\rightarrow
 #### 3.6.1 Estilo Arquitectónico Base y Descomposición Modular
 
 Se adopta una **Arquitectura de Microservicios Desacoplada**, organizada en **6 microservicios funcionales bien delimitados (*Bounded Contexts*)**, un **API Gateway perimetral** y una **Capa Transversal de Mensajería y Observabilidad**, garantizando una separación nítida de responsabilidades y compatibilidad total con licenciamiento libre.
+
+> [!NOTE]
+> **Justificación de la selección:** La comparación entre esta alternativa y un Monolito Modular, con tabla ponderada, decisión justificada y análisis de *trade-offs*, se documenta en [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md).
 
 ![Diagrama de Arquitectura de Microservicios FOSS](./Diagrama_Arquitectura_Microservicios.svg)
 
@@ -586,12 +746,26 @@ Cada microservicio gestiona su propio almacén de datos (*Database-per-Service*)
 #### 3.6.4 Stack Tecnológico y Coherencia con Software Libre (FOSS)
 
 > [!NOTE]
-> **Estado de Definición Tecnológica (Referencia Preliminar en Evaluación):**
-> La selección de tecnologías, bases de datos y herramientas de desarrollo descritas en esta sección tiene un carácter **propositivo y referencial**, formulado para establecer una estructura lógica, coherencia de diseño y orden conceptual en este documento.
->
-> **El stack tecnológico definitivo aún se encuentra en etapa de análisis y decisión por parte del equipo.** La selección final será evaluada formalmente durante la **Fase 2 (Comparación y Selección de Arquitectura)**, donde se sopesarán curvas de aprendizaje, compatibilidad, rendimiento y requerimientos específicos de implementación antes de congelar las herramientas definitivas.
+> **Estado de Definición Tecnológica:**
+> Las tecnologías de esta sección son la **propuesta de referencia** del equipo. Las capas con más de una opción se deciden aplicando los **criterios de selección** definidos a continuación, antes de iniciar la construcción del módulo correspondiente (Fase 4). La decisión de estilo arquitectónico ya está tomada y justificada en [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md).
 
-La plataforma se concibe orientada íntegramente sobre tecnologías de código abierto (*Open Source*) con licencias permisivas (MIT, Apache 2.0, BSD, PostgreSQL, MPL 2.0), asegurando soberanía tecnológica, ausencia de costos de licenciamiento privativo y alta interoperabilidad.
+##### Criterios de selección tecnológica
+
+Cada tecnología candidata se evalúa en dos pasos: primero debe superar los **criterios eliminatorios**; luego, entre las que los superan, se elige la de mejor desempeño en los **criterios comparativos**, en el orden de prioridad indicado.
+
+| Tipo | Criterio | Descripción | Origen |
+|---|---|---|---|
+| **Eliminatorio** | Licencia de código abierto | Licencia aprobada por la OSI (permisiva o *copyleft*), sin costos de licenciamiento. | SRS §2.4.1, §1.2 |
+| **Eliminatorio** | Despliegue en contenedores | Imagen Docker oficial o mantenida, ejecutable en Linux con Docker Compose. | RNF-12 |
+| **Eliminatorio** | Cobertura del requerimiento | Soporta la capacidad exigida por la capa (p. ej. consultas espaciales, AMQP, JWT, Argon2id). | SRS §3.6 |
+| **Comparativo (1)** | Dominio del equipo | Experiencia previa de los integrantes; reduce la curva de aprendizaje en 14 semanas. | Riesgo R-01, SRS §2.4.2 |
+| **Comparativo (2)** | Rendimiento y escalabilidad | Capacidad de cumplir $p95 < 2.0$ s y escalar horizontalmente. | RNF-02, RNF-06, ESC-02, ESC-08 |
+| **Comparativo (3)** | Madurez y comunidad | Documentación, versiones de soporte a largo plazo y comunidad activa. | RNF-05 |
+| **Comparativo (4)** | Costo operativo | Consumo de recursos de infraestructura dentro del presupuesto. | SRS §2.4.2, Apéndice E |
+
+##### Stack de referencia
+
+La plataforma se concibe íntegramente sobre tecnologías de código abierto con licencias permisivas (MIT, Apache 2.0, BSD, PostgreSQL, MPL 2.0) y *copyleft* (GPL, AGPL), asegurando soberanía tecnológica, ausencia de costos de licenciamiento privativo y alta interoperabilidad.
 
 | Capa Arquitectónica | Tecnología FOSS Propuesta (Referencial) | Licencia | Rol en la Solución |
 |---|---|---|---|
@@ -599,14 +773,23 @@ La plataforma se concibe orientada íntegramente sobre tecnologías de código a
 | **Backend Core Services** | **Java OpenJDK / Spring Boot** o **TypeScript / NestJS** | GPLv2+CE / Apache 2.0 / MIT | Lógica de negocio de microservicios transaccionales. |
 | **Backend IA Service** | **Python (FastAPI + Scikit-Learn + Pandas)** | BSD / PSF / Apache 2.0 | Microservicio asíncrono de recomendación explicable. |
 | **Persistencia Relacional** | **PostgreSQL + PostGIS** | PostgreSQL License / GPL | Almacén transaccional y consultas geoespaciales. |
-| **Persistencia NoSQL** | **MongoDB Community Edition** | SSPL / FOSS Compat. | Almacén semiestructurado de reseñas y comentarios. |
-| **Caché & Sesiones** | **Redis** o **Valkey** | BSD-3-Clause | Caché de alta velocidad, rate limiting y sesiones. |
+| **Persistencia NoSQL** | **MongoDB Community Edition** o **FerretDB** | SSPL (no aprobada por OSI) / Apache 2.0 | Almacén semiestructurado de reseñas y comentarios. |
+| **Caché & Sesiones** | **Valkey** | BSD-3-Clause | Caché de alta velocidad, rate limiting y sesiones. |
 | **Message Broker** | **RabbitMQ** | MPL 2.0 | Bus de mensajería asíncrona para eventos desacoplados. |
 | **Mapas & GIS** | **OpenStreetMap + Leaflet.js / MapLibre** | ODbL / BSD / MIT | Cartografía interactiva sin costo por consulta. |
 | **Frontend Web** | **HTML5, CSS3 Vanilla, JavaScript / Vue.js** | MIT | Interfaz de usuario responsiva, accesible y bilingüe. |
 | **Contenedores & Despliegue** | **Docker + Docker Compose** | Apache 2.0 | Estandarización de entornos de desarrollo y producción. |
 | **Observabilidad** | **Prometheus + Grafana** | Apache 2.0 / AGPL | Telemetría, monitoreo de métricas y alertas del sistema. |
 | **Seguridad / Criptografía** | **Librerías Argon2 / JWT (RFC 7519)** | Apache 2.0 / MIT | Cifrado de credenciales y tokens de acceso seguros. |
+
+##### Decisiones abiertas y criterio que las define
+
+| Capa | Opciones | Criterio determinante |
+|---|---|---|
+| **Backend Core Services** | Spring Boot vs. NestJS | **Dominio del equipo:** ambas cumplen los criterios eliminatorios; se elige el lenguaje con mayor experiencia entre los integrantes responsables de los Módulos 1 a 4. |
+| **API Gateway / Proxy** | Nginx vs. Traefik | **Madurez vs. integración:** Traefik descubre servicios automáticamente desde etiquetas de Docker, lo que simplifica el escalado (ESC-08); Nginx ofrece mayor madurez y documentación. |
+| **Persistencia NoSQL** | MongoDB Community vs. FerretDB vs. PostgreSQL JSONB | **Licencia (eliminatorio):** la licencia SSPL de MongoDB no está aprobada por la OSI. FerretDB (compatible con el protocolo de MongoDB sobre PostgreSQL) o el tipo JSONB de PostgreSQL cumplen el criterio y reducen el número de motores a operar. |
+| **Caché & Sesiones** | Valkey vs. Redis | **Licencia (eliminatorio):** desde 2024 Redis se distribuye bajo licencias RSALv2/SSPL y, a partir de Redis 8, también AGPLv3; Valkey mantiene la licencia BSD-3 y la compatibilidad con el protocolo de Redis, por lo que se adopta como opción de referencia. |
 
 ---
 
@@ -740,7 +923,7 @@ Conforme a las directrices de verificación del estándar ISO/IEC/IEEE 29148:201
 | **RF-11** | Funcional | **Prueba** | Despacho asíncrono y entrega efectiva de correo MIME multipart tras la confirmación de reserva (UC20) en un tiempo $\le 10$ segundos. |
 | **RF-12** | Funcional | **Demostración** | Carga de archivos PDF/imagen (RNT y RUT) en almacenamiento seguro y transición de estado en panel administrativo de validación. |
 | **RF-13** | Funcional | **Prueba** | Generación y descarga íntegra de archivos estructurados en formato CSV y PDF con métricas analíticas del destino sin errores de serialización. |
-| **RNF-01** a **RNF-12** | No Funcional | **Prueba / Análisis** | Verificación empírica contra los escenarios formales de calidad (ESC-01 a ESC-07), pruebas de carga con k6/JMeter ($p95 < 2.0$s), auditorías WCAG 2.1 AA y despliegue reproducible en Docker Compose. |
+| **RNF-01** a **RNF-12** | No Funcional | **Prueba / Análisis** | Verificación empírica contra los escenarios formales de calidad (ESC-01 a ESC-08), pruebas de carga con k6/JMeter ($p95 < 2.0$s), auditorías WCAG 2.1 AA y despliegue reproducible en Docker Compose. |
 
 ---
 
@@ -767,7 +950,7 @@ flowchart LR
     UC["Casos de Uso<br><i>(UC1 - UC38)</i>"]:::ucStyle
     RF["Requerimientos<br><i>(RF-01 a 13 / RNF-01 a 12)</i>"]:::reqStyle
     MOD["Microservicios FOSS<br><i>(Módulos 1 a 6 + Gateway)</i>"]:::modStyle
-    ESC["Escenarios de Calidad<br><i>(ESC-01 a ESC-07)</i>"]:::escStyle
+    ESC["Escenarios de Calidad<br><i>(ESC-01 a ESC-08)</i>"]:::escStyle
 
     ST ==>|Originan| UC
     UC ==>|Especifican| RF
@@ -779,12 +962,12 @@ flowchart LR
 | Módulo Arquitectónico | Casos de Uso Asignados | Requerimientos Funcionales | Requerimientos No Funcionales | Escenarios de Verificación |
 |---|---|---|---|---|
 | **Módulo 1: Seguridad & IAM** | UC1, UC2, UC3, UC4, UC6, UC27, UC28, UC32, UC33, UC37 | RF-08, RF-09, RF-12 | RNF-04, RNF-10 | ESC-04, ESC-06 |
-| **Módulo 2: Catálogo & GIS** | UC7, UC8, UC9, UC16, UC17, UC18 | RF-01, RF-02, RF-05 | RNF-02, RNF-03, RNF-06 | ESC-02, ESC-03 |
-| **Módulo 3: Reservas & Cupos** | UC10, UC11, UC12, UC13, UC19, UC20 | RF-03, RF-04, RF-05 | RNF-02, RNF-06, RNF-11 | ESC-02, ESC-07 |
+| **Módulo 2: Catálogo & GIS** | UC7, UC8, UC9, UC16, UC17, UC18 | RF-01, RF-02, RF-05 | RNF-02, RNF-03, RNF-06 | ESC-02, ESC-03, ESC-08 |
+| **Módulo 3: Reservas & Cupos** | UC10, UC11, UC12, UC13, UC19, UC20 | RF-03, RF-04, RF-05 | RNF-02, RNF-06, RNF-11 | ESC-02, ESC-07, ESC-08 |
 | **Módulo 4: Reseñas & Moderación** | UC15, UC21, UC29 | RF-01, RF-05 | RNF-01, RNF-05 | ESC-01, ESC-05 |
 | **Módulo 5: IA & Recomendación** | UC14 | RF-06 | RNF-05, RNF-08 | ESC-05 |
 | **Módulo 6: Analítica & Destino** | UC22, UC23, UC24, UC25, UC26, UC36, UC38 | RF-07, RF-11, RF-13 | RNF-01, RNF-03 | ESC-01, ESC-03 |
-| **API Gateway & Observabilidad** | UC2, UC5, UC30, UC31 | Transversal | RNF-01, RNF-02, RNF-06, RNF-12 | ESC-01, ESC-02, ESC-04 |
+| **API Gateway & Observabilidad** | UC2, UC5, UC30, UC31 | Transversal | RNF-01, RNF-02, RNF-06, RNF-12 | ESC-01, ESC-02, ESC-04, ESC-08 |
 
 ---
 
@@ -810,3 +993,57 @@ Para la **Fase 3 (Diseño Arquitectónico)**, se estructurarán prototipos inter
 4. **Flujo Simplificado de Reserva:** Proceso guiado en 4 pasos (*Usabilidad RNF-11*): Selección de fecha/personas $\rightarrow$ Resumen de solicitud $\rightarrow$ Envío de reserva $\rightarrow$ Pantalla de confirmación y aviso de correo (UC11, UC36).
 5. **Consola del Prestador:** Panel de control para registrar servicios (UC17), cargar documentos RNT (UC37), fijar cupos (UC19) y gestionar solicitudes de reserva entrantes (UC20).
 6. **Tablero Institucional de la Entidad:** Panel analítico con indicadores de afluencia por sector, mapa de calor de demanda y herramientas de exportación (UC23, UC24, UC25, UC38).
+
+---
+
+### Apéndice D. Equipo de trabajo y asignación de roles
+
+Cada integrante asume un **rol técnico**, como responsable de uno o más microservicios (*ownership* 1:1 por módulo, en coherencia con la mitigación del riesgo R-05), y un **rol de gestión** dentro del marco Scrum adaptado definido en el Plan de Desarrollo de Software. Los roles de *Product Owner* y *Scrum Master* recaen en personas distintas para preservar la separación entre la priorización del producto y la facilitación del proceso.
+
+| # | Integrante | Rol Técnico (Módulos) | Rol de Gestión | Responsabilidades Clave |
+|---|---|---|---|---|
+| 1 | **Juan Francisco Gonzalez Pacheco** | Arquitecto Líder · Módulo 1: Seguridad & IAM + API Gateway | **Product Owner** | Decisiones arquitectónicas y registro de ADRs, coherencia entre módulos, priorización del backlog. |
+| 2 | **Valentina Sarait Nieves Hernandez** | Desarrolladora Backend · Módulo 2: Catálogo & GIS | **Scrum Master** | Facilitación de ceremonias, gestión del tablero en GitHub Projects, remoción de impedimentos, seguimiento del cronograma. |
+| 3 | **Andres Felipe Gamero Sanchez** | Desarrollador Backend · Módulo 3: Reservas & Cupos + Message Broker | **Líder de Calidad (QA)** | Verificación de escenarios de calidad (ESC), pruebas de carga (k6 / Locust), criterios de aceptación de requerimientos. |
+| 4 | **Alvaro David Ospino Sanchez** | Desarrollador Fullstack · Módulo 4: Reseñas & Moderación + Frontend Web | **Líder de UX y Documentación** | Prototipos en Figma, accesibilidad WCAG 2.1 AA, internacionalización (ES/EN), consistencia del SRS y diagramas. |
+| 5 | **Luis Fernando Barraza Sanchez** | Especialista en IA y Datos · Módulo 5: IA & Recomendación + Módulo 6: Analítica & Destino | **DevOps y Observabilidad** | Contenedores Docker Compose, despliegue, monitoreo con Prometheus + Grafana, generación del dataset sintético. |
+
+---
+
+### Apéndice E. Plan de proyecto, cronograma y presupuesto
+
+Resumen de la planificación del proyecto. El detalle completo, con diagramas y desglose de rubros, se encuentra en el [Plan de Desarrollo de Software](./Plan_de_Desarrollo_de_Software.md).
+
+#### E.1 Proceso de desarrollo
+
+Se adopta **Scrum adaptado** al contexto académico, con **7 sprints de 2 semanas** y tablero Kanban en GitHub Projects. Se seleccionó frente a Cascada, RUP y Kanban porque permite alinear cada fase del cronograma con revisiones de sprint, detectar problemas de integración de microservicios de forma temprana (R-01) y organizar el trabajo en paralelo por módulo (R-05). La comparación completa se presenta en el [Plan de Desarrollo, Sección 3.1](./Plan_de_Desarrollo_de_Software.md#31-selección-y-justificación-del-proceso-de-desarrollo).
+
+#### E.2 Cronograma (14 semanas)
+
+![Cronograma General de Ejecución](./Diagrama_Cronograma_Gantt.svg)
+
+| Fase | Entregables Principales | Semanas | Fechas |
+|---|---|---|---|
+| **Fase 1: Requerimientos y Dominio** | Especificación de Requerimientos (SRS ISO/IEC/IEEE 29148). | Semanas 1–2 | 24 ago – 6 sep |
+| **Fase 2: Comparación Arquitectónica** | [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md). | Semanas 3–4 | 7 sep – 20 sep |
+| **Fase 3: Diseño Arquitectónico** | Especificación de interfaces, modelo de datos y wireframes en Figma. | Semanas 5–6 | 21 sep – 4 oct |
+| **Fase 4: Construcción del Prototipo** | Microservicios, API Gateway, broker y bases de datos en contenedores (meta: $\ge 60\%$ de casos de uso *Must*). | Semanas 7–12 | 5 oct – 15 nov |
+| **Fase 5: Validación y Cierre** | Pruebas de carga (ESC-02, ESC-08), verificación de calidad, informe final y sustentación. | Semanas 13–14 | 16 nov – 29 nov |
+
+#### E.3 Presupuesto
+
+Techo presupuestal: **USD 20.000**. Se plantean dos escenarios:
+
+| Rubro | Escenario A: Prototipo Académico (USD) | Escenario B: Piloto Institucional 12 meses (USD) |
+|---|---:|---:|
+| Infraestructura cloud | 4.500 | 7.200 |
+| Servicios de terceros y notificaciones | 1.200 | — |
+| Herramientas de desarrollo y colaboración | 300 | — |
+| Ciberseguridad, pentesting y cumplimiento Ley 1581 | — | 3.200 |
+| Levantamiento de datos, fotografía y cartografía SIG | — | 3.600 |
+| Alfabetización digital e inclusión de MiPyMEs | — | 3.200 |
+| Observabilidad, dominios y certificados | — | 1.200 |
+| Contingencia | 900 (15%) | 1.600 (8%) |
+| **Total** | **6.900** | **20.000** |
+
+El desglose y la justificación de cada rubro se encuentran en el [Plan de Desarrollo, Sección 5](./Plan_de_Desarrollo_de_Software.md#5-modelos-presupuestales-y-asignación-de-recursos).

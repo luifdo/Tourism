@@ -10,12 +10,16 @@
 
 ## 1. Condiciones Generales del Proyecto
 
-* **Equipo de Trabajo:** 5 ingenieros en formación con roles distribuidos:
-  * Líder de Arquitectura / Módulo 1 (IAM & Seguridad).
-  * Desarrollador Backend / Módulo 2 (Catálogo & GIS).
-  * Desarrollador Backend / Módulo 3 (Reservas & Broker).
-  * Desarrollador Fullstack / Módulo 4 (Reseñas & Frontend Web).
-  * Especialista en Inteligencia Artificial / Módulo 5 & 6 (IA, Analítica & Gobernanza).
+* **Equipo de Trabajo:** 5 ingenieros en formación, cada uno con un rol técnico y un rol de gestión (detalle de responsabilidades en el [Apéndice D del SRS](./Requirements_docIEEE.md#apéndice-d-equipo-de-trabajo-y-asignación-de-roles)):
+
+| Integrante | Rol Técnico (Módulos) | Rol de Gestión |
+|---|---|---|
+| **Juan Francisco Gonzalez Pacheco** | Arquitecto Líder · Módulo 1 (IAM & Seguridad) + API Gateway | Product Owner |
+| **Valentina Sarait Nieves Hernandez** | Desarrolladora Backend · Módulo 2 (Catálogo & GIS) | Scrum Master |
+| **Andres Felipe Gamero Sanchez** | Desarrollador Backend · Módulo 3 (Reservas & Broker) | Líder de Calidad (QA) |
+| **Alvaro David Ospino Sanchez** | Desarrollador Fullstack · Módulo 4 (Reseñas & Frontend Web) | Líder de UX y Documentación |
+| **Luis Fernando Barraza Sanchez** | Especialista en IA · Módulos 5 & 6 (IA, Analítica & Gobernanza) | DevOps y Observabilidad |
+
 * **Horizonte Temporal:** 14 semanas lectivas efectivas.
 * **Paradigma & Estilo Arquitectónico:** Orientación a Objetos, Servicios RESTful, Arquitectura Hexagonal / Limpia en servicios individuales y Desacople Asíncrono Orientado a Eventos.
 * **Tope Presupuestal Asignado:** **USD 20.000**.
@@ -55,7 +59,7 @@ gantt
 | Fase | Entregables Principales | Semanas | Fechas |
 |---|---|---|---|
 | **Fase 1: Requerimientos y Dominio** | Documento de Requerimientos consolidado (v2.0 / SRS ISO 29148). | Semanas 1–2 | 24 ago – 6 sep |
-| **Fase 2: Comparación Arquitectónica** | Informe de Selección de Patrones y Estilos Arquitectónicos. | Semanas 3–4 | 7 sep – 20 sep |
+| **Fase 2: Comparación Arquitectónica** | [Informe de Selección de Patrones y Estilos Arquitectónicos](./Comparacion_Alternativas_Arquitectonicas.md). | Semanas 3–4 | 7 sep – 20 sep |
 | **Fase 3: Diseño Arquitectónico** | Especificación técnica de interfaces, modelo de datos y wireframes UI en Figma. | Semanas 5–6 | 21 sep – 4 oct |
 | **Fase 4: Construcción del Prototipo** | Microservicios, API Gateway, Broker y Base de Datos desplegados en contenedores (**Meta: $\ge 60\%$ de casos de uso *Must have***). | Semanas 7–12 | 5 oct – 15 nov |
 | **Fase 5: Validación y Cierre** | Pruebas de carga, verificación de calidad, informe final y sustentación técnica. | Semanas 13–14 | 16 nov – 29 nov |
@@ -68,13 +72,41 @@ gantt
 * **Plataforma de Gestión:** GitHub Projects (tablero Kanban integrado directamente al control de versiones, ramas y *pull requests* de los repositorios de cada microservicio).
 * **Control de Calidad:** Revisiones de código por pares (*Code Reviews*), linters estáticos automatizados y pruebas unitarias antes de la integración continua en ramas principales.
 
+### 3.1 Selección y Justificación del Proceso de Desarrollo
+
+Se evaluaron cuatro procesos de desarrollo frente a las condiciones reales del proyecto: 14 semanas lectivas, 5 integrantes con disponibilidad heterogénea (riesgo R-05), hitos académicos de entrega fijos, una arquitectura de 6 microservicios con propiedad 1:1 por integrante y un stack tecnológico aún en evaluación.
+
+| Proceso | Ventaja para el proyecto | Limitación para el proyecto | Decisión |
+|---|---|---|---|
+| **Cascada** | Documentación completa por fase; coincide con la entrega formal del SRS. | Integración y pruebas solo al final; un error de diseño detectado en la semana 13 no tiene margen de corrección. | Descartado |
+| **RUP** | Iterativo y guiado por casos de uso, coherente con la matriz UC1–UC38. | Sobrecarga de roles y artefactos desproporcionada para 5 personas y 14 semanas. | Descartado |
+| **Kanban** | Flujo continuo, bajo costo de adopción. | Sin iteraciones con fecha fija, dificulta alinear el trabajo con los hitos académicos de cada fase. | Se adopta solo su tablero visual |
+| **Scrum adaptado** | Sprints de duración fija alineables con las fases del cronograma, revisión incremental y roles explícitos. | Exige disciplina en ceremonias; se adapta reduciendo su duración. | **Seleccionado** |
+
+**Justificación de la selección:**
+
+* **Alineación con el cronograma:** Las 14 semanas se dividen en 7 sprints de 2 semanas; cada fase del Gantt (Sección 2) corresponde a uno o más sprints completos, de modo que cada hito académico coincide con una revisión de sprint.
+* **Riesgo técnico controlado:** La curva de aprendizaje en microservicios (riesgo R-01) se aborda con incrementos funcionales tempranos, en lugar de descubrir problemas de integración al final del proyecto.
+* **Trabajo en paralelo:** La propiedad 1:1 de cada microservicio permite que cada integrante gestione su propio backlog dentro del sprint, reduciendo dependencias (mitigación de R-05).
+* **Requerimientos priorizados:** El backlog se ordena con la priorización MoSCoW del SRS; los requerimientos *Must* se implementan primero para asegurar la meta de $\ge 60\%$ de casos de uso *Must* en la Fase 4.
+* **Roles definidos:** *Product Owner* y *Scrum Master* asignados a integrantes distintos (ver [Apéndice D del SRS](./Requirements_docIEEE.md#apéndice-d-equipo-de-trabajo-y-asignación-de-roles)).
+
+**Adaptaciones al contexto académico:**
+
+| Ceremonia | Frecuencia | Adaptación |
+|---|---|---|
+| Sprint Planning | Inicio de cada sprint | Máximo 1 hora; selección de historias del backlog por módulo. |
+| Daily Scrum | 2–3 veces por semana | Asíncrona por canal de mensajería, por la disponibilidad heterogénea del equipo. |
+| Sprint Review | Fin de cada sprint | Demostración del incremento, coincidiendo con los hitos de entrega del curso. |
+| Sprint Retrospective | Fin de cada sprint | Breve (30 minutos), enfocada en bloqueos técnicos y de coordinación. |
+
 ---
 
 ## 4. Modelo de Negocio y Sostenibilidad Institucional
 
 * **Financiación Pública y Enfoque Social:** La plataforma se concibe como un bien público digital financiado por la Entidad de Gestión del Destino (Alcaldía Distrital de Santa Marta / Secretaría de Turismo / INDETUR), orientada al fortalecimiento del sector y la protección del patrimonio natural y cultural.
 * **Gratuidad Integral:** Acceso libre y gratuito tanto para turistas como para prestadores turísticos (hoteles, guías y restaurantes locales), eliminando comisiones e intermediaciones abusivas.
-* **Exclusión de Pasarela de Pagos Interna:** Al operar bajo un modelo de "solicitud y confirmación de disponibilidad", no se procesan transferencias monetarias ni números de tarjetas bancarias dentro de la infraestructura, eliminando los costos de certificación PCI-DSS y minimizando vectores de ataque financiero.
+* **Exclusión de Pasarela de Pagos Interna:** Al operar bajo un modelo de "solicitud y confirmación de disponibilidad", no se procesan transferencias monetarias ni números de tarjetas bancarias dentro de la infraestructura, eliminando los costos de certificación PCI-DSS y minimizando vectores de ataque financiero. La decisión se documenta en [ADR-001](./ADR-001_Exclusion_Pasarela_Pagos.md).
 
 ---
 
