@@ -23,6 +23,7 @@
 * [1. Introducción](#1-introducción)
   * [1.1 Propósito del documento](#11-propósito-del-documento)
   * [1.2 Alcance del sistema](#12-alcance-del-sistema)
+    * [1.2.1 Decisión de alcance: Exclusión de pasarela de pagos en línea](#121-decisión-de-alcance-exclusión-de-pasarela-de-pagos-en-línea)
   * [1.3 Definiciones, acrónimos y abreviaturas](#13-definiciones-acrónimos-y-abreviaturas)
   * [1.4 Referencias](#14-referencias)
 * [2. Descripción General](#2-descripción-general)
@@ -54,29 +55,49 @@
 
 ### 1.1 Propósito del documento
 
-El presente documento constituye la **Especificación de Requerimientos de Software (SRS)** para la **Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta**, estructurado bajo los lineamientos y directrices del estándar internacional **ISO/IEC/IEEE 29148:2018** (*Systems and software engineering — Life cycle processes — Requirements engineering*).
+El presente documento constituye la **Especificación de Requerimientos de Software (SRS)** de **alto nivel** para la **Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta**, estructurado bajo los lineamientos y directrices del estándar internacional **ISO/IEC/IEEE 29148:2018** (*Systems and software engineering — Life cycle processes — Requirements engineering*).
 
-El propósito primordial de esta especificación es definir de manera formal, no ambigua, completa, consistente y verificable los requerimientos funcionales, requerimientos no funcionales (atributos de calidad), restricciones de diseño y arquitectura, casos de uso, interfaces externas y modelos conceptuales que regirán el desarrollo, validación y evaluación del prototipo del sistema. 
+El propósito primordial de esta especificación es definir de manera formal, no ambigua, completa, consistente y verificable las necesidades de los interesados, los requerimientos funcionales, los atributos de calidad (requerimientos no funcionales), las restricciones normativas y el modelo conceptual de casos de uso y trazabilidad que rigen el alcance del sistema.
 
-Este documento sirve como acuerdo formal entre el equipo de desarrollo de ingeniería de sistemas, los evaluadores académicos y los actores institucionales y comunitarios del ecosistema turístico de Santa Marta, estableciendo la base técnica para las fases subsiguientes de diseño arquitectónico, implementación, pruebas de carga y verificación de calidad.
+Este documento sirve como acuerdo formal de alto nivel entre el equipo de desarrollo de ingeniería de sistemas, los evaluadores académicos y los actores institucionales y comunitarios del ecosistema turístico de Santa Marta.
+
+> [!NOTE]
+> **Documento Complementario de Implementación Técnica:** Los detalles de bajo nivel, la arquitectura hexagonal de cada microservicio, los contratos de mensajería en RabbitMQ, esquemas DDL y orquestación con Docker Compose se desarrollan en el [Plan de Implementación y Funcionamiento Interno](./Plan_de_Implementacion.md).
 
 ---
 
 ### 1.2 Alcance del sistema
 
-El sistema consiste en el diseño y desarrollo del prototipo funcional de una **Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta**, fundamentada en una **arquitectura de microservicios basada 100% en Software Libre y de Código Abierto (FOSS)**.
+El sistema consiste en el diseño y desarrollo del prototipo funcional de una **Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta**, fundamentada en una **arquitectura de microservicios desacoplada (5 microservicios modulares) basada 100% en Software Libre y de Código Abierto (FOSS)**.
 
 El sistema garantiza atributos de calidad esenciales como escalabilidad elástica, alta disponibilidad, interoperabilidad abierta, seguridad integral (conforme a la Ley 1581 de 2012) y mantenibilidad evolutiva.
 
+* **Consolidación de Catálogo y Analítica (Módulo 2):** Para maximizar la cohesión del dominio espacial y optimizar la persistencia, la gestión de atractivos, rutas, cartografía GIS, analítica de demanda, monitoreo de capacidad de carga y avisos institucionales se unifican en un único contexto cohesionado (**Módulo 2: Catálogo, GIS & Inteligencia de Destino**).
 * **Desacople del Servicio de Inteligencia Artificial (RF-06):** La IA actúa como un componente analítico auxiliar e independiente del núcleo transaccional. La inferencia de recomendaciones personalizadas opera de forma asíncrona mediante colas de mensajería (RabbitMQ / Redis Streams), impidiendo que el cómputo del modelo bloquee la experiencia del usuario.
 * **Moderación Inteligente Embebida:** La clasificación y filtrado de reseñas no requiere un microservicio de IA pesado; se resuelve mediante una heurística liviana/modelo embebido en el módulo de reseñas para pre-marcar lenguaje ofensivo antes de la revisión humana.
 * **Estrategia de Datos Sintéticos y Abiertos:** Debido a las restricciones de acceso a historiales privados de visitantes, el entrenamiento y validación del sistema de recomendación utilizará un dataset sintético estructurado por el equipo (perfiles de turista, matrices de interacción simuladas), enriquecido con datos geográficos de OpenStreetMap y estadísticas abiertas del portal nacional de Datos Abiertos de Colombia.
 
 > [!NOTE]
 > **Alcance Delimitado (Exclusiones Justificadas del Prototipo):**
-> * **Pasarela de Pagos en Línea (UC34 / UC35):** Fuera de alcance en esta iteración. El prototipo opera bajo un modelo de solicitud y confirmación de reserva; las transacciones monetarias se efectúan de manera directa e independiente entre el turista y el prestador de servicios. Alternativas evaluadas, criterios y *trade-offs* en [ADR-001: Exclusión de la Pasarela de Pagos](./ADR-001_Exclusion_Pasarela_Pagos.md).
+> * **Pasarela de Pagos en Línea (UC34 / UC35):** Fuera de alcance en esta iteración. El prototipo opera bajo un modelo de solicitud y confirmación directa de reserva (ver justificación, alternativas evaluadas y *trade-offs* en la [Sección 1.2.1](#121-decisión-de-alcance-exclusión-de-pasarela-de-pagos-en-línea)).
 > * **Registro de Menores de Edad:** Restringido formalmente a mayores de 18 años para resguardar el marco normativo de Habeas Data infantil.
 > * **Repositorio documental en GitHub:** https://github.com/luifdo/tourism-platform/tree/Documents/Documents/Pages
+
+#### 1.2.1 Decisión de Alcance: Exclusión de Pasarela de Pagos en Línea
+
+Para resguardar el carácter de bien público gratuito y cumplir con el horizonte del prototipo (14 semanas, 5 ingenieros), se evaluó y formalizó la exclusión del procesamiento de pagos en línea en el núcleo transaccional:
+
+* **Alternativas evaluadas:**
+  * **A. Pasarela comercial integrada:** Cobro automático en línea al emitir la reserva. *Descartada* por contravenir el modelo gratuito sin comisiones, imponer cumplimiento normativo PCI-DSS, requerir gestión compleja de reembolsos y derecho de retracto (Ley 1480 de 2011), y excluir a prestadores comunitarios sin bancarización corporativa.
+  * **B. Solicitud y confirmación directa sin pagos *(Seleccionada)*:** La plataforma administra disponibilidad de cupos, emisión de solicitudes y confirmación por parte del prestador; el pago se efectúa de manera directa e independiente entre el turista y el prestador en el destino.
+  * **C. Enlace de pago externo del prestador:** El prestador incluye en su ficha de servicio un canal o enlace externo propio de recaudo (billetera digital, pasarela externa propia o enlace bancario), sin que la plataforma procese ni almacene información financiera.
+
+* ***Trade-offs* de la decisión:**
+  * **Ventajas obtenidas:** Exclusión total de datos de tarjetas en la infraestructura (cero alcance PCI-DSS y menor superficie de ataque), gratuidad absoluta sin cobro de comisiones para prestadores locales y concentración del esfuerzo del equipo en los 5 microservicios base.
+  * **Compromisos asumidos y mitigaciones:** Mayor riesgo de inasistencia (*no-show*) para el prestador al no existir prepago vinculante. Se mitiga mediante confirmación manual obligatoria de solicitudes (UC20), parametrización autónoma de cupos (UC19), publicación visible de políticas de cancelación (UC9, RF-11) y notificaciones automáticas por correo (UC36).
+
+* **Condición de adopción de la Alternativa C:**
+  Si la Entidad de Gestión del Destino requiere cobro anticipado para regular atractivos con aforo restringido (p. ej. Parque Tayrona) o los prestadores reportan índices críticos de inasistencia, **se adoptará la Alternativa C (enlace de pago externo del prestador)** como evolución directa de bajo costo, permitiendo al prestador asegurar su reserva sin que la plataforma intermedie pagos ni asuma responsabilidades financieras.
 
 ---
 
@@ -238,8 +259,8 @@ Conforme al estándar ISO/IEC/IEEE 29148:2018, los interesados del sistema se cl
 ### 2.4 Restricciones generales
 
 #### 2.4.1 Restricciones Técnicas
-* **Arquitectura de Microservicios:** Despliegue obligatorio de los 6 microservicios definidos en la Sección 3.6 mediante contenedores Docker.
-* **Persistencia Políglota FOSS:** Uso exclusivo de PostgreSQL + PostGIS, MongoDB Community Edition y Redis / Valkey.
+* **Arquitectura de Microservicios:** Despliegue de los 5 microservicios desacoplados definidos en la Sección 3.6 mediante contenedores Docker FOSS (el Módulo 2 consolida Catálogo, GIS e Inteligencia de Destino).
+* **Persistencia Políglota FOSS:** Uso de motores de datos de código abierto bajo el principio *Database-per-Service* (PostgreSQL + PostGIS, MongoDB/JSONB y Valkey/Redis).
 * **Integración Abierta:** Prohibición del uso de APIs privativas de mapas con costos por consumo (ej. Google Maps API); uso estricto del ecosistema OpenStreetMap.
 * **Compatibilidad Multiplataforma:** Interfaz web responsiva compatible con navegadores móviles y de escritorio modernos sin requerir instalación de aplicativos nativos.
 
@@ -285,19 +306,19 @@ A continuación se detalla la especificación completa de los requerimientos fun
 
 | ID | Requerimiento Funcional | Prioridad | Módulo Asignado | Stakeholder | Criterio de Verificación |
 |---|---|---|---|---|---|
-| **RF-01** | Consultar catálogo de atractivos, actividades y eventos turísticos. | **Must** | Módulo 2: Catálogo & GIS | Turista | Visualización completa del catálogo con filtros básicos sin requerir autenticación. |
-| **RF-02** | Buscar y filtrar servicios por categoría, ubicación espacial, tarifa y disponibilidad. | **Must** | Módulo 2: Catálogo & GIS | Turista | Los filtros combinados devuelven resultados exactos en un tiempo inferior a 1.5s. |
+| **RF-01** | Consultar catálogo de atractivos, actividades y eventos turísticos. | **Must** | Módulo 2: Catálogo, GIS & Destino | Turista | Visualización completa del catálogo con filtros básicos sin requerir autenticación. |
+| **RF-02** | Buscar y filtrar servicios por categoría, ubicación espacial, tarifa y disponibilidad. | **Must** | Módulo 2: Catálogo, GIS & Destino | Turista | Los filtros combinados devuelven resultados exactos en un tiempo inferior a 1.5s. |
 | **RF-03** | Consultar la disponibilidad actualizada de cupos de un servicio. | **Must** | Módulo 3: Reservas & Cupos | Turista | El calendario refleja en tiempo real los cupos habilitados por el prestador. |
 | **RF-04** | Registrar solicitudes de reserva de actividades o servicios turísticos. | **Must** | Módulo 3: Reservas & Cupos | Turista | Se genera una reserva en estado `Solicitada` visible en el panel del turista y del prestador. |
-| **RF-05** | Permitir a los prestadores registrar y actualizar su oferta y cupos. | **Must** | Módulo 2 y 3 | Prestador | Un prestador verificado crea y edita servicios visualizándose inmediatamente en el catálogo. |
+| **RF-05** | Permitir a los prestadores registrar y actualizar su oferta y cupos. | **Must** | Módulos 2 y 3 | Prestador | Un prestador verificado crea y edita servicios visualizándose inmediatamente en el catálogo. |
 | **RF-06** | Generar recomendaciones personalizadas explicables mediante IA desacoplada. | **Should** | Módulo 5: IA & Recomendación | Turista | El usuario recibe sugerencias basadas en su historial/preferencias junto con la justificación explicativa (RNF-08). |
-| **RF-07** | Generar tableros e indicadores agregados de demanda y aforo para planificación. | **Should** | Módulo 6: Analítica & Destino | Entidad | La entidad visualiza gráficos de demanda por zonas y estimación de concentración turística. |
-| **RF-08** | Incorporación asistida y sin barreras técnicas para prestadores comunitarios. | **Should** | Módulo 1 y 2 | Prestador | El formulario de registro y carga de servicios no requiere más de 3 pasos sencillos. |
+| **RF-07** | Generar tableros e indicadores agregados de demanda y aforo para planificación. | **Should** | Módulo 2: Catálogo, GIS & Destino | Entidad | La entidad visualiza gráficos de demanda por zonas y estimación de concentración turística. |
+| **RF-08** | Incorporación asistida y sin barreras técnicas para prestadores comunitarios. | **Should** | Módulos 1 y 2 | Prestador | El formulario de registro y carga de servicios no requiere más de 3 pasos sencillos. |
 | **RF-09** | Gestión de identidades, control de acceso RBAC y bitácora de auditoría. | **Must** | Módulo 1: Seguridad & IAM | Admin | Intentos de acceso no autorizados devuelven HTTP 403 y quedan registrados en la bitácora. |
 | **RF-10** | Disponibilidad de la interfaz en idiomas Español e Inglés (I18n). | **Should** | Transversal | Turista, Entidad | Conmutación instantánea de idioma traduciendo etiquetas, menús y contenidos base. |
-| **RF-11** | Enviar notificaciones por correo de confirmación/cancelación de reservas. | **Should** | Módulo 6 / Broker | Turista, Prestador | Tras confirmarse la reserva (UC20), se despacha un correo formateado en menos de 10s. |
+| **RF-11** | Enviar notificaciones por correo de confirmación/cancelación de reservas. | **Should** | Módulo 2 / Broker | Turista, Prestador | Tras confirmarse la reserva (UC20), se despacha un correo formateado en menos de 10s. |
 | **RF-12** | Permitir a prestadores adjuntar documentos de verificación legal (RNT, RUT). | **Should** | Módulo 1: Seguridad & IAM | Prestador, Admin | El prestador sube archivos PDF/imagen que son auditados por el administrador antes de publicar. |
-| **RF-13** | Exportar reportes analíticos e indicadores en formatos estándar (CSV / PDF). | **Could** | Módulo 6: Analítica & Destino | Entidad | Descarga funcional de archivos estructurados con métricas del destino. |
+| **RF-13** | Exportar reportes analíticos e indicadores en formatos estándar (CSV / PDF). | **Could** | Módulo 2: Catálogo, GIS & Destino | Entidad | Descarga funcional de archivos estructurados con métricas del destino. |
 
 ---
 
@@ -320,26 +341,26 @@ A continuación se detalla la especificación completa de los requerimientos fun
 | **UC4** | Gestionar perfil de usuario | Turista, Prestador | - | Módulo 1: Seguridad & IAM |
 | **UC5** | Cambiar idioma de la interfaz (ES / EN) | Turista, Entidad | I18n transversal en frontend | Transversal (Frontend) |
 | **UC6** | Aceptar política de tratamiento de datos personales | Sistema / Transversal | `<<include>>` en UC1 | Módulo 1: Seguridad & IAM |
-| **UC7** | Consultar catálogo de atractivos, actividades y eventos | Turista (anónimo/autenticado) | Base de búsqueda | Módulo 2: Catálogo & GIS |
-| **UC8** | Buscar y filtrar servicios (precio, zona, tipo) | Turista | `<<include>>` UC7 | Módulo 2: Catálogo & GIS |
-| **UC9** | Consultar detalle de atractivo / servicio | Turista | `<<include>>` UC7 | Módulo 2: Catálogo & GIS |
+| **UC7** | Consultar catálogo de atractivos, actividades y eventos | Turista (anónimo/autenticado) | Base de búsqueda | Módulo 2: Catálogo, GIS & Destino |
+| **UC8** | Buscar y filtrar servicios (precio, zona, tipo) | Turista | `<<include>>` UC7 | Módulo 2: Catálogo, GIS & Destino |
+| **UC9** | Consultar detalle de atractivo / servicio | Turista | `<<include>>` UC7 | Módulo 2: Catálogo, GIS & Destino |
 | **UC10** | Consultar disponibilidad en tiempo real | Turista | `<<include>>` en UC11 | Módulo 3: Reservas & Cupos |
 | **UC11** | Solicitar reserva de actividad o servicio | Turista | `<<include>>` UC2, `<<include>>` UC10 | Módulo 3: Reservas & Cupos |
 | **UC12** | Cancelar / modificar solicitud de reserva | Turista | `<<include>>` UC13 | Módulo 3: Reservas & Cupos |
 | **UC13** | Consultar historial de reservas propias | Turista | Extendido por UC14 | Módulo 3: Reservas & Cupos |
 | **UC14** | Recibir recomendaciones personalizadas explicables | Turista | `<<extend>>` UC13, `<<async>>` | Módulo 5: IA & Recomendación |
 | **UC15** | Calificar y redactar reseña de experiencia | Turista | Extendido por UC29 | Módulo 4: Anotaciones & Reseñas |
-| **UC16** | Visualizar mapa interactivo de atractivos y zonas | Turista, Entidad | Integración OpenStreetMap | Módulo 2: Catálogo & GIS |
-| **UC17** | Registrar nueva oferta turística | Prestador | `<<include>>` UC2, `<<include>>` UC28 | Módulo 2: Catálogo & GIS |
-| **UC18** | Editar / actualizar información de servicio | Prestador | `<<include>>` UC2 | Módulo 2: Catálogo & GIS |
+| **UC16** | Visualizar mapa interactivo de atractivos y zonas | Turista, Entidad | Integración OpenStreetMap | Módulo 2: Catálogo, GIS & Destino |
+| **UC17** | Registrar nueva oferta turística | Prestador | `<<include>>` UC2, `<<include>>` UC28 | Módulo 2: Catálogo, GIS & Destino |
+| **UC18** | Editar / actualizar información de servicio | Prestador | `<<include>>` UC2 | Módulo 2: Catálogo, GIS & Destino |
 | **UC19** | Gestionar calendario de disponibilidad y tarifas | Prestador | `<<include>>` UC2 | Módulo 3: Reservas & Cupos |
 | **UC20** | Confirmar / rechazar solicitudes de reserva | Prestador | Dispara evento a UC36 | Módulo 3: Reservas & Cupos |
 | **UC21** | Responder públicamente a comentarios de turistas | Prestador | `<<include>>` UC15 | Módulo 4: Anotaciones & Reseñas |
-| **UC22** | Consultar métricas de rendimiento de su oferta | Prestador | - | Módulo 6: Analítica & Destino |
-| **UC23** | Consultar indicadores agregados de demanda turística | Entidad | `<<include>>` en UC25 | Módulo 6: Analítica & Destino |
-| **UC24** | Monitorear estimación de capacidad de carga | Entidad | `<<include>>` en UC25 | Módulo 6: Analítica & Destino |
-| **UC25** | Generar tableros de planificación turística | Entidad | `<<include>>` UC23, `<<include>>` UC24 | Módulo 6: Analítica & Destino |
-| **UC26** | Publicar alertas oficiales y avisos de sostenibilidad | Entidad | - | Módulo 6: Analítica & Destino |
+| **UC22** | Consultar métricas de rendimiento de su oferta | Prestador | - | Módulo 2: Catálogo, GIS & Destino |
+| **UC23** | Consultar indicadores agregados de demanda turística | Entidad | `<<include>>` en UC25 | Módulo 2: Catálogo, GIS & Destino |
+| **UC24** | Monitorear estimación de capacidad de carga | Entidad | `<<include>>` en UC25 | Módulo 2: Catálogo, GIS & Destino |
+| **UC25** | Generar tableros de planificación turística | Entidad | `<<include>>` UC23, `<<include>>` UC24 | Módulo 2: Catálogo, GIS & Destino |
+| **UC26** | Publicar alertas oficiales y avisos de sostenibilidad | Entidad | - | Módulo 2: Catálogo, GIS & Destino |
 | **UC27** | Administrar usuarios, roles y asignación de permisos | Admin | Control RBAC central | Módulo 1: Seguridad & IAM |
 | **UC28** | Aprobar / rechazar prestadores de servicios | Admin | `<<include>>` UC37 | Módulo 1: Seguridad & IAM |
 | **UC29** | Moderar reseñas y contenido sensible reportado | Admin | `<<extend>>` UC15 | Módulo 4: Anotaciones & Reseñas |
@@ -347,9 +368,9 @@ A continuación se detalla la especificación completa de los requerimientos fun
 | **UC31** | Monitorear telemetría y métricas de salud del sistema | Admin | Prometheus + Grafana | Transversal (Observabilidad) |
 | **UC32** | Gestionar políticas de seguridad y rate limiting | Admin | - | Módulo 1: Seguridad & IAM |
 | **UC33** | Consultar bitácora de auditoría inmutable | Admin | Trazabilidad RNF-10 | Módulo 1: Seguridad & IAM |
-| **UC36** | Despachar notificación de confirmación por correo | Sistema / SysExt | Disparado por UC20 | Módulo 6 / Worker Eventos |
+| **UC36** | Despachar notificación de confirmación por correo | Sistema / SysExt | Disparado por UC20 | Módulo 2 / Worker Eventos |
 | **UC37** | Cargar documentos de verificación (RNT, RUT) | Prestador | `<<include>>` en UC28 | Módulo 1: Seguridad & IAM |
-| **UC38** | Exportar reportes analíticos (CSV / PDF) | Entidad | `<<extend>>` UC25 | Módulo 6: Analítica & Destino |
+| **UC38** | Exportar reportes analíticos (CSV / PDF) | Entidad | `<<extend>>` UC25 | Módulo 2: Catálogo, GIS & Destino |
 
 #### 3.2.3 Diagramas de Casos de Uso por Actor
 
@@ -422,9 +443,11 @@ flowchart LR
         UC28(["UC28 · Aprobar / rechazar prestador"])
     end
 
-    subgraph M2["Módulo 2: Catálogo & GIS"]
+    subgraph M2["Módulo 2: Catálogo, GIS & Inteligencia de Destino"]
         UC17(["UC17 · Registrar oferta turística"])
         UC18(["UC18 · Editar servicio"])
+        UC22(["UC22 · Ver métricas de su oferta"])
+        UC36(["UC36 · Enviar correo de confirmación"])
     end
 
     subgraph M3["Módulo 3: Reservas & Cupos"]
@@ -432,15 +455,14 @@ flowchart LR
         UC20(["UC20 · Confirmar / rechazar reservas"])
     end
 
-    subgraph M46["Módulos 4 y 6: Reseñas y Analítica"]
+    subgraph M4["Módulo 4: Reseñas & Moderación"]
         UC21(["UC21 · Responder reseñas"])
-        UC22(["UC22 · Ver métricas de su oferta"])
-        UC36(["UC36 · Enviar correo de confirmación"])
     end
 
     Prest --- UC1 & UC4 & UC37
-    Prest --- UC17 & UC18 & UC19 & UC20
-    Prest --- UC21 & UC22
+    Prest --- UC17 & UC18 & UC22
+    Prest --- UC19 & UC20
+    Prest --- UC21
     Admin --- UC28
 
     UC17 -.->|"«include»"| UC28
@@ -455,13 +477,13 @@ flowchart LR
 flowchart LR
     Ent(("Entidad de Gestión"))
 
-    subgraph TR["Transversal y Catálogo"]
+    subgraph TR["Transversal"]
         UC2(["UC2 · Iniciar sesión"])
         UC5(["UC5 · Cambiar idioma ES/EN"])
-        UC16(["UC16 · Ver mapa interactivo"])
     end
 
-    subgraph M6["Módulo 6: Analítica & Destino"]
+    subgraph M2["Módulo 2: Catálogo, GIS & Inteligencia de Destino"]
+        UC16(["UC16 · Ver mapa interactivo"])
         UC23(["UC23 · Indicadores de demanda"])
         UC24(["UC24 · Monitorear capacidad de carga"])
         UC25(["UC25 · Generar tableros de planificación"])
@@ -469,8 +491,8 @@ flowchart LR
         UC26(["UC26 · Publicar alertas oficiales"])
     end
 
-    Ent --- UC2 & UC5 & UC16
-    Ent --- UC25 & UC26
+    Ent --- UC2 & UC5
+    Ent --- UC16 & UC25 & UC26
 
     UC25 -.->|"«include»"| UC23
     UC25 -.->|"«include»"| UC24
@@ -527,20 +549,18 @@ flowchart LR
 * **Servicio de Notificaciones por Correo Electrónico (SMTP / Transportador FOSS):**
   * *Protocolo:* SMTP sobre TLS (puertos 587 / 465).
   * *Formato de Contenido:* Mensajes multiparte MIME con versión HTML enriquecida y texto plano.
-  * *Finalidad:* Envío de enlaces de confirmación, restablecimiento de credenciales (Módulo 1) y avisos de confirmación de reserva (Módulo 6).
+  * *Finalidad:* Envío de enlaces de confirmación, restablecimiento de credenciales (Módulo 1) y avisos de confirmación de reserva (Módulo 2).
 * **Plataforma de Datos Abiertos de Colombia:**
   * *Protocolo:* HTTPS / REST (Socrata Open Data API - SODA) o ingesta periódica de archivos CSV/JSON.
-  * *Finalidad:* Enriquecimiento de indicadores de demanda y calibración de atractivos culturales en el Módulo 6.
+  * *Finalidad:* Enriquecimiento de indicadores de demanda y calibración de atractivos culturales en el Módulo 2.
 
-#### 3.3.3 Interfaces de Comunicación e Integración Interna
+#### 3.3.3 Interfaces de Comunicación e Integración
 * **API Gateway Perimetral:**
-  * *Protocolo:* HTTPS (TLS 1.3) con intercambio de cargas en JSON (RESTful).
-  * *Especificación:* Contratos formales documentados bajo **OpenAPI 3.0**.
-  * *Seguridad:* Inspección de cabeceras de autorización HTTP (`Authorization: Bearer <JWT>`), limitación de tasa (*Rate Limiting*) y políticas estrictas de CORS.
+  * *Protocolo:* HTTPS (TLS 1.3) con intercambio de cargas en JSON (RESTful), documentado bajo OpenAPI 3.0.
+  * *Seguridad:* Validación perimetral de cabeceras de autorización (`Authorization: Bearer <JWT>`), Rate Limiting y CORS.
 * **Bus de Mensajería Asíncrona (Event Bus):**
-  * *Protocolo:* AMQP 0-9-1 (RabbitMQ) o Redis Protocol (RESP / Streams).
-  * *Formato de Mensaje:* Esquemas JSON versionados con metadatos de timestamp, id de evento y payload serializado.
-  * *Finalidad:* Desacople del modelo de IA (Módulo 5) y del despachador de correos y bitácora (Módulos 1 y 6).
+  * *Protocolo:* AMQP 0-9-1 (RabbitMQ) o Redis Streams para comunicación orientada a eventos.
+  * *Finalidad:* Desacople asíncrono de tareas auxiliares (inferencia de IA en Módulo 5, despacho de correos en Módulo 2 y auditoría en Módulo 1).
 
 ---
 
@@ -584,15 +604,15 @@ Formato de especificación formal: **Fuente $\rightarrow$ Estímulo $\rightarrow
 
 #### 3.6.1 Estilo Arquitectónico Base y Descomposición Modular
 
-Se adopta una **Arquitectura de Microservicios Desacoplada**, organizada en **6 microservicios funcionales bien delimitados (*Bounded Contexts*)**, un **API Gateway perimetral** y una **Capa Transversal de Mensajería y Observabilidad**, garantizando una separación nítida de responsabilidades y compatibilidad total con licenciamiento libre.
+Se adopta una **Arquitectura de Microservicios Desacoplada**, organizada en **5 microservicios funcionales bien delimitados (*Bounded Contexts*)**, un **API Gateway perimetral** y una **Capa Transversal de Mensajería y Observabilidad**, garantizando una separación nítida de responsabilidades y soberanía tecnológica basada 100% en Software Libre.
 
 > [!NOTE]
-> **Justificación de la selección:** La comparación entre esta alternativa y un Monolito Modular, con tabla ponderada, decisión justificada y análisis de *trade-offs*, se documenta en [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md).
+> **Justificación de la selección y detalle de implementación:** La comparación entre esta alternativa y un Monolito Modular, con tabla ponderada, decisión justificada y análisis de *trade-offs*, se documenta en [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md). El diseño de detalle interno, puertos y adaptadores (arquitectura hexagonal), diagramas de secuencia física y orquestación con Docker Compose se desarrollan en el [Plan de Implementación y Funcionamiento Interno](./Plan_de_Implementacion.md).
 
 ![Diagrama de Arquitectura de Microservicios FOSS](./Diagrama_Arquitectura_Microservicios.svg)
 
 <details>
-<summary><b>Ver especificación de código Mermaid del diagrama de arquitectura</b></summary>
+<summary><b>Ver especificación de código Mermaid del diagrama de arquitectura (5 Microservicios)</b></summary>
 
 ```mermaid
 flowchart TB
@@ -609,38 +629,37 @@ flowchart TB
 
     Clients ==>|HTTPS / REST| APIGW
 
-    subgraph Microservicios["Ecosistema de Microservicios FOSS"]
+    subgraph Microservicios["Ecosistema de Microservicios FOSS (5 Módulos)"]
         direction TB
         MS1["Módulo 1: Seguridad & IAM<br><i>(Auth, RBAC, Auditoría, Verificación RNT)</i>"]:::msCoreStyle
-        MS2["Módulo 2: Catálogo & GIS<br><i>(Atractivos, Búsqueda, OpenStreetMap)</i>"]:::msCoreStyle
+        MS2["Módulo 2: Catálogo, GIS & Inteligencia de Destino<br><i>(Atractivos, Búsqueda OSM, Analítica, Aforos, Alertas)</i>"]:::msCoreStyle
         MS3["Módulo 3: Reservas & Disponibilidad<br><i>(Calendario de Cupos, Solicitudes)</i>"]:::msCoreStyle
         MS4["Módulo 4: Reseñas & Moderación<br><i>(Opiniones, Calificaciones, Pre-filtro)</i>"]:::msCoreStyle
         MS5["Módulo 5: IA & Recomendación<br><i>(Worker Asíncrono, Filtrado Híbrido, Explicabilidad)</i>"]:::msAiStyle
-        MS6["Módulo 6: Analítica & Gobernanza<br><i>(Métricas de Destino, Alertas, Notificaciones)</i>"]:::msCoreStyle
     end
 
     APIGW -->|Valida Tokens / IAM| MS1
-    APIGW -->|Enruta Catálogo| MS2
+    APIGW -->|Enruta Catálogo & Analítica| MS2
     APIGW -->|Enruta Reservas| MS3
     APIGW -->|Enruta Reseñas| MS4
-    APIGW -->|Enruta Analítica| MS6
 
     subgraph EventBus["Bus de Mensajería & Eventos Asíncronos"]
-        Broker["Message Broker<br><i>(RabbitMQ / Redis Streams — Pub/Sub)</i>"]:::brokerStyle
+        Broker["Message Broker FOSS<br><i>(RabbitMQ / Redis Streams — Pub/Sub)</i>"]:::brokerStyle
     end
 
     MS3 -.->|Publica: Reserva Creada/Confirmada| Broker
     MS4 -.->|Publica: Nueva Reseña| Broker
+    MS2 -.->|Publica: Alertas Oficiales| Broker
     Broker -.->|Consume Eventos de Preferencia| MS5
-    Broker -.->|Consume Eventos de Correo/Aviso| MS6
+    Broker -.->|Consume Eventos de Notificación| MS2
 
     subgraph Persistencia["Persistencia Políglota FOSS (Database-per-Service)"]
         direction LR
-        DB1[("PostgreSQL<br>IAM & Seguridad")]:::dbStyle
-        DB2[("PostgreSQL + PostGIS<br>Catálogo & Capas Espaciales")]:::dbStyle
-        DB3[("PostgreSQL<br>Reservas & Cupos")]:::dbStyle
-        DB4[("MongoDB Community<br>Reseñas & Comentarios")]:::dbStyle
-        Cache[("Redis / Valkey<br>Caché & Sesiones")]:::cacheStyle
+        DB1[("PostgreSQL<br>db_iam")]:::dbStyle
+        DB2[("PostgreSQL + PostGIS<br>db_catalog_analytics")]:::dbStyle
+        DB3[("PostgreSQL<br>db_bookings")]:::dbStyle
+        DB4[("MongoDB Community / JSONB<br>db_reviews")]:::dbStyle
+        Cache[("Valkey / Redis<br>Caché & Sesiones")]:::cacheStyle
     end
 
     MS1 --- DB1
@@ -656,7 +675,7 @@ flowchart TB
 ![Detalle de Responsabilidades por Módulo](./Diagrama_Modulos_Responsabilidades.svg)
 
 <details>
-<summary><b>Ver especificación de código Mermaid de responsabilidades por módulo</b></summary>
+<summary><b>Ver especificación de código Mermaid de responsabilidades por módulo (5 Módulos)</b></summary>
 
 ```mermaid
 flowchart LR
@@ -665,16 +684,15 @@ flowchart LR
     classDef cardRes fill:#fefce8,stroke:#eab308,stroke-width:2px,color:#713f12,font-size:12px;
     classDef cardRev fill:#fff1f2,stroke:#f43f5e,stroke-width:2px,color:#881337,font-size:12px;
     classDef cardAI fill:#fdf4ff,stroke:#d946ef,stroke-width:2px,color:#701a75,font-size:12px;
-    classDef cardGov fill:#f5f3ff,stroke:#8b5cf6,stroke-width:2px,color:#4c1d95,font-size:12px;
 
     subgraph M1["Módulo 1: Seguridad & IAM"]
         direction TB
         C1["• Autenticación OAuth2 / JWT<br>• Control de acceso RBAC<br>• Verificación de prestadores (UC37/28)<br>• Bitácora de auditoría inmutable<br>• Políticas de seguridad & rate limiting"]:::cardIAM
     end
 
-    subgraph M2["Módulo 2: Catálogo & GIS"]
+    subgraph M2["Módulo 2: Catálogo, GIS & Destino"]
         direction TB
-        C2["• Gestión de atractivos y eventos<br>• Búsqueda y filtros multicriterio<br>• Capas espaciales OpenStreetMap<br>• Fichas de prestadores"]:::cardCat
+        C2["• Gestión de atractivos y eventos<br>• Búsqueda espacial OpenStreetMap<br>• Indicadores de demanda turística<br>• Monitoreo de capacidad de carga<br>• Tableros, alertas y correos"]:::cardCat
     end
 
     subgraph M3["Módulo 3: Reservas & Cupos"]
@@ -691,77 +709,67 @@ flowchart LR
         direction TB
         C5["• Procesamiento asíncrono de eventos<br>• Filtrado colaborativo / contenido<br>• Motor de explicabilidad (RNF-08)<br>• Inferencia con datos sintéticos"]:::cardAI
     end
-
-    subgraph M6["Módulo 6: Analítica & Destino"]
-        direction TB
-        C6["• Indicadores de demanda turística<br>• Estimación de capacidad de carga<br>• Tableros para Entidad de Gestión<br>• Despacho de correos transaccionales"]:::cardGov
-    end
 ```
 </details>
 
 ##### 1. Módulo 1: Autenticación, Seguridad y Gestión de Identidades (IAM Service)
 * **Propósito:** Centralizar el control de acceso, la autenticación perimetral y la trazabilidad de seguridad del ecosistema.
-* **Componentes y Funcionalidades:**
-  * **Autenticación Robusta:** Emisión, firma y verificación de tokens sin estado JWT (JSON Web Tokens) bajo estándares OAuth2 / OpenID Connect.
-  * **Autorización Basada en Roles (RBAC):** Control estricto de privilegios para los roles `Turista`, `Prestador`, `Entidad` y `Admin`.
-  * **Seguridad Criptográfica:** Hashing de contraseñas mediante **Argon2id** (o Bcrypt con factor de costo elevado) y protección contra ataques de fuerza bruta.
-  * **Verificación de Prestadores (UC28 / UC37):** Almacenamiento seguro y gestión del flujo de aprobación de documentos legales (Registro Nacional de Turismo - RNT, RUT).
-  * **Bitácora Centralizada de Auditoría (UC33 / RNF-10):** Registro inmutable de eventos críticos (intentos de acceso fallidos, cambios de privilegios, aprobaciones de prestadores, exportaciones de datos).
-  * **Políticas de Privacidad (UC6):** Registro auditable de la aceptación explícita de la política de tratamiento de datos personales (Ley 1581 de 2012).
+* **Capacidades Principales:**
+  * Emisión, firma y validación de tokens de acceso JWT bajo estándares OAuth2 / OpenID Connect.
+  * Control de acceso basado en roles (RBAC: `Turista`, `Prestador`, `Entidad`, `Admin`).
+  * Almacenamiento seguro de credenciales con hashing criptográfico robusto (Argon2id).
+  * Flujo administrativo de verificación de prestadores mediante documentos legales (RNT y RUT).
+  * Bitácora inmutable de auditoría para registro de eventos críticos de seguridad (RNF-10).
 
-##### 2. Módulo 2: Catálogo y Geolocalización Turística (Catalog & GIS Service)
-* **Propósito:** Administrar la información estructurada de atractivos, actividades culturales/ecológicas, eventos y prestadores.
-* **Componentes y Funcionalidades:**
-  * **Motor de Búsqueda y Filtros:** Consultas indexadas por categoría, rango de precios, ubicación geográfica y etiquetas de sostenibilidad (UC7, UC8, UC9).
-  * **Integración GIS Abierta:** Almacenamiento de coordenadas espaciales con **PostGIS** y renderizado de mapas interactivos vectoriales mediante **OpenStreetMap** y librerías cliente libres (**Leaflet.js** / **MapLibre GL**) (UC16).
-  * **Publicación de Oferta:** Flujos de creación y actualización de fichas de servicios para prestadores habilitados (UC17, UC18).
+##### 2. Módulo 2: Catálogo, GIS & Inteligencia de Destino (Catalog, GIS & Destination Analytics Service)
+* **Propósito:** Administrar la oferta turística georreferenciada y proveer inteligencia analítica y de gobernanza territorial a la Entidad de Gestión.
+* **Capacidades Principales:**
+  * Catálogo unificado de atractivos, actividades culturales/ecológicas y fichas de prestadores.
+  * Búsqueda espacial y filtros multicriterio integrados con capas abiertas de OpenStreetMap.
+  * Agregación analítica de demanda turística y cálculo de índices de presión sobre la capacidad de carga territorial.
+  * Consola de planificación con tableros de control y exportación de reportes estructurados (CSV/PDF) para autoridades turísticas.
+  * Publicación de alertas oficiales de sostenibilidad y despacho automatizado de notificaciones por correo electrónico (SMTP).
 
 ##### 3. Módulo 3: Disponibilidad y Gestión de Reservas (Bookings & Availability Service)
 * **Propósito:** Gestionar el ciclo de vida de las solicitudes de reserva y el control de cupos en tiempo real.
-* **Componentes y Funcionalidades:**
-  * **Control de Disponibilidad:** Consulta atómica y bloqueo temporal de cupos para evitar sobreventas (*overbooking*) (UC10, UC19).
-  * **Máquina de Estados de Reserva:** Gestión de estados: `Solicitada` $\rightarrow$ `Confirmada` $\rightarrow$ `Rechazada` $\rightarrow$ `Cancelada` $\rightarrow$ `Finalizada` (UC11, UC12, UC20).
-  * **Paneles de Control:** Vistas de historial para turistas (UC13) y consolas de gestión de solicitudes para prestadores (UC20).
+* **Capacidades Principales:**
+  * Consulta atómica y bloqueo transaccional de cupos para evitar sobreventas (*overbooking*).
+  * Máquina de estados de reservas (`Solicitada` $\rightarrow$ `Confirmada` $\rightarrow$ `Rechazada` $\rightarrow$ `Cancelada`).
+  * Consolas de gestión de solicitudes para prestadores y vista de historial para turistas.
 
 ##### 4. Módulo 4: Anotaciones, Reseñas y Moderación (Reviews & Community Service)
-* **Propósito:** Fomentar la retroalimentación comunitaria garantizando un ambiente seguro y veraz.
-* **Componentes y Funcionalidades:**
-  * **Calificaciones y Reseñas:** Registro de puntuaciones multidimensionales (1 a 5 estrellas) y comentarios detallados (UC15).
-  * **Interacción del Prestador:** Soporte para respuestas públicas y réplicas de prestadores sobre las opiniones de sus servicios (UC21).
-  * **Pre-moderación Heurística Embebida:** Filtro algorítmico ligero basado en listas de palabras ofensivas y reglas semánticas para marcar automáticamente reseñas sospechosas antes de su publicación o enviarlas a la cola de moderación humana (UC29).
+* **Propósito:** Fomentar la retroalimentación comunitaria garantizando un entorno confiable y libre de contenido inapropiado.
+* **Capacidades Principales:**
+  * Registro de calificaciones multidimensionales y reseñas de experiencias de turistas.
+  * Canal de respuesta pública para prestadores verificados.
+  * Pre-moderación léxica heurística embebida y cola de revisión humana para contenido sensible.
 
 ##### 5. Módulo 5: Inteligencia Artificial y Recomendación Desacoplada (AI Recommendation Service)
 * **Propósito:** Generar sugerencias personalizadas de atractivos y actividades sin penalizar el rendimiento del núcleo transaccional.
-* **Componentes y Funcionalidades:**
-  * **Consumo Asíncrono de Eventos:** El servicio escucha eventos del bus de mensajería (interacciones del turista, búsquedas, reservas previas) para actualizar vectores de preferencia.
-  * **Algoritmo de Filtrado Híbrido:** Combinación de filtrado basado en contenido (características de atractivos) y filtrado colaborativo simplificado alimentado por datos sintéticos.
-  * **Módulo de Explicabilidad (RNF-08):** Cada recomendación genera metadatos de justificación comprensibles para el usuario (ej. *"Recomendado porque te interesan actividades al aire libre cerca de Minca"*).
+* **Capacidades Principales:**
+  * Consumo asíncrono de eventos de interacción desde el bus de mensajería.
+  * Algoritmo de filtrado híbrido (contenido + colaborativo) alimentado con datos sintéticos y abiertos.
+  * Motor de explicabilidad algorítmica (RNF-08) que justifica cada recomendación ante el usuario final.
 
-##### 6. Módulo 6: Analítica y Gobernanza del Destino (Analytics & Destination Governance Service)
-* **Propósito:** Proveer inteligencia de negocios turística a la Entidad de Gestión y gestionar comunicaciones transaccionales.
-* **Componentes y Funcionalidades:**
-  * **Monitoreo de Demanda y Capacidad de Carga:** Agregación estadística de solicitudes y visitas para calcular índices de presión turística por zona (UC23, UC24).
-  * **Generación de Reportes:** Tableros de control y exportación estructurada de datos (CSV/PDF) para planificación territorial (UC25, UC38).
-  * **Alertas Oficiales y Notificaciones:** Emisión de avisos institucionales (UC26) y despacho asíncrono de correos electrónicos transaccionales de confirmación de reserva (UC36).
-
-##### 7. Capa Transversal: API Gateway, Observabilidad y Middleware
-* **Propósito:** Proteger el perímetro, gestionar el enrutamiento y supervisar la salud operacional de la infraestructura.
-* **Componentes y Funcionalidades:**
-  * **API Gateway (Nginx / Traefik):** Enrutamiento inteligente, terminación TLS/HTTPS, validación perimetral de cabeceras JWT, limitación de tasa (*Rate Limiting*) y políticas de CORS.
-  * **Observabilidad Centralizada:** Métricas en tiempo real con **Prometheus** y tableros de visualización con **Grafana**.
+##### 6. Capa Perimetral y Transversal
+* **Propósito:** Enrutamiento perimetral seguro, mediación asíncrona y supervisión continua de la salud operativa.
+* **Capacidades Principales:**
+  * API Gateway: Terminación TLS, verificación perimetral de JWT, Rate Limiting y políticas de CORS.
+  * Bus de Eventos: Broker de mensajería FOSS (RabbitMQ) para desacoplar procesos no bloqueantes.
+  * Observabilidad: Monitoreo de telemetría y métricas operacionales con Prometheus y Grafana.
 
 ---
 
 #### 3.6.2 Estilo de Comunicación entre Componentes
 
-Se implementa un **patrón híbrido** optimizado para balancear inmediatez y resiliencia:
+A nivel arquitectónico se adopta un **patrón híbrido**:
 
-1. **Comunicación Síncrona (REST / JSON sobre HTTPS):**
-   * Empleada en operaciones donde el usuario requiere respuesta inmediata: autenticación, navegación del catálogo, consulta de disponibilidad y registro de reservas.
-   * Documentada bajo el estándar OpenAPI 3.0.
+1. **Comunicación Síncrona (RESTful sobre HTTPS / JSON):**
+   * Empleada en consultas y operaciones transaccionales directas del usuario (navegación del catálogo, consulta de disponibilidad, autenticación y registro de reservas).
+   * Contratos de interfaz documentados formalmente bajo OpenAPI 3.0.
 2. **Comunicación Asíncrona Orientada a Eventos (Message Broker FOSS):**
-   * Implementada con **RabbitMQ** (o Redis Streams) mediante el patrón Publicador/Suscriptor (*Pub/Sub*).
-   * Desacopla tareas no críticas para el hilo principal: procesamiento del modelo de recomendación de IA, despacho de correos electrónicos de confirmación (UC36) y envío de eventos a la bitácora de auditoría (UC33).
+   * Empleada para tareas desacopladas: actualización del modelo de IA, despacho de correos electrónicos transaccionales y bitácora de auditoría.
+   * Evita el bloqueo del usuario final y asegura la resiliencia del sistema ante fallos transitorios.
 
 ---
 
@@ -769,68 +777,40 @@ Se implementa un **patrón híbrido** optimizado para balancear inmediatez y res
 
 Cada microservicio gestiona su propio almacén de datos (*Database-per-Service*), garantizando desacople y evitando bloqueos entre esquemas:
 
-* **PostgreSQL + PostGIS (Relacional & Geoespacial):** Base de datos principal para el Módulo 1 (IAM/Seguridad), Módulo 2 (Catálogo con consultas espaciales) y Módulo 3 (Reservas transaccionales con consistencia ACID).
-* **MongoDB Community Edition (Documental NoSQL):** Almacén para el Módulo 4 (Anotaciones y Reseñas), permitiendo estructuras flexibles, comentarios anidados, respuestas y banderas dinámicas de moderación.
-* **Redis / Valkey (En memoria & Caché):** Almacenamiento temporal de sesiones, listas negras de tokens JWT, control de cuotas de peticiones (*Rate Limiting*) y aceleración de consultas de catálogo frecuente.
+* **PostgreSQL + PostGIS (Relacional & Geoespacial):** Utilizado en Módulo 1 (IAM y auditoría), Módulo 2 (Catálogo espacial y analítica agregada) y Módulo 3 (Reservas y cupos con consistencia ACID).
+* **MongoDB Community / PostgreSQL JSONB (Documental):** Utilizado en Módulo 4 (Reseñas, calificaciones flexibles y réplicas).
+* **Valkey / Redis (Caché en Memoria):** Utilizado para aceleración de consultas de catálogo, control de cuotas (*Rate Limiting*) y listas de revocación de sesiones.
 
 ---
 
-#### 3.6.4 Stack Tecnológico y Coherencia con Software Libre (FOSS)
+#### 3.6.4 Stack Tecnológico de Referencia
 
-> [!NOTE]
-> **Estado de Definición Tecnológica:**
-> Las tecnologías de esta sección son la **propuesta de referencia** del equipo. Las capas con más de una opción se deciden aplicando los **criterios de selección** definidos a continuación, antes de iniciar la construcción del módulo correspondiente (Fase 4). La decisión de estilo arquitectónico ya está tomada y justificada en [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md).
+La plataforma se fundamenta en principios estrictos de **Software Libre y de Código Abierto (FOSS)**, priorizando licencias permisivas (MIT, Apache 2.0, BSD) y estándares abiertos para asegurar independencia de proveedores y cero costos de licenciamiento privativo:
 
-##### Criterios de selección tecnológica
-
-Cada tecnología candidata se evalúa en dos pasos: primero debe superar los **criterios eliminatorios**; luego, entre las que los superan, se elige la de mejor desempeño en los **criterios comparativos**, en el orden de prioridad indicado.
-
-| Tipo | Criterio | Descripción | Origen |
+| Capa Arquitectónica | Tecnología de Referencia | Licencia FOSS | Rol en el Sistema |
 |---|---|---|---|
-| **Eliminatorio** | Licencia de código abierto | Licencia aprobada por la OSI (permisiva o *copyleft*), sin costos de licenciamiento. | SRS §2.4.1, §1.2 |
-| **Eliminatorio** | Despliegue en contenedores | Imagen Docker oficial o mantenida, ejecutable en Linux con Docker Compose. | RNF-12 |
-| **Eliminatorio** | Cobertura del requerimiento | Soporta la capacidad exigida por la capa (p. ej. consultas espaciales, AMQP, JWT, Argon2id). | SRS §3.6 |
-| **Comparativo (1)** | Dominio del equipo | Experiencia previa de los integrantes; reduce la curva de aprendizaje en 14 semanas. | Riesgo R-01, SRS §2.4.2 |
-| **Comparativo (2)** | Rendimiento y escalabilidad | Capacidad de cumplir $p95 < 2.0$ s y escalar horizontalmente. | RNF-02, RNF-06, ESC-02, ESC-08 |
-| **Comparativo (3)** | Madurez y comunidad | Documentación, versiones de soporte a largo plazo y comunidad activa. | RNF-05 |
-| **Comparativo (4)** | Costo operativo | Consumo de recursos de infraestructura dentro del presupuesto. | SRS §2.4.2, Apéndice E |
-
-##### Stack de referencia
-
-La plataforma se concibe íntegramente sobre tecnologías de código abierto con licencias permisivas (MIT, Apache 2.0, BSD, PostgreSQL, MPL 2.0) y *copyleft* (GPL, AGPL), asegurando soberanía tecnológica, ausencia de costos de licenciamiento privativo y alta interoperabilidad.
-
-| Capa Arquitectónica | Tecnología FOSS Propuesta (Referencial) | Licencia | Rol en la Solución |
-|---|---|---|---|
-| **API Gateway / Proxy** | **Nginx** o **Traefik** | BSD / MIT | Enrutamiento perimetral, SSL/TLS, Rate Limiting y CORS. |
-| **Backend Core Services** | **Java OpenJDK / Spring Boot** o **TypeScript / NestJS** | GPLv2+CE / Apache 2.0 / MIT | Lógica de negocio de microservicios transaccionales. |
-| **Backend IA Service** | **Python (FastAPI + Scikit-Learn + Pandas)** | BSD / PSF / Apache 2.0 | Microservicio asíncrono de recomendación explicable. |
-| **Persistencia Relacional** | **PostgreSQL + PostGIS** | PostgreSQL License / GPL | Almacén transaccional y consultas geoespaciales. |
-| **Persistencia NoSQL** | **MongoDB Community Edition** o **FerretDB** | SSPL (no aprobada por OSI) / Apache 2.0 | Almacén semiestructurado de reseñas y comentarios. |
-| **Caché & Sesiones** | **Valkey** | BSD-3-Clause | Caché de alta velocidad, rate limiting y sesiones. |
-| **Message Broker** | **RabbitMQ** | MPL 2.0 | Bus de mensajería asíncrona para eventos desacoplados. |
-| **Mapas & GIS** | **OpenStreetMap + Leaflet.js / MapLibre** | ODbL / BSD / MIT | Cartografía interactiva sin costo por consulta. |
-| **Frontend Web** | **HTML5, CSS3 Vanilla, JavaScript / Vue.js** | MIT | Interfaz de usuario responsiva, accesible y bilingüe. |
-| **Contenedores & Despliegue** | **Docker + Docker Compose** | Apache 2.0 | Estandarización de entornos de desarrollo y producción. |
-| **Observabilidad** | **Prometheus + Grafana** | Apache 2.0 / AGPL | Telemetría, monitoreo de métricas y alertas del sistema. |
-| **Seguridad / Criptografía** | **Librerías Argon2 / JWT (RFC 7519)** | Apache 2.0 / MIT | Cifrado de credenciales y tokens de acceso seguros. |
-
-##### Decisiones abiertas y criterio que las define
-
-| Capa | Opciones | Criterio determinante |
-|---|---|---|
-| **Backend Core Services** | Spring Boot vs. NestJS | **Dominio del equipo:** ambas cumplen los criterios eliminatorios; se elige el lenguaje con mayor experiencia entre los integrantes responsables de los Módulos 1 a 4. |
-| **API Gateway / Proxy** | Nginx vs. Traefik | **Madurez vs. integración:** Traefik descubre servicios automáticamente desde etiquetas de Docker, lo que simplifica el escalado (ESC-08); Nginx ofrece mayor madurez y documentación. |
-| **Persistencia NoSQL** | MongoDB Community vs. FerretDB vs. PostgreSQL JSONB | **Licencia (eliminatorio):** la licencia SSPL de MongoDB no está aprobada por la OSI. FerretDB (compatible con el protocolo de MongoDB sobre PostgreSQL) o el tipo JSONB de PostgreSQL cumplen el criterio y reducen el número de motores a operar. |
-| **Caché & Sesiones** | Valkey vs. Redis | **Licencia (eliminatorio):** desde 2024 Redis se distribuye bajo licencias RSALv2/SSPL y, a partir de Redis 8, también AGPLv3; Valkey mantiene la licencia BSD-3 y la compatibilidad con el protocolo de Redis, por lo que se adopta como opción de referencia. |
+| **Perímetro & Gateway** | Nginx / Traefik | BSD / MIT | Reverse proxy, terminación TLS, Rate Limiting y CORS. |
+| **Backend Core (M1 a M4)** | Java (Spring Boot) / Node.js (NestJS) | Apache 2.0 / MIT | Lógica transaccional de los microservicios core. |
+| **Backend IA (M5)** | Python (FastAPI + Scikit-Learn) | PSF / BSD | Microservicio analítico de recomendación explicable. |
+| **Persistencia Relacional / GIS** | PostgreSQL + PostGIS | PostgreSQL / GPL-2.0 | Almacén transaccional y consultas geoespaciales. |
+| **Persistencia Documental** | MongoDB Community / JSONB | SSPL / PostgreSQL | Reseñas y opiniones semiestructuradas. |
+| **Caché & Sesiones** | Valkey | BSD-3-Clause | Caché de alta velocidad y control de tasa. |
+| **Bus de Mensajería** | RabbitMQ | MPL 2.0 | Broker de eventos asíncronos desacoplados. |
+| **Cartografía Abierta** | OpenStreetMap + Leaflet.js | ODbL / BSD-2-Clause | Visualización de mapas interactivos libres. |
+| **Frontend Web** | HTML5, CSS3, JavaScript / Vue.js | MIT | Interfaz de usuario responsiva, accesible (WCAG 2.1 AA) e i18n. |
+| **Contenedores & Despliegue** | Docker & Docker Compose | Apache 2.0 | Estandarización de entornos de ejecución en Linux. |
+| **Observabilidad** | Prometheus + Grafana | Apache 2.0 / AGPL-3.0 | Telemetría, métricas de latencia y monitoreo de salud. |
 
 ---
 
 ### 3.7 Modelo de datos preliminar
 
+A continuación se presenta el modelo conceptual de entidades del dominio organizado por contexto funcional.
+
 ![Diagrama Entidad-Relación por Microservicio](./Diagrama_Modelo_Datos_ER.svg)
 
 <details>
-<summary><b>Ver especificación de código Mermaid del modelo de datos</b></summary>
+<summary><b>Ver especificación de código Mermaid del modelo conceptual de entidades</b></summary>
 
 ```mermaid
 erDiagram
@@ -981,7 +961,7 @@ flowchart LR
     ST["Stakeholders<br><i>(Turista, Prestador, Entidad, Admin)</i>"]:::stStyle
     UC["Casos de Uso<br><i>(UC1 - UC38)</i>"]:::ucStyle
     RF["Requerimientos<br><i>(RF-01 a 13 / RNF-01 a 12)</i>"]:::reqStyle
-    MOD["Microservicios FOSS<br><i>(Módulos 1 a 6 + Gateway)</i>"]:::modStyle
+    MOD["Microservicios FOSS<br><i>(Módulos 1 a 5 + Gateway)</i>"]:::modStyle
     ESC["Escenarios de Calidad<br><i>(ESC-01 a ESC-08)</i>"]:::escStyle
 
     ST ==>|Originan| UC
@@ -994,11 +974,10 @@ flowchart LR
 | Módulo Arquitectónico | Casos de Uso Asignados | Requerimientos Funcionales | Requerimientos No Funcionales | Escenarios de Verificación |
 |---|---|---|---|---|
 | **Módulo 1: Seguridad & IAM** | UC1, UC2, UC3, UC4, UC6, UC27, UC28, UC32, UC33, UC37 | RF-08, RF-09, RF-12 | RNF-04, RNF-10 | ESC-04, ESC-06 |
-| **Módulo 2: Catálogo & GIS** | UC7, UC8, UC9, UC16, UC17, UC18 | RF-01, RF-02, RF-05 | RNF-02, RNF-03, RNF-06 | ESC-02, ESC-03, ESC-08 |
+| **Módulo 2: Catálogo, GIS & Destino** | UC7, UC8, UC9, UC16, UC17, UC18, UC22, UC23, UC24, UC25, UC26, UC36, UC38 | RF-01, RF-02, RF-05, RF-07, RF-11, RF-13 | RNF-01, RNF-02, RNF-03, RNF-06 | ESC-01, ESC-02, ESC-03, ESC-08 |
 | **Módulo 3: Reservas & Cupos** | UC10, UC11, UC12, UC13, UC19, UC20 | RF-03, RF-04, RF-05 | RNF-02, RNF-06, RNF-11 | ESC-02, ESC-07, ESC-08 |
 | **Módulo 4: Reseñas & Moderación** | UC15, UC21, UC29 | RF-01, RF-05 | RNF-01, RNF-05 | ESC-01, ESC-05 |
 | **Módulo 5: IA & Recomendación** | UC14 | RF-06 | RNF-05, RNF-08 | ESC-05 |
-| **Módulo 6: Analítica & Destino** | UC22, UC23, UC24, UC25, UC26, UC36, UC38 | RF-07, RF-11, RF-13 | RNF-01, RNF-03 | ESC-01, ESC-03 |
 | **API Gateway & Observabilidad** | UC2, UC5, UC30, UC31 | Transversal | RNF-01, RNF-02, RNF-06, RNF-12 | ESC-01, ESC-02, ESC-04, ESC-08 |
 
 ---
@@ -1030,15 +1009,15 @@ Para la **Fase 3 (Diseño Arquitectónico)**, se estructurarán prototipos inter
 
 ### Apéndice D. Equipo de trabajo y asignación de roles
 
-Cada integrante asume un **rol técnico**, como responsable de uno o más microservicios (*ownership* 1:1 por módulo, en coherencia con la mitigación del riesgo R-05), y un **rol de gestión** dentro del marco Scrum adaptado definido en el Plan de Desarrollo de Software. Los roles de *Product Owner* y *Scrum Master* recaen en personas distintas para preservar la separación entre la priorización del producto y la facilitación del proceso.
+Cada integrante asume un **rol técnico**, como responsable de un microservicio (*ownership* modular, en coherencia con la mitigación del riesgo R-05), y un **rol de gestión** dentro del marco Scrum adaptado definido en el Plan de Desarrollo de Software. Los roles de *Product Owner* y *Scrum Master* recaen en personas distintas para preservar la separación entre la priorización del producto y la facilitación del proceso.
 
 | # | Integrante | Rol Técnico (Módulos) | Rol de Gestión | Responsabilidades Clave |
 |---|---|---|---|---|
 | 1 | **Juan Francisco Gonzalez Pacheco** | Arquitecto Líder · Módulo 1: Seguridad & IAM + API Gateway | **Product Owner** | Decisiones arquitectónicas y registro de ADRs, coherencia entre módulos, priorización del backlog. |
-| 2 | **Valentina Sarait Nieves Hernandez** | Desarrolladora Backend · Módulo 2: Catálogo & GIS | **Scrum Master** | Facilitación de ceremonias, gestión del tablero en GitHub Projects, remoción de impedimentos, seguimiento del cronograma. |
+| 2 | **Valentina Sarait Nieves Hernandez** | Desarrolladora Backend · Módulo 2: Catálogo, GIS & Inteligencia de Destino | **Scrum Master** | Facilitación de ceremonias, gestión del tablero en GitHub Projects, remoción de impedimentos, seguimiento del cronograma. |
 | 3 | **Andres Felipe Gamero Sanchez** | Desarrollador Backend · Módulo 3: Reservas & Cupos + Message Broker | **Líder de Calidad (QA)** | Verificación de escenarios de calidad (ESC), pruebas de carga (k6 / Locust), criterios de aceptación de requerimientos. |
 | 4 | **Alvaro David Ospino Sanchez** | Desarrollador Fullstack · Módulo 4: Reseñas & Moderación + Frontend Web | **Líder de UX y Documentación** | Prototipos en Figma, accesibilidad WCAG 2.1 AA, internacionalización (ES/EN), consistencia del SRS y diagramas. |
-| 5 | **Luis Fernando Barraza Sanchez** | Especialista en IA y Datos · Módulo 5: IA & Recomendación + Módulo 6: Analítica & Destino | **DevOps y Observabilidad** | Contenedores Docker Compose, despliegue, monitoreo con Prometheus + Grafana, generación del dataset sintético. |
+| 5 | **Luis Fernando Barraza Sanchez** | Especialista en IA y Datos · Módulo 5: IA & Recomendación | **DevOps y Observabilidad** | Contenedores Docker Compose, despliegue, monitoreo con Prometheus + Grafana, generación del dataset sintético y soporte analítico. |
 
 ---
 
