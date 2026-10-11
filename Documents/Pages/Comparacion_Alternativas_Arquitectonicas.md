@@ -19,13 +19,13 @@ Este documento presenta el proceso de diseño seguido para seleccionar el estilo
 * **Estilo arquitectónico:** Monolito modular con arquitectura hexagonal (puertos y adaptadores) por módulo.
 * **Idea general de estructura:** Una única aplicación desplegable que agrupa los seis contextos del dominio (IAM, Catálogo & GIS, Reservas, Reseñas, IA, Analítica) como módulos internos con fronteras explícitas. Los módulos se comunican mediante llamadas en proceso a través de interfaces; las tareas diferidas (correos, auditoría) se ejecutan con una cola de trabajos interna. Persistencia en una sola instancia de PostgreSQL + PostGIS con un esquema por módulo. Se escala replicando la aplicación completa detrás de Nginx.
 * **Ventaja principal:** Menor tiempo y complejidad de implementación: un solo repositorio, un solo despliegue, transacciones ACID locales entre módulos y sin infraestructura distribuida que operar, lo que se ajusta directamente a las 14 semanas y al equipo de 5 personas.
-* **Desventaja principal:** Escala y falla como un bloque: un pico de búsquedas en el catálogo obliga a replicar toda la aplicación, una falla en un módulo (p. ej. Reseñas) puede degradar el sistema completo (contrario a ESC-01) y el modelo de IA en Python no puede reentrenarse ni desplegarse sin redesplegar el núcleo (contrario a ESC-05).
+* **Desventaja principal:** Escala y falla como un bloque: un pico de búsquedas en el catálogo obliga a replicar toda la aplicación, una falla en un módulo (p. ej. Reseñas) puede degradar el sistema completo (contrario a ESC-01) y el chatbot de IA (integración con Gemini y herramientas) no puede ajustarse ni desplegarse sin redesplegar el núcleo (contrario a ESC-05).
 
 ### 1.2 Alternativa B: Microservicios Orientados a Eventos
 
 * **Estilo arquitectónico:** Microservicios por *Bounded Context* con comunicación híbrida: síncrona REST y asíncrona orientada a eventos (Pub/Sub).
-* **Idea general de estructura:** Seis microservicios independientes (SRS §3.6.1) detrás de un API Gateway (Nginx / Traefik) que centraliza TLS, validación de JWT, *rate limiting* y CORS. Las operaciones de respuesta inmediata usan REST/JSON; las tareas no críticas (recomendación de IA, correos, auditoría) se desacoplan mediante RabbitMQ. Cada servicio gestiona su propio almacén (*Database-per-Service*): PostgreSQL + PostGIS, MongoDB y Redis / Valkey.
-* **Ventaja principal:** Escalabilidad y aislamiento de fallos por servicio: el Catálogo puede escalar de forma independiente en temporada alta (ESC-02, ESC-08), una falla en Reseñas no interrumpe catálogo ni reservas (ESC-01) y el worker de IA se reemplaza sin detener el núcleo transaccional (ESC-05).
+* **Idea general de estructura:** Seis microservicios independientes (SRS §3.6.1) detrás de un API Gateway (Nginx / Traefik) que centraliza TLS, validación de JWT, *rate limiting* y CORS. Las operaciones de respuesta inmediata usan REST/JSON; las tareas no críticas (correos, auditoría) se desacoplan mediante RabbitMQ y el chatbot de IA se consume como un servicio independiente. Cada servicio gestiona su propio almacén (*Database-per-Service*): PostgreSQL + PostGIS, MongoDB y Redis / Valkey.
+* **Ventaja principal:** Escalabilidad y aislamiento de fallos por servicio: el Catálogo puede escalar de forma independiente en temporada alta (ESC-02, ESC-08), una falla en Reseñas no interrumpe catálogo ni reservas (ESC-01) y el chatbot de IA se ajusta o se reemplaza sin detener el núcleo transaccional (ESC-05).
 * **Desventaja principal:** Mayor complejidad técnica y operativa: más contenedores, consistencia eventual entre servicios, necesidad de observabilidad distribuida y una curva de aprendizaje significativa para el equipo (riesgo R-01), lo que alarga el tiempo de implementación.
 
 ---
@@ -50,7 +50,7 @@ Escala de calificación de **1 a 5**, donde **5 es siempre el valor más favorab
 * **Escalabilidad (5):** RNF-02 es *Must*; ESC-02 exige atender 500 solicitudes concurrentes por segundo en temporada alta y ESC-08 exige duplicar esa capacidad añadiendo réplicas solo de los servicios presionados, y la inestabilidad en picos de demanda es una de las problemáticas que origina el proyecto (SRS §2.1).
 * **Seguridad (5):** RNF-04 y RNF-10 son *Must*; la plataforma trata datos personales bajo la Ley 1581 de 2012 y documentos legales de prestadores (RNT, RUT).
 * **Disponibilidad (5):** RNF-01 y ESC-01 exigen aislar componentes degradados sin interrumpir catálogo ni reservas durante la temporada alta.
-* **Mantenibilidad / Evolución (4):** RNF-05 y ESC-05 exigen reemplazar o reentrenar el modelo de IA sin alterar el núcleo, y el SRS §1.2 define la IA como un componente desacoplado.
+* **Mantenibilidad / Evolución (4):** RNF-05 y ESC-05 exigen ajustar el chatbot de IA (herramientas, parámetros o versión del modelo de Gemini) sin alterar el núcleo, y el SRS §1.2 define la IA como un componente desacoplado.
 * **Costo relativo (3):** Ambas alternativas caben holgadamente dentro del techo de USD 20.000 (el Escenario A del Plan usa USD 6.900); el costo diferencia, pero no es restrictivo.
 * **Tiempo de implementación (3):** El horizonte es de 14 semanas, pero la meta del prototipo está acotada a $\ge 60\%$ de los casos de uso *Must* (Plan, Fase 4) y la propiedad 1:1 de cada servicio permite trabajo en paralelo (R-05).
 * **Complejidad técnica (2):** Se mitiga con decisiones de proceso (plantillas base, Docker Compose unificado, R-01) y no compromete por sí misma un atributo de calidad.
@@ -68,7 +68,7 @@ Escala de calificación de **1 a 5**, donde **5 es siempre el valor más favorab
 
 1. **Escalabilidad (25 vs. 15):** La demanda turística de Santa Marta es estacional y se concentra en el catálogo; escalar solo los servicios presionados es la respuesta directa a RNF-02, ESC-02 y ESC-08.
 2. **Disponibilidad (25 vs. 15):** El aislamiento de fallos garantiza que la caída de un servicio secundario (Reseñas, IA) no interrumpa las búsquedas ni las reservas (ESC-01).
-3. **Mantenibilidad / Evolución (20 vs. 12):** El servicio de IA en Python evoluciona y se despliega de forma independiente del núcleo transaccional (ESC-05, RNF-08).
+3. **Mantenibilidad / Evolución (20 vs. 12):** El servicio del chatbot de IA evoluciona y se despliega de forma independiente del núcleo transaccional (ESC-05, RNF-08).
 
 La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microservicios pierden en costo, tiempo, complejidad y seguridad, y esas desventajas se gestionan con las mitigaciones de la Sección 4.4.
 
@@ -79,7 +79,7 @@ La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microser
 ### 4.1 Influencia de las restricciones
 
 * **Económicas (SRS §2.4.2):** El techo de USD 20.000 no descarta ninguna alternativa. Los Microservicios incrementan el costo de infraestructura (más contenedores, broker, varias bases de datos), pero el Escenario A del Plan demuestra que el prototipo es viable con USD 6.900 y el Escenario B financia la operación en alta disponibilidad durante 12 meses. El modelo sin pagos en línea (SRS §1.2) evita además costos de certificación PCI-DSS en cualquiera de las dos alternativas.
-* **Técnicas (SRS §2.4.1):** La exigencia de software libre y de despliegue en contenedores Docker es compatible con ambas, pero la combinación de un núcleo transaccional y un servicio de IA en Python favorece una arquitectura que admita múltiples lenguajes y despliegues independientes. La exigencia de RNF-02 (*Must*) inclina la decisión hacia la escalabilidad por servicio.
+* **Técnicas (SRS §2.4.1):** La exigencia de software libre y de despliegue en contenedores Docker es compatible con ambas, pero la combinación de un núcleo transaccional y un servicio de IA (chatbot sobre la API de Gemini) favorece una arquitectura que admita múltiples lenguajes y despliegues independientes. La exigencia de RNF-02 (*Must*) inclina la decisión hacia la escalabilidad por servicio.
 * **Sociales (SRS §2.4.3):** La inclusión de prestadores con baja alfabetización digital (RF-08) y el soporte bilingüe (RF-10) se resuelven en la capa de presentación y no diferencian a las alternativas. Sí influye el carácter de bien público de la plataforma: su caída en temporada alta afectaría a turistas y a pequeños prestadores, lo que refuerza el peso de la disponibilidad.
 * **Normativas (SRS §2.4.5):** La Ley 1581 de 2012 favorece aislar los datos personales y los documentos legales en el servicio de IAM con su propia base de datos, limitando el alcance de una eventual brecha.
 
@@ -93,7 +93,7 @@ La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microser
 ### 4.3 Restricciones que más influyeron en la decisión
 
 1. **Picos de demanda en temporada alta** (problemática 6, RNF-02 y RNF-01): fue la restricción decisiva, ya que escalabilidad y disponibilidad concentran 50 de los 104 puntos de la alternativa seleccionada.
-2. **Desacople del servicio de IA** (SRS §1.2, ESC-05): el componente de recomendación en Python debe operar de forma asíncrona e independiente del núcleo.
+2. **Desacople del servicio de IA** (SRS §1.2, ESC-05): el chatbot de recomendaciones debe operar de forma independiente del núcleo, de modo que una indisponibilidad de Gemini no afecte catálogo ni reservas.
 3. **Tiempo de 14 semanas con 5 integrantes** (SRS §2.4.2): fue la principal restricción en contra de la alternativa seleccionada y la que motivó acotar el alcance del prototipo y adoptar las mitigaciones de la Sección 4.4.
 
 ### 4.4 Equilibrio entre costo, tiempo y atributos de calidad

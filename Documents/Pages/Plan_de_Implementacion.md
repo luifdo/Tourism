@@ -34,7 +34,7 @@
   * [6.2 Flujo 2: Búsqueda Geoespacial Indexada con PostGIS y Caché](#62-flujo-2-búsqueda-geoespacial-indexada-con-postgis-y-caché)
   * [6.3 Flujo 3: Transacción Atómica de Reserva y Bloqueo de Cupos](#63-flujo-3-transacción-atómica-de-reserva-y-bloqueo-de-cupos)
   * [6.4 Flujo 4: Publicación de Reseña, Pre-filtrado Heurístico y Despacho de Eventos](#64-flujo-4-publicación-de-reseña-pre-filtrado-heurístico-y-despacho-de-eventos)
-  * [6.5 Flujo 5: Pipeline Asíncrono de Inferencia de Recomendaciones con IA](#65-flujo-5-pipeline-asíncrono-de-inferencia-de-recomendaciones-con-ia)
+  * [6.5 Flujo 5: Consulta al Chatbot de Recomendaciones con Gemini y Herramientas](#65-flujo-5-consulta-al-chatbot-de-recomendaciones-con-gemini-y-herramientas)
   * [6.6 Flujo 6: Consolidación Analítica de Capacidad de Carga y Alertas Institucionales](#66-flujo-6-consolidación-analítica-de-capacidad-de-carga-y-alertas-institucionales)
 * [7. Entorno de Ejecución, Contenedores y Observabilidad](#7-entorno-de-ejecución-contenedores-y-observabilidad)
   * [7.1 Orquestación Local con Docker Compose](#71-orquestación-local-con-docker-compose)
@@ -94,13 +94,14 @@ flowchart TB
         MS2["Módulo 2: Catálogo, GIS & Inteligencia de Destino<br><i>(Atractivos, PostGIS, Mapas OSM, Analítica, Aforos, Alertas)</i>"]:::coreStyle
         MS3["Módulo 3: Reservas & Cupos<br><i>(Motor Transaccional de Cupos, Solicitudes, Estados)</i>"]:::coreStyle
         MS4["Módulo 4: Reseñas & Moderación<br><i>(Opiniones, Calificaciones, Pre-filtro Heurístico)</i>"]:::coreStyle
-        MS5["Módulo 5: IA & Recomendación<br><i>(Worker Asíncrono Python, Filtrado Híbrido, Explicabilidad)</i>"]:::aiStyle
+        MS5["Módulo 5: IA & Recomendación<br><i>(Chatbot, Herramientas de consulta, Integración con Gemini API)</i>"]:::aiStyle
     end
 
     APIGW -->|/api/v1/auth, /api/v1/users| MS1
     APIGW -->|/api/v1/catalog, /api/v1/destinations, /api/v1/analytics| MS2
     APIGW -->|/api/v1/bookings, /api/v1/availability| MS3
     APIGW -->|/api/v1/reviews| MS4
+    APIGW -->|/api/v1/recommendations/chat| MS5
 
     subgraph EventBus["Bus de Mensajería & Eventos Asíncronos"]
         Broker["Message Broker FOSS<br><i>(RabbitMQ / Redis Streams)</i>"]:::brokerStyle
@@ -109,7 +110,6 @@ flowchart TB
     MS3 -.->|Publica: reserva.creada / reserva.confirmada| Broker
     MS4 -.->|Publica: resena.creada| Broker
     MS2 -.->|Publica: alerta.oficial / Envia notificaciones| Broker
-    Broker -.->|Consume: cálculo de afinidad| MS5
     Broker -.->|Consume: despacho de correos SMTP| MS2
 
     subgraph Persistencia["Persistencia Políglota FOSS (Database-per-Service)"]
@@ -125,7 +125,11 @@ flowchart TB
     MS2 --- DB2
     MS3 --- DB3
     MS4 --- DB4
-    MS1 & MS2 & MS3 --- Cache
+    MS1 & MS2 & MS3 & MS5 --- Cache
+
+    Gemini["Google Gemini API<br><i>(Servicio externo de IA)</i>"]
+    MS5 ==>|HTTPS / API| Gemini
+    MS5 -->|Herramientas de solo lectura| MS2 & MS3 & MS4
 ```
 
 ---
@@ -197,14 +201,16 @@ src/
     * Si el texto es limpio, se publica inmediatamente con estado `Publicado`.
   * **Almacenamiento NoSQL / Semi-estructurado:** Almacenamiento en colecciones de MongoDB o tablas relacionales con columnas `JSONB` de PostgreSQL para permitir estructuras de calificaciones multidimensionales (limpieza, puntualidad, precio, amabilidad) y respuestas anidadas del prestador.
 
-#### 5. Módulo 5: IA & Recomendación (AI Recommendation Service)
-* **Responsabilidad Interna:** Motor analítico auxiliar en Python que computa afinidades turísticas y genera recomendaciones personalizadas con explicabilidad algorítmica.
+#### 5. Módulo 5: IA & Recomendación (AI Recommendation Chatbot)
+* **Responsabilidad Interna:** Chatbot turístico que atiende consultas en lenguaje natural (español e inglés) y entrega recomendaciones personalizadas y justificadas (RNF-08). Usa la API de Gemini como modelo de lenguaje; el equipo no entrena ni aloja ningún modelo.
 * **Mecanismos Internos:**
-  * **Worker Asíncrono Desacoplado:** El microservicio no expone rutas bloqueantes de cálculo pesado para los usuarios finales. Consume eventos del broker en segundo plano para actualizar perfiles y calcula recomendaciones que deposita en caché o en base de datos.
-  * **Filtrado Híbrido:**
-    1. *Filtrado basado en contenido:* Similitud de coseno entre las preferencias declaradas por el turista (categorías preferidas, rango de presupuesto) y los metadatos de los atractivos.
-    2. *Filtrado colaborativo ligero:* Modelo de descomposición matricial (SVD o matrices de co-ocurrencia) entrenado sobre el dataset sintético de turistas y visitas a Santa Marta.
-  * **Generador de Explicabilidad (RNF-08):** Cada recomendación genera una cadena de texto estructurada con el motivo de la inferencia (ej. *"Recomendado porque reservaste un tour en Taganga y tienes afinidad con actividades acuáticas"*).
+  * **Herramientas de consulta (*tools*):** Funciones de solo lectura que el servicio declara a Gemini y ejecuta cuando el modelo las solicita. Consultan catálogo, disponibilidad, historial del turista, reseñas, capacidad de carga y alertas oficiales a través de los contratos REST de los demás módulos.
+  * **Respuestas ancladas en datos:** Lo que el chatbot afirma sobre servicios, precios, disponibilidad o reseñas proviene de las herramientas, no de la memoria del modelo; se descartan los servicios recomendados que no hayan sido consultados.
+  * **Identidad controlada por el servidor:** El identificador del turista se toma del token JWT; el modelo nunca lo decide ni lo recibe como parámetro.
+  * **Memoria de sesión:** La conversación reciente se conserva en Valkey con expiración, para dar continuidad al diálogo.
+  * **Explicabilidad y registro (RNF-08):** Cada recomendación incluye su justificación y se registra en `RECOMENDACION_LOG`.
+  * **Aislamiento ante fallos:** Si Gemini no está disponible, solo falla el chatbot; el catálogo y las reservas siguen operando (ESC-01).
+* **Alcance:** No crea, modifica ni cancela reservas desde el chat; orienta al turista hacia las pantallas de la plataforma. Detalle técnico en la [Guía Técnica del Módulo 5](./Guia_Tecnica_Modulo_IA.md).
 
 ---
 
@@ -216,7 +222,7 @@ src/
 |---|---|---|---|---|
 | **API Gateway & Reverse Proxy** | **Nginx** | 1.24+ | BSD-2-Clause | Terminación TLS/SSL, enrutamiento perimetral, validación de cabeceras, compresión gzip y Rate Limiting. |
 | **Backend Core (Módulos 1, 2, 3, 4)** | **Node.js (NestJS / Express)** o **Java (Spring Boot)** | Node 20 LTS / Java 17+ | MIT / Apache 2.0 | Microservicios transaccionales con tipado estricto, inyección de dependencias y controladores REST. |
-| **Backend IA (Módulo 5)** | **Python (FastAPI + Scikit-Learn)** | Python 3.11+ | PSF / BSD | Microservicio de inferencia de recomendaciones y procesamiento matemático vectorial. |
+| **Backend IA (Módulo 5)** | **Python (FastAPI) + API de Google Gemini** | Python 3.11+ | PSF / BSD; Gemini: términos comerciales de Google (servicio externo, no FOSS) | Microservicio del chatbot: integra Gemini y expone las herramientas de consulta. No incluye modelo propio. |
 | **Base de Datos Relacional / GIS** | **PostgreSQL + PostGIS** | PG 16 / PostGIS 3.4 | PostgreSQL / GPL-2.0 | Persistencia transaccional ACID para IAM, Reservas y Catálogo con soporte geoespacial. |
 | **Base de Datos Documental** | **MongoDB Community Edition** *(o PG JSONB)* | 7.0+ | SSPL / PostgreSQL | Almacenamiento de reseñas, calificaciones multidimensionales y bitácoras semiestructuradas. |
 | **Caché en Memoria** | **Valkey** *(fork FOSS de Redis)* | 7.2+ | BSD-3-Clause | Caché de segundo nivel, almacenamiento de listas de revocación de tokens y control de sesiones. |
@@ -262,7 +268,7 @@ Las peticiones iniciadas por clientes web o móviles interactúan exclusivamente
 
 ### 4.2 Comunicación Asíncrona Orientada a Eventos (Message Broker)
 
-Para garantizar que operaciones lentas (cálculo de recomendaciones con IA, envío de correos electrónicos transaccionales, auditoría) no bloqueen las peticiones de los usuarios, se utiliza un bus de mensajería con **RabbitMQ**:
+Para garantizar que operaciones lentas (envío de correos electrónicos transaccionales, auditoría) no bloqueen las peticiones de los usuarios, se utiliza un bus de mensajería con **RabbitMQ**:
 
 #### Topología de RabbitMQ:
 * **Exchange Principal:** `tourism.topic` (Tipo: `topic`, Durable: `true`).
@@ -270,11 +276,11 @@ Para garantizar que operaciones lentas (cálculo de recomendaciones con IA, env�
 
 | Routing Key | Evento Emitido Por | Colas Suscritas | Consumidor Interno | Acción Ejecutada |
 |---|---|---|---|---|
-| `booking.created` | Módulo 3 (Reservas) | `q.ai.interactions` | Módulo 5 (IA) | Actualiza el vector de interés del turista. |
 | `booking.confirmed` | Módulo 3 (Reservas) | `q.notifications.email` | Módulo 2 (Catálogo/Analítica) | Envía correo de confirmación al turista con datos del prestador. |
 | `booking.cancelled` | Módulo 3 (Reservas) | `q.notifications.email` | Módulo 2 (Catálogo/Analítica) | Notifica al prestador y libera cupos. |
-| `review.published` | Módulo 4 (Reseñas) | `q.ai.sentiment` | Módulo 5 (IA) | Actualiza ponderación de calidad del servicio sugerido. |
 | `alert.published` | Módulo 2 (Catálogo/Analítica) | `q.notifications.broadcast` | Módulo 2 (Catálogo/Analítica) | Despacha notificaciones oficiales sobre aforo o cierres temporales. |
+
+> El Módulo 5 no participa en el bus de eventos: obtiene los datos que necesita bajo demanda mediante sus herramientas de consulta.
 
 #### Esquema Estándar de Mensaje JSON:
 ```json
@@ -455,7 +461,7 @@ Colección: `resenas` (Módulo 4: Reseñas & Moderación)
 * **Prefijo `token:blacklist:{jwtId}`:** Almacena JWTs revocados anticipadamente hasta su expiración (TTL = tiempo restante del token).
 * **Prefijo `rate_limit:{ip}:{ruta}`:** Llaves enteras gestionadas con el algoritmo *Token Bucket* / *Fixed Window Counter* (`INCR` con TTL de 60 segundos) para bloquear abusos si se superan 100 peticiones por minuto.
 * **Prefijo `catalog:item:{servicioId}`:** Serialización JSON con la ficha del atractivo y sus coordenadas (TTL = 600 segundos).
-* **Prefijo `recommendations:user:{turistaId}`:** Listado de los 5 atractivos con mayor afinidad generados por el Módulo 5 (TTL = 1800 segundos).
+* **Prefijo `chat:session:{conversacionId}`:** Últimos 10 mensajes de la conversación con el chatbot del Módulo 5 (TTL = 24 horas).
 
 ---
 
@@ -582,23 +588,32 @@ sequenceDiagram
 
 ---
 
-### 6.5 Flujo 5: Pipeline Asíncrono de Inferencia de Recomendaciones con IA
+### 6.5 Flujo 5: Consulta al Chatbot de Recomendaciones con Gemini y Herramientas
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant Broker as RabbitMQ
-    participant AI as Módulo 5 (Worker Python IA)
-    participant Models as Matrices Sintéticas / SVD
+    actor Tur as Turista
+    participant GW as API Gateway
+    participant AI as Módulo 5 (Chatbot)
+    participant Gem as Gemini API
+    participant Core as Módulos 2, 3 y 4
     participant Cache as Valkey (Caché)
 
-    Broker->>AI: Consumir evento 'booking.created' / 'review.published'
-    AI->>AI: Extraer turistaId, servicioId y categoría
-    AI->>Models: Calcular afinidad híbrida (Contenido + Filtrado Colaborativo)
-    AI->>AI: Aplicar regla de sostenibilidad (priorizar destinos con aforo bajo)
-    AI->>AI: Construir texto explicativo (RNF-08)
-    AI->>Cache: Guardar SETEX recommendations:user:{turistaId} 1800s
-    AI->>Broker: ACK mensaje procesado exitosamente
+    Tur->>GW: POST /api/v1/recommendations/chat (mensaje + JWT)
+    GW->>AI: Reenvía con identidad validada
+    AI->>Cache: Recuperar historial reciente de la conversación
+    AI->>Gem: Mensaje + historial + herramientas disponibles
+    loop Mientras Gemini solicite herramientas (máx. 6)
+        Gem-->>AI: Solicita herramienta (ej. buscar_servicios)
+        AI->>Core: Consulta de solo lectura (REST)
+        Core-->>AI: Datos reales de la plataforma
+        AI->>Gem: Resultado de la herramienta
+    end
+    Gem-->>AI: Respuesta con recomendaciones
+    AI->>AI: Validar que los servicios provengan de las herramientas y que cada uno tenga justificación (RNF-08)
+    AI->>Cache: Guardar conversación actualizada
+    AI-->>Tur: Respuesta del chatbot + recomendaciones justificadas
 ```
 
 ---
@@ -695,16 +710,16 @@ services:
       - mongodb-reviews
       - rabbitmq
 
-  # 3. Microservicio de Inteligencia Artificial (Worker)
+  # 3. Microservicio de Inteligencia Artificial (Chatbot)
   ai-service:
     build: ./services/ai-service
     environment:
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_MODEL=${GEMINI_MODEL}
       - REDIS_URL=redis://valkey-cache:6379
     networks:
       - backend-net
     depends_on:
-      - rabbitmq
       - valkey-cache
 
   # 4. Bases de Datos & Middleware FOSS

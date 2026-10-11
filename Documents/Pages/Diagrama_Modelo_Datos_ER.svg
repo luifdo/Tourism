@@ -151,9 +151,8 @@
     <text x="12" y="52" class="attr-pk">PK  id</text><text x="258" y="52" text-anchor="end" class="attr-type">uuid</text>
     <text x="12" y="72" class="attr-fk">FK  turista_id</text><text x="258" y="72" text-anchor="end" class="attr-type">uuid</text>
     <text x="12" y="92" class="attr-fk">FK  servicio_id</text><text x="258" y="92" text-anchor="end" class="attr-type">uuid</text>
-    <text x="12" y="112" class="attr-name">    puntaje_afinidad</text><text x="258" y="112" text-anchor="end" class="attr-type">float</text>
-    <text x="12" y="132" class="attr-name">    justificacion (RNF-08)</text><text x="258" y="132" text-anchor="end" class="attr-type">string</text>
-    <text x="12" y="152" class="attr-name">    fecha_generacion</text><text x="258" y="152" text-anchor="end" class="attr-type">timestamp</text>
+    <text x="12" y="112" class="attr-name">    justificacion (RNF-08)</text><text x="258" y="112" text-anchor="end" class="attr-type">string</text>
+    <text x="12" y="132" class="attr-name">    fecha_generacion</text><text x="258" y="132" text-anchor="end" class="attr-type">timestamp</text>
   </g>
 
   <!-- Connectors -->
