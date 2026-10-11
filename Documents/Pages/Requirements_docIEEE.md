@@ -317,9 +317,25 @@ A continuación se detalla la especificación completa de los requerimientos fun
 | **UC37** | Cargar documentos de verificación (RNT, RUT) | Prestador | `<<include>>` en UC28 | Módulo 1: Seguridad & IAM |
 | **UC38** | Exportar reportes analíticos (CSV / PDF) | Entidad | `<<extend>>` UC25 | Módulo 6: Analítica & Destino |
 
-#### 3.2.3 Diagrama General de Casos de Uso
+#### 3.2.3 Diagramas de Casos de Uso por Actor
 
-![Diagrama de Casos de Uso - Plataforma Digital de Turismo Santa Marta](./CasosDeUso_PlataformaTurismoSantaMarta.svg)
+Para facilitar su lectura, los casos de uso de la plataforma se presentan en un diagrama por actor. Los casos de uso en gris pertenecen a otro actor y se muestran únicamente para conservar las relaciones `include` y `extend`.
+
+##### 3.2.3.1 Turista
+
+![Casos de uso - Turista](./Turista.png)
+
+##### 3.2.3.2 Entidad de Gestión del Destino
+
+![Casos de uso - Entidad de Gestión del Destino](./Entidad%20de%20Gesti%C3%B3n%20del%20Destino.png)
+
+##### 3.2.3.3 Prestador de Servicios Turísticos
+
+![Casos de uso - Prestador de Servicios Turísticos](./Prestador%20de%20Servicios%20Tur%C3%ADsticos.png)
+
+##### 3.2.3.4 Administrador de la Plataforma
+
+![Casos de uso - Administrador de la Plataforma](./Administrador%20de%20la%20Plataforma.png)
 
 ---
 
