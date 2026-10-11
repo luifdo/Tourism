@@ -61,25 +61,25 @@ El propósito primordial de esta especificación es definir de manera formal, no
 Este documento sirve como acuerdo formal de alto nivel entre el equipo de desarrollo de ingeniería de sistemas, los evaluadores académicos y los actores institucionales y comunitarios del ecosistema turístico de Santa Marta.
 
 > [!NOTE]
-> **Documento Complementario de Implementación Técnica:** Los detalles de bajo nivel, la arquitectura hexagonal de cada microservicio, los contratos de mensajería en RabbitMQ, esquemas DDL y orquestación con Kubernetes se desarrollan en el [Plan de Implementación y Funcionamiento Interno](./Plan_de_Implementacion.md).
+> **Documento Complementario de Implementación Técnica:** Los detalles de bajo nivel, la arquitectura hexagonal de cada microservicio, los contratos de mensajería en RabbitMQ, esquemas DDL y despliegue (AWS Lambda y Kubernetes) se desarrollan en el [Plan de Implementación y Funcionamiento Interno](./Plan_de_Implementacion.md).
 
 ---
 
 ### 1.2 Alcance del sistema
 
-El sistema consiste en el diseño y desarrollo del prototipo funcional de una **Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta**, fundamentada en una **arquitectura de microservicios desacoplada (5 microservicios modulares)** que prioriza el Software Libre y de Código Abierto (FOSS) en sus componentes de soporte y se complementa con servicios externos: la API de Google Gemini para el chatbot de recomendaciones y AWS Lambda para la ejecución de las funciones backend desarrolladas en Python.
+El sistema consiste en el diseño y desarrollo del prototipo funcional de una **Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta**, fundamentada en una **arquitectura de microservicios desacoplada (5 microservicios modulares)** que prioriza el Software Libre y de Código Abierto (FOSS) en sus componentes de soporte y se complementa con servicios externos: la API de Google Gemini para el chatbot de recomendaciones y AWS Lambda para la ejecución de las funciones backend de los Módulos 1 a 4, desarrolladas en Python; el chatbot (Módulo 5) se despliega sobre Kubernetes.
 
 El sistema garantiza atributos de calidad esenciales como escalabilidad elástica, alta disponibilidad, interoperabilidad abierta, seguridad integral (conforme a la Ley 1581 de 2012) y mantenibilidad evolutiva.
 
 * **Consolidación de Catálogo y Analítica (Módulo 2):** Para maximizar la cohesión del dominio espacial y optimizar la persistencia, la gestión de atractivos, rutas, cartografía GIS, analítica de demanda, monitoreo de capacidad de carga y avisos institucionales se unifican en un único contexto cohesionado (**Módulo 2: Catálogo, GIS & Inteligencia de Destino**).
 * **Desacople del Servicio de Inteligencia Artificial (RF-06):** La inteligencia artificial se incorpora como un chatbot de recomendaciones turísticas, independiente del núcleo transaccional (Módulos 1 a 4). El chatbot consume el modelo de **Google Gemini** mediante su API externa —el equipo no entrena, aloja ni ejecuta un modelo propio— y accede a la información de la plataforma (atractivos, actividades, prestadores y demás datos pertinentes) únicamente a través de **herramientas (*tools*)** controladas que consultan los módulos correspondientes. El desacople se expresa en la integración y en la separación de responsabilidades: la arquitectura se diseña de modo que una indisponibilidad del proveedor de IA no impida consultar el catálogo ni gestionar reservas.
-* **Fuentes de Datos Abiertos y Consumo de IA como Servicio Externo:** OpenStreetMap y el portal nacional de Datos Abiertos de Colombia se emplean como fuentes de información geográfica y estadística para el catálogo y los indicadores del Módulo 2; no se utilizan para entrenar ni alimentar a Gemini. El chatbot consulta la información disponible en la plataforma mediante las herramientas integradas y el modelo se consume como un servicio externo, por lo que no se elabora un dataset sintético ni se desarrolla un modelo de recomendación propio.
+* **Fuentes de Datos Abiertos y Consumo de IA como Servicio Externo:** OpenStreetMap y el portal nacional de Datos Abiertos de Colombia se emplean como fuentes de información geográfica y estadística para el catálogo y los indicadores del Módulo 2; no se utilizan para entrenar ni alimentar a Gemini. El chatbot consulta la información disponible en la plataforma mediante las herramientas integradas y el modelo se consume como un servicio externo, por lo que no se elabora un dataset sintético para entrenar, ajustar o validar un modelo de recomendación ni se desarrolla un modelo propio.
 
 > [!NOTE]
 > **Alcance Delimitado (Exclusiones Justificadas del Prototipo):**
 > * **Pasarela de Pagos en Línea (UC34 / UC35):** Fuera de alcance en esta iteración. El prototipo opera bajo un modelo de solicitud y confirmación directa de reserva (ver justificación, alternativas evaluadas y *trade-offs* en la [Sección 1.2.1](#121-decisión-de-alcance-exclusión-de-pasarela-de-pagos-en-línea)).
 > * **Registro de Menores de Edad:** Restringido formalmente a mayores de 18 años para resguardar el marco normativo de Habeas Data infantil.
-> * **Modelos de IA propios:** No se entrena, ajusta ni aloja un modelo propio de recomendación, ni se construye un dataset sintético. La IA se consume mediante la API de Gemini (ver RF-06).
+> * **Modelos de IA propios:** No se entrena, ajusta ni aloja un modelo propio de recomendación, ni se construye un dataset sintético para entrenar, ajustar o validar un modelo. La IA se consume mediante la API de Gemini (ver RF-06).
 > * **Repositorio documental en GitHub:** https://github.com/luifdo/tourism-platform/tree/Documents/Documents/Pages
 
 #### 1.2.1 Decisión de Alcance: Exclusión de Pasarela de Pagos en Línea
@@ -265,8 +265,8 @@ Conforme al estándar ISO/IEC/IEEE 29148:2018, los interesados del sistema se cl
 ### 2.4 Restricciones generales
 
 #### 2.4.1 Restricciones Técnicas
-* **Arquitectura de Microservicios:** Implementación de los 5 microservicios desacoplados definidos en la Sección 3.6 (el Módulo 2 consolida Catálogo, GIS e Inteligencia de Destino). La lógica de negocio de las funciones backend se desarrolla en Python, con AWS Lambda y Boto3 para interactuar con los servicios de AWS que correspondan; el despliegue y el entorno de ejecución de la plataforma (módulos, gateway, persistencia, caché y broker) se orquestan con Kubernetes, manteniendo los servicios activos de forma permanente.
-* **Consumo de IA mediante API:** El chatbot de recomendaciones (RF-06) utiliza la API de Google Gemini como servicio externo; no se despliega ni se entrena un modelo propio.
+* **Arquitectura de Microservicios:** Implementación de los 5 microservicios desacoplados definidos en la Sección 3.6 (el Módulo 2 consolida Catálogo, GIS e Inteligencia de Destino). La lógica de negocio de los Módulos 1 a 4 se desarrolla en Python y se ejecuta como funciones en AWS Lambda, con Boto3 para interactuar con los servicios de AWS que correspondan; el Módulo 5 (chatbot) se despliega sobre Kubernetes, que mantiene el servicio activo de forma permanente.
+* **Consumo de IA mediante API:** El chatbot de recomendaciones (RF-06) utiliza la API de Google Gemini como servicio externo; no se despliega ni se entrena un modelo propio. Por tratarse de un servicio propietario, constituye una excepción a la prioridad de software libre.
 * **Persistencia Políglota FOSS:** Uso de motores de datos de código abierto bajo el principio *Database-per-Service* (PostgreSQL + PostGIS, MongoDB/JSONB y Valkey/Redis).
 * **Integración Abierta:** Prohibición del uso de APIs privativas de mapas con costos por consumo (ej. Google Maps API); uso estricto del ecosistema OpenStreetMap. Esta restricción aplica a servicios de cartografía y geocodificación; no alcanza al consumo de la API de Gemini para el chatbot.
 * **Compatibilidad Multiplataforma:** Interfaz web responsiva compatible con navegadores móviles y de escritorio modernos sin requerir instalación de aplicativos nativos.
@@ -282,7 +282,7 @@ Conforme al estándar ISO/IEC/IEEE 29148:2018, los interesados del sistema se cl
 * **Límite de Edad:** Registro exclusivo para personas mayores de 18 años para resguardar la privacidad infantil.
 
 #### 2.4.4 Restricciones Ambientales y de Sostenibilidad
-* **Protección de Ecosistemas Vulnerables:** Las recomendaciones del chatbot deben procurar orientar la dispersión de flujos turísticos hacia destinos emergentes para mitigar la saturación de áreas protegidas de la Sierra Nevada y el Parque Tayrona.
+* **Protección de Ecosistemas Vulnerables:** Las recomendaciones del chatbot deben priorizar destinos con baja presión sobre la capacidad de carga y evitar zonas con alertas oficiales activas, orientando la dispersión de flujos turísticos hacia destinos emergentes para mitigar la saturación de áreas protegidas de la Sierra Nevada y el Parque Tayrona.
 * **Monitoreo de Capacidad de Carga:** Indicadores analíticos para apoyar las restricciones de ingreso dictadas por autoridades ambientales.
 
 #### 2.4.5 Restricciones Normativas y Legales
@@ -302,7 +302,7 @@ Conforme al estándar ISO/IEC/IEEE 29148:2018, los interesados del sistema se cl
 3. **Dependencia del Servicio de Transporte de Correo (SMTP):** El despacho de correos electrónicos transaccionales de confirmación de reserva (UC36, RF-11) y restablecimiento de credenciales depende de la conectividad con un servidor de correo saliente SMTP (o servicio FOSS compatible como Postal / AWS SES).
 4. **Dependencia de Verificación Administrativa Humana:** La activación pública de las ofertas de prestadores depende del proceso de revisión y validación manual de los documentos de acreditación legal (RNT, RUT) por parte del rol Administrador del Sistema.
 5. **Dependencia de Información Oficial de Destino:** La calibración de los límites de aforo y alertas institucionales asume la provisión periódica de lineamientos de capacidad de carga por parte de la Entidad de Gestión (INDETUR, Corpoteyrona, Parques Nacionales Naturales).
-6. **Dependencia del Servicio Externo de IA (API de Google Gemini):** El chatbot depende de la disponibilidad de la API de Gemini y se asumen credenciales de acceso vigentes. Se consideran aspectos de diseño, no fallos confirmados: la dependencia de la disponibilidad del proveedor, los límites de solicitudes, los costos de consumo y la latencia de las consultas. El núcleo transaccional se diseña para seguir operando ante una indisponibilidad del servicio de IA.
+6. **Dependencia del Servicio Externo de IA (API de Google Gemini):** El chatbot depende de la disponibilidad de la API de Gemini y se asumen credenciales de acceso vigentes. Se consideran aspectos de diseño, no fallos confirmados: la dependencia de la disponibilidad del proveedor, los límites de solicitudes, los costos de consumo y la latencia de las consultas. El núcleo transaccional se diseña para seguir operando ante una indisponibilidad del servicio de IA. Dado que la conversación y los resultados de las herramientas viajan a un servicio externo, al modelo se le envía el mínimo de información necesaria (nunca el nombre, el correo ni el documento del turista) y, antes de enviar información de turistas reales, se deben revisar las condiciones de uso de datos del plan de Gemini utilizado (Ley 1581 de 2012).
 
 ---
 
@@ -356,7 +356,7 @@ A continuación se detalla la especificación completa de los requerimientos fun
 | **UC11** | Solicitar reserva de actividad o servicio | Turista | `<<include>>` UC2, `<<include>>` UC10 | Módulo 3: Reservas & Cupos |
 | **UC12** | Cancelar / modificar solicitud de reserva | Turista | `<<include>>` UC13 | Módulo 3: Reservas & Cupos |
 | **UC13** | Consultar historial de reservas propias | Turista | - | Módulo 3: Reservas & Cupos |
-| **UC14** | Recibir recomendaciones personalizadas justificadas mediante chatbot | Turista | Invoca herramientas de consulta de la plataforma (Módulo 2); consume la API de Gemini | Módulo 5: IA & Recomendación |
+| **UC14** | Recibir recomendaciones personalizadas justificadas mediante chatbot | Turista | Invoca herramientas de solo lectura sobre UC8, UC9, UC10, UC13, UC15, UC24 y UC26; consume la API de Gemini | Módulo 5: IA & Recomendación |
 | **UC15** | Calificar y redactar reseña de experiencia | Turista | Extendido por UC29 | Módulo 4: Anotaciones & Reseñas |
 | **UC16** | Visualizar mapa interactivo de atractivos y zonas | Turista, Entidad | Integración OpenStreetMap | Módulo 2: Catálogo, GIS & Destino |
 | **UC17** | Registrar nueva oferta turística | Prestador | `<<include>>` UC2, `<<include>>` UC28 | Módulo 2: Catálogo, GIS & Destino |
@@ -563,7 +563,7 @@ flowchart LR
 * **API de Google Gemini (Servicio de IA Generativa):**
   * *Protocolo:* HTTPS / REST.
   * *Formato:* Mensajes JSON con la consulta del usuario, la declaración de las herramientas disponibles y la respuesta generada.
-  * *Finalidad:* Generación de las respuestas del chatbot de recomendaciones (Módulo 5) y solicitud de las herramientas necesarias para consultar información de la plataforma. La ejecución de las herramientas y el acceso a los datos se realizan en la plataforma; el equipo no entrena ni ajusta el modelo con esos datos.
+  * *Finalidad:* Generación de las respuestas del chatbot de recomendaciones (Módulo 5) y solicitud de las herramientas necesarias para consultar información de la plataforma. La ejecución de las herramientas y el acceso a los datos se realizan en la plataforma; el equipo no entrena ni ajusta el modelo con esos datos. Al modelo solo se le envía el mínimo de información necesaria, nunca el nombre, el correo ni el documento del turista.
 
 #### 3.3.3 Interfaces de Comunicación e Integración
 * **API Gateway Perimetral:**
@@ -590,7 +590,7 @@ flowchart LR
 | **RNF-09** | **Respaldo & Recuperación** | Mecanismos de copia de seguridad periódica de las bases de datos y procedimiento de restauración validado. | **Should** | Ejecución de al menos un simulacro de restauración de datos documentado. |
 | **RNF-10** | **Auditoría de Seguridad** | Registro inmutable de eventos administrativos, accesos denegados y modificaciones de estado. | **Must** | Consulta de bitácora disponible en panel administrativo (UC33). |
 | **RNF-11** | **Usabilidad** | El flujo de solicitud de reserva debe completarse en un máximo de 4 pasos interactivos. | **Should** | Validación mediante pruebas de usuario guiadas (Buscar $\rightarrow$ Detalle $\rightarrow$ Solicitar $\rightarrow$ Confirmar). |
-| **RNF-12** | **Despliegue y Operación Continua** | La plataforma debe desplegarse y operarse sobre Kubernetes, manteniendo sus servicios activos de forma permanente. | **Must** | Despliegue reproducible mediante la configuración declarativa de Kubernetes; los servicios permanecen activos y responden en `/health` (RNF-01). |
+| **RNF-12** | **Despliegue y Operación Continua** | El chatbot (Módulo 5) debe desplegarse sobre Kubernetes manteniendo su servicio activo de forma permanente; los Módulos 1 a 4 se ejecutan como funciones AWS Lambda. | **Must** | Despliegue reproducible del Módulo 5 mediante la configuración declarativa de Kubernetes; el servicio permanece activo y responde en `/health`. |
 
 ---
 
@@ -600,14 +600,14 @@ Formato de especificación formal: **Fuente $\rightarrow$ Estímulo $\rightarrow
 
 | ID | Atributo | Escenario Formal |
 |---|---|---|
-| **ESC-01** | **Disponibilidad** | *Fuente:* Caída imprevista de un nodo de servicio. *Estímulo:* Falla en el contenedor del Módulo de Reseñas. *Ambiente:* Operación normal. *Artefacto:* API Gateway y clúster. *Respuesta:* El Gateway aísla el microservicio degradado sin interrumpir la navegación en catálogo ni las reservas. *Medida:* Disponibilidad global del sistema $\ge 99.0\%$, tiempo de aislamiento $< 5$ segundos. |
+| **ESC-01** | **Disponibilidad** | *Fuente:* Caída imprevista de un nodo de servicio. *Estímulo:* Falla en el Módulo de Reseñas. *Ambiente:* Operación normal. *Artefacto:* API Gateway y módulos del backend. *Respuesta:* El Gateway aísla el microservicio degradado sin interrumpir la navegación en catálogo ni las reservas. *Medida:* Disponibilidad global del sistema $\ge 99.0\%$, tiempo de aislamiento $< 5$ segundos. |
 | **ESC-02** | **Rendimiento & Carga** | *Fuente:* Turistas concurrentes en temporada de vacaciones. *Estímulo:* 500 solicitudes concurrentes por segundo en búsqueda de catálogo. *Ambiente:* Pico estacional. *Artefacto:* Módulo 2 (Catálogo) + Caché Redis. *Respuesta:* El sistema atiende las consultas apoyándose en caché en memoria. *Medida:* Tiempo de respuesta $p95 < 2.0$ segundos sin errores HTTP 5xx. |
 | **ESC-03** | **Interoperabilidad** | *Fuente:* Desarrollador / Administrador. *Estímulo:* Integración de una nueva fuente de datos abiertos de eventos culturales. *Ambiente:* Mantenimiento evolutivo. *Artefacto:* Módulo 2 (Catálogo). *Respuesta:* Ingesta de datos vía API REST sin modificar la estructura del esquema relacional base. *Medida:* Incorporación funcional completada en $\le 3$ días hábiles. |
 | **ESC-04** | **Seguridad & Auditoría** | *Fuente:* Usuario no autorizado / Atacante externo. *Estímulo:* Intento de acceso a endpoints de reportes institucionales sin token o con rol inválido. *Ambiente:* Operación normal. *Artefacto:* Módulo 1 (IAM) y API Gateway. *Respuesta:* Bloqueo inmediato de la petición con HTTP 403 Forbidden y registro detallado del evento (IP, timestamp, usuario) en la bitácora. *Medida:* 100% de los accesos indebidos registrados en la bitácora de auditoría inmutable. |
 | **ESC-05** | **Mantenibilidad** | *Fuente:* Equipo de ingeniería. *Estímulo:* Ajuste de la configuración del chatbot (herramientas disponibles, parámetros de consumo o versión del modelo de la API de Gemini). *Ambiente:* Ciclo de desarrollo. *Artefacto:* Módulo 5 (IA). *Respuesta:* Actualización y despliegue del componente del chatbot sin reiniciar ni alterar los microservicios de Reservas o Catálogo. *Medida:* Cero tiempo de inactividad (*zero-downtime*) en el núcleo transaccional. |
 | **ESC-06** | **Recuperación ante Fallos** | *Fuente:* Administrador del sistema. *Estímulo:* Simulación de corrupción de la base de datos de reservas. *Ambiente:* Prueba de contingencia. *Artefacto:* Script de respaldo y PostgreSQL. *Respuesta:* Restauración del último volcado (*dump*) programado. *Medida:* Tiempo de recuperación objetivo ($RTO) \le 30$ minutos; pérdida máxima de datos ($RPO) \le 24$ horas. |
 | **ESC-07** | **Usabilidad** | *Fuente:* Turista primerizo. *Estímulo:* Búsqueda, selección y envío de solicitud de reserva para un tour ecológico. *Ambiente:* Dispositivo móvil con conexión estándar 4G. *Artefacto:* Interfaz de usuario web. *Respuesta:* Navegación guiada en un flujo de 4 pantallas consecutivas sin bloqueos. *Medida:* Tasa de éxito en la tarea $\ge 90\%$ en pruebas de usabilidad asistidas. |
-| **ESC-08** | **Escalabilidad** | *Fuente:* Turistas concurrentes durante temporada alta (vacaciones de fin de año, Semana Santa). *Estímulo:* El tráfico sostenido sobre catálogo y reservas se duplica respecto al escenario ESC-02, pasando de 500 a 1.000 solicitudes por segundo durante al menos 30 minutos. *Ambiente:* Despliegue piloto en temporada alta. *Artefacto:* Módulo 2 (Catálogo & GIS), Módulo 3 (Reservas & Cupos) y orquestador (Kubernetes). *Respuesta:* Se agregan réplicas horizontales únicamente de los servicios presionados, sin reiniciar ni escalar los demás microservicios; al descender la demanda, las réplicas adicionales se retiran. El escalado se ejecuta mediante Kubernetes. *Medida:* Réplicas adicionales operativas en $\le 2$ minutos; la capacidad atendida crece al menos 1,8 veces al duplicar las réplicas; se mantiene $p95 < 2.0$ segundos y tasa de errores HTTP 5xx $< 1\%$ durante todo el pico. |
+| **ESC-08** | **Escalabilidad** | *Fuente:* Turistas concurrentes durante temporada alta (vacaciones de fin de año, Semana Santa). *Estímulo:* El tráfico sostenido sobre catálogo y reservas se duplica respecto al escenario ESC-02, pasando de 500 a 1.000 solicitudes por segundo durante al menos 30 minutos. *Ambiente:* Despliegue piloto en temporada alta. *Artefacto:* Módulo 2 (Catálogo & GIS), Módulo 3 (Reservas & Cupos), ambos como funciones AWS Lambda. *Respuesta:* Se incrementa la capacidad únicamente de los servicios presionados, sin reiniciar ni escalar los demás microservicios; al descender la demanda, la capacidad adicional se libera. El escalado de instancias de las funciones lo gestiona AWS Lambda dentro de los límites de concurrencia configurados. *Medida:* Capacidad adicional operativa en $\le 2$ minutos; la capacidad atendida crece al menos 1,8 veces al duplicar la capacidad asignada; se mantiene $p95 < 2.0$ segundos y tasa de errores HTTP 5xx $< 1\%$ durante todo el pico. |
 
 ---
 
@@ -618,7 +618,7 @@ Formato de especificación formal: **Fuente $\rightarrow$ Estímulo $\rightarrow
 Se adopta una **Arquitectura de Microservicios Desacoplada**, organizada en **5 microservicios funcionales bien delimitados (*Bounded Contexts*)**, un **API Gateway perimetral** y una **Capa Transversal de Mensajería y Observabilidad**, garantizando una separación nítida de responsabilidades y priorizando el Software Libre en sus componentes de soporte, complementado con servicios externos (API de Gemini y AWS Lambda).
 
 > [!NOTE]
-> **Justificación de la selección y detalle de implementación:** La comparación entre esta alternativa y un Monolito Modular, con tabla ponderada, decisión justificada y análisis de *trade-offs*, se documenta en [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md). El diseño de detalle interno, puertos y adaptadores (arquitectura hexagonal), diagramas de secuencia física y orquestación con Kubernetes se desarrollan en el [Plan de Implementación y Funcionamiento Interno](./Plan_de_Implementacion.md).
+> **Justificación de la selección y detalle de implementación:** La comparación entre esta alternativa y un Monolito Modular, con tabla ponderada, decisión justificada y análisis de *trade-offs*, se documenta en [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md). El diseño de detalle interno, puertos y adaptadores (arquitectura hexagonal), diagramas de secuencia física y despliegue (AWS Lambda y Kubernetes) se desarrollan en el [Plan de Implementación y Funcionamiento Interno](./Plan_de_Implementacion.md).
 
 ![Diagrama de Arquitectura de Microservicios FOSS](./Diagrama_Arquitectura_Microservicios.svg)
 
@@ -681,7 +681,7 @@ flowchart TB
 
     Gemini["Google Gemini API<br><i>(Servicio externo de IA)</i>"]:::extStyle
     MS5 ==>|HTTPS / API| Gemini
-    MS5 -->|Invoca herramientas de consulta| MS2
+    MS5 -->|Invoca herramientas de consulta| MS2 & MS3 & MS4
 ```
 </details>
 
@@ -707,17 +707,17 @@ flowchart LR
 
     subgraph M2["Módulo 2: Catálogo, GIS & Destino"]
         direction TB
-        C2["• Gestión de atractivos y eventos<br>• Búsqueda espacial OpenStreetMap<br>• Indicadores de demanda turística<br>• Monitoreo de capacidad de carga<br>• Tableros, alertas y correos<br>• Herramientas de consulta para el chatbot"]:::cardCat
+        C2["• Gestión de atractivos y eventos<br>• Búsqueda espacial OpenStreetMap<br>• Indicadores de demanda turística<br>• Monitoreo de capacidad de carga<br>• Tableros, alertas y correos<br>• Consultas para el chatbot"]:::cardCat
     end
 
     subgraph M3["Módulo 3: Reservas & Cupos"]
         direction TB
-        C3["• Motor de cupos en tiempo real<br>• Ciclo de vida de solicitudes<br>• Historial del turista<br>• Panel de atención del prestador"]:::cardRes
+        C3["• Motor de cupos en tiempo real<br>• Ciclo de vida de solicitudes<br>• Historial del turista<br>• Panel de atención del prestador<br>• Consultas para el chatbot"]:::cardRes
     end
 
     subgraph M4["Módulo 4: Reseñas & Moderación"]
         direction TB
-        C4["• Calificaciones y comentarios<br>• Respuestas de prestadores<br>• Moderación manual de reseñas reportadas"]:::cardRev
+        C4["• Calificaciones y comentarios<br>• Respuestas de prestadores<br>• Moderación manual de reseñas reportadas<br>• Consultas para el chatbot"]:::cardRev
     end
 
     subgraph M5["Módulo 5: IA & Recomendación"]
@@ -744,7 +744,7 @@ flowchart LR
   * Agregación analítica de demanda turística y cálculo de índices de presión sobre la capacidad de carga territorial.
   * Consola de planificación con tableros de control y exportación de reportes estructurados (CSV/PDF) para autoridades turísticas.
   * Publicación de alertas oficiales de sostenibilidad y despacho automatizado de notificaciones por correo electrónico (SMTP).
-  * Herramientas de consulta para el chatbot: funciones controladas que permiten a Gemini solicitar información específica del catálogo (atractivos, actividades y fichas de prestadores), de acuerdo con las capacidades autorizadas. Las funciones de catálogo y búsqueda que utiliza el turista en la interfaz (RF-01, RF-02) las desarrolla la plataforma; las herramientas solo permiten al chatbot consultar esa información bajo demanda, sin entrenar el modelo ni incorporar los datos a sus parámetros.
+  * Consultas para el chatbot: los contratos del módulo exponen la información de catálogo (UC8, UC9), de presión sobre la capacidad de carga (UC24) y de alertas oficiales (UC26) que el chatbot consulta mediante sus herramientas de solo lectura (ver Módulo 5), sin entrenar el modelo ni incorporar los datos a sus parámetros. Las funciones de catálogo y búsqueda que utiliza el turista en la interfaz (RF-01, RF-02) las desarrolla la plataforma.
 
 ##### 3. Módulo 3: Disponibilidad y Gestión de Reservas (Bookings & Availability Service)
 * **Propósito:** Gestionar el ciclo de vida de las solicitudes de reserva y el control de cupos en tiempo real.
@@ -752,6 +752,7 @@ flowchart LR
   * Consulta atómica y bloqueo transaccional de cupos para evitar sobreventas (*overbooking*).
   * Máquina de estados de reservas (`Solicitada` $\rightarrow$ `Confirmada` $\rightarrow$ `Rechazada` $\rightarrow$ `Cancelada`).
   * Consolas de gestión de solicitudes para prestadores y vista de historial para turistas.
+  * Consultas para el chatbot: disponibilidad de cupos (UC10) e historial de reservas del turista autenticado (UC13).
 
 ##### 4. Módulo 4: Anotaciones, Reseñas y Moderación (Reviews & Community Service)
 * **Propósito:** Fomentar la retroalimentación comunitaria garantizando un entorno confiable y libre de contenido inapropiado.
@@ -759,17 +760,24 @@ flowchart LR
   * Registro de calificaciones multidimensionales y reseñas de experiencias de turistas.
   * Canal de respuesta pública para prestadores verificados.
   * Revisión manual, por parte del Administrador, de las reseñas y del contenido sensible reportado (UC29).
+  * Consultas para el chatbot: reseñas y calificación de un servicio (UC15).
 
 ##### 5. Módulo 5: Inteligencia Artificial y Recomendación Desacoplada (AI Recommendation Chatbot)
 * **Propósito:** Ofrecer recomendaciones personalizadas de atractivos y actividades mediante un chatbot que consume la API de Gemini, sin penalizar el rendimiento del núcleo transaccional.
-* **Alcance del componente:** Gemini es un servicio externo consumido mediante API; las herramientas, la lógica de negocio y la integración las desarrolla el equipo. No se entrena, ajusta ni aloja un modelo propio.
+* **Alcance del componente:** Gemini es un servicio externo consumido mediante API; las herramientas, la lógica de negocio y la integración las desarrolla el equipo. No se entrena, ajusta ni aloja un modelo propio. El chatbot es de solo lectura: no crea, modifica ni cancela reservas ni publica contenido, y orienta al turista hacia las pantallas de la plataforma para hacerlo. Sus respuestas se limitan al turismo en Santa Marta y a la plataforma, en español e inglés.
 * **Capacidades previstas (fase de diseño):**
-  * Recepción de la consulta del turista en lenguaje natural.
-  * Identificación de la información necesaria para responder.
-  * Invocación de las herramientas disponibles para consultar datos de la plataforma (atractivos, actividades, prestadores y demás datos pertinentes).
-  * Organización de los resultados obtenidos y generación de una recomendación contextualizada.
+  * Recepción de la consulta del turista en lenguaje natural, con memoria de la conversación dentro de la sesión.
+  * Identificación, por parte del modelo, de si necesita información de la plataforma para responder.
+  * Invocación de herramientas de solo lectura que consultan datos de la plataforma:
+    * búsqueda y detalle de servicios (Módulo 2; UC8, UC9);
+    * disponibilidad e historial del turista (Módulo 3; UC10, UC13);
+    * reseñas de un servicio (Módulo 4; UC15);
+    * presión sobre la capacidad de carga y alertas oficiales (Módulo 2; UC24, UC26).
+  * Organización de los resultados obtenidos y generación de una recomendación contextualizada, priorizando destinos con menor presión de capacidad de carga y evitando zonas con alertas oficiales activas (sección 2.4.4).
   * Presentación de una respuesta comprensible y justificada ante el usuario final (RNF-08).
+  * Validación de la salida: solo se recomiendan servicios obtenidos mediante las herramientas y toda recomendación incluye su justificación; las recomendaciones entregadas se registran en `RECOMENDACION_LOG`.
   * Manejo de errores o de falta de información, informando al usuario sin inventar atractivos, servicios, precios ni disponibilidad.
+* **Controles:** La identidad del turista se obtiene del token JWT y nunca la define el modelo; los mensajes del turista y los resultados de las herramientas se tratan como datos, no como instrucciones del sistema.
 
 ##### 6. Capa Perimetral y Transversal
 * **Propósito:** Enrutamiento perimetral seguro, mediación asíncrona y supervisión continua de la salud operativa.
@@ -799,7 +807,7 @@ Cada microservicio gestiona su propio almacén de datos (*Database-per-Service*)
 
 * **PostgreSQL + PostGIS (Relacional & Geoespacial):** Utilizado en Módulo 1 (IAM y auditoría), Módulo 2 (Catálogo espacial y analítica agregada) y Módulo 3 (Reservas y cupos con consistencia ACID).
 * **MongoDB Community / PostgreSQL JSONB (Documental):** Utilizado en Módulo 4 (Reseñas, calificaciones flexibles y réplicas).
-* **Valkey / Redis (Caché en Memoria):** Utilizado para aceleración de consultas de catálogo, control de cuotas (*Rate Limiting*) y listas de revocación de sesiones.
+* **Valkey / Redis (Caché en Memoria):** Utilizado para aceleración de consultas de catálogo, control de cuotas (*Rate Limiting*), listas de revocación de sesiones y contexto de las conversaciones del chatbot.
 
 ---
 
@@ -811,14 +819,14 @@ La plataforma prioriza el **Software Libre y de Código Abierto (FOSS)**, con li
 |---|---|---|---|
 | **Perímetro & Gateway** | Nginx / Traefik | BSD / MIT | Reverse proxy, terminación TLS, Rate Limiting y CORS. |
 | **Backend Core (M1 a M4)** | Python + AWS Lambda + Boto3 | Python: PSF License; Boto3: Apache 2.0; AWS Lambda: servicio gestionado sujeto a las condiciones comerciales de AWS (no es licencia FOSS) | Funciones backend con la lógica transaccional de los módulos core; Boto3 es el SDK con el que Python interactúa con los servicios de AWS que correspondan. |
-| **Backend IA (M5)** | Python + API de Google Gemini (servicio externo) | Python: PSF License; API de Gemini: términos de uso y condiciones comerciales de Google (pendiente de verificación) | Componente del chatbot de recomendaciones: consume la API de Gemini y expone herramientas de consulta de la plataforma. No incluye un modelo propio. |
+| **Backend IA (M5)** | Python + API de Google Gemini (servicio externo) | Python: PSF License; API de Gemini: términos de uso y condiciones comerciales de Google (pendiente de verificación) | Componente del chatbot de recomendaciones: consume la API de Gemini y expone herramientas de consulta de la plataforma. Se despliega sobre Kubernetes. No incluye un modelo propio. |
 | **Persistencia Relacional / GIS** | PostgreSQL + PostGIS | PostgreSQL / GPL-2.0 | Almacén transaccional y consultas geoespaciales. |
 | **Persistencia Documental** | MongoDB Community / JSONB | SSPL / PostgreSQL | Reseñas y opiniones semiestructuradas. |
 | **Caché & Sesiones** | Valkey | BSD-3-Clause | Caché de alta velocidad y control de tasa. |
 | **Bus de Mensajería** | RabbitMQ | MPL 2.0 | Broker de eventos asíncronos desacoplados. |
 | **Cartografía Abierta** | OpenStreetMap + Leaflet.js | ODbL / BSD-2-Clause | Visualización de mapas interactivos libres. |
 | **Frontend Web** | HTML5, CSS3, JavaScript / Vue.js | MIT | Interfaz de usuario responsiva, accesible (WCAG 2.1 AA) e i18n. |
-| **Despliegue & Orquestación** | Kubernetes | Apache 2.0 | Orquestación del despliegue y operación continua (servicios siempre activos), con réplicas para el escalado horizontal. |
+| **Despliegue del Módulo 5** | Kubernetes | Apache 2.0 | Orquestación del chatbot como servicio siempre activo, con réplicas para el escalado horizontal. |
 | **Observabilidad** | Prometheus + Grafana | Apache 2.0 / AGPL-3.0 | Telemetría, métricas de latencia y monitoreo de salud. |
 
 ---
@@ -924,7 +932,7 @@ erDiagram
         uuid id PK "ID de recomendación"
         uuid turista_id FK "Turista receptor"
         uuid servicio_id FK "Servicio sugerido"
-        string justificacion "Motivo comprensible mostrado al turista (RNF-08)"
+        string justificacion_explicabilidad "Motivo comprensible mostrado al turista (RNF-08)"
         timestamp fecha_generacion "Marca temporal"
     }
 ```
@@ -945,7 +953,7 @@ Conforme a las directrices de verificación del estándar ISO/IEC/IEEE 29148:201
 | **RF-03** | Funcional | **Demostración** | Actualización atómica en el calendario de cupos reflejando inmediatamente la reserva o modificación de disponibilidad. |
 | **RF-04** | Funcional | **Prueba** | Creación exitosa de la entidad `SOLICITUD_RESERVA` en estado `Solicitada`, visible simultáneamente en el panel del turista y en el del prestador. |
 | **RF-05** | Funcional | **Demostración** | Formulario de prestador verificado que persiste y actualiza registros en `ATRACTIVO_SERVICIO` e impacta de inmediato el catálogo público. |
-| **RF-06** | Funcional | **Prueba / Análisis** | Ante consultas de prueba del turista, el chatbot responde con recomendaciones construidas a partir de datos obtenidos mediante las herramientas de la plataforma, acompañadas de una justificación comprensible (RNF-08); cuando la información no está disponible, informa al usuario sin inventar atractivos, servicios, precios ni disponibilidad. |
+| **RF-06** | Funcional | **Prueba / Análisis** | Ante consultas de prueba del turista, el chatbot responde con recomendaciones construidas a partir de datos obtenidos mediante las herramientas de la plataforma, acompañadas de una justificación comprensible (RNF-08) registrada en `RECOMENDACION_LOG`; solo se presentan servicios obtenidos mediante las herramientas y, cuando la información no está disponible, se informa al usuario sin inventar atractivos, servicios, precios ni disponibilidad. |
 | **RF-07** | Funcional | **Demostración** | Renderizado visual de tableros institucionales con agregaciones de demanda por sector y mapas de calor estimativos de capacidad de carga. |
 | **RF-08** | Funcional | **Inspección / Demostración** | Flujo de incorporación y publicación de oferta para prestadores comunitarios completable en un máximo de 3 pasos interactivos sin fallos. |
 | **RF-09** | Funcional | **Prueba** | Invocación no autenticada o con rol insuficiente a endpoints restringidos retorna HTTP 403 Forbidden y genera un registro en `BITACORA_AUDITORIA`. |
@@ -953,7 +961,7 @@ Conforme a las directrices de verificación del estándar ISO/IEC/IEEE 29148:201
 | **RF-11** | Funcional | **Prueba** | Despacho asíncrono y entrega efectiva de correo MIME multipart tras la confirmación de reserva (UC20) en un tiempo $\le 10$ segundos. |
 | **RF-12** | Funcional | **Demostración** | Carga de archivos PDF/imagen (RNT y RUT) en almacenamiento seguro y transición de estado en panel administrativo de validación. |
 | **RF-13** | Funcional | **Prueba** | Generación y descarga íntegra de archivos estructurados en formato CSV y PDF con métricas analíticas del destino sin errores de serialización. |
-| **RNF-01** a **RNF-12** | No Funcional | **Prueba / Análisis** | Verificación empírica contra los escenarios formales de calidad (ESC-01 a ESC-08), pruebas de carga con k6/JMeter ($p95 < 2.0$s), auditorías WCAG 2.1 AA y despliegue reproducible sobre Kubernetes. |
+| **RNF-01** a **RNF-12** | No Funcional | **Prueba / Análisis** | Verificación empírica contra los escenarios formales de calidad (ESC-01 a ESC-08), pruebas de carga con k6/JMeter ($p95 < 2.0$s), auditorías WCAG 2.1 AA y despliegue reproducible de la plataforma. |
 
 ---
 
@@ -1004,9 +1012,9 @@ flowchart LR
 
 | ID | Categoría | Descripción del Riesgo | Impacto | Probabilidad | Estrategia de Mitigación Propuesta |
 |---|---|---|---|---|---|
-| **R-01** | **Técnico** | Curva de aprendizaje del equipo en orquestación de microservicios y colas asíncronas. | Alto | Media | Practicar primero en un clúster Kubernetes de pruebas antes de realizar cualquier despliegue definitivo; establecer plantillas base para los microservicios. |
+| **R-01** | **Técnico** | Curva de aprendizaje del equipo en orquestación de microservicios y colas asíncronas. | Alto | Media | Practicar primero en entornos de prueba (funciones Lambda y clúster Kubernetes del Módulo 5) antes de realizar cualquier despliegue definitivo; establecer plantillas base para los microservicios. |
 | **R-02** | **Seguridad** | Exposición de endpoints o fuga de datos sensibles de prestadores y turistas. | Crítico | Baja | Aplicación de arquitectura Zero-Trust interna, validación perimetral de JWT en API Gateway, cifrado Argon2id y auditorías automatizadas de código. |
-| **R-03** | **Alcance** | Desviación del alcance por complejización innecesaria del módulo de Inteligencia Artificial. | Alto | Media | Congelamiento estricto del alcance en RF-06 (chatbot de recomendaciones que consume la API de Gemini y consulta la plataforma mediante herramientas), descartando el entrenamiento de modelos propios, los datasets sintéticos y la visión artificial. |
+| **R-03** | **Alcance** | Desviación del alcance por complejización innecesaria del módulo de Inteligencia Artificial. | Alto | Media | Congelamiento estricto del alcance en RF-06 (chatbot de recomendaciones que consume la API de Gemini y consulta la plataforma mediante herramientas), descartando el entrenamiento de modelos propios, los datasets sintéticos de entrenamiento y la visión artificial. |
 | **R-04** | **Técnico (dependencia externa)** | Dependencia de la API de Gemini: disponibilidad del proveedor, límites de solicitudes, costos de consumo y latencia de las consultas. | Medio | Media | Mantener el chatbot desacoplado del núcleo transaccional para que su indisponibilidad no afecte catálogo ni reservas; manejo de errores con mensajes claros al usuario; seguimiento del consumo frente a los límites de uso del proveedor. |
 | **R-05** | **Gestión** | Disponibilidad heterogénea de tiempo entre integrantes del equipo durante el semestre. | Alto | Media | Sprints cortos de 2 semanas con entregables modulares e independientes asignados 1:1 por microservicio, visibilizados en GitHub Projects. |
 
@@ -1018,7 +1026,7 @@ Distribución de responsabilidades acordada por el equipo:
 
 | # | Integrante | Responsabilidad técnica | Rol en el proyecto |
 |---|---|---|---|
-| 1 | **Juan Francisco Gonzalez Pacheco** | Frontend y API Gateway | Responsable de validación y calidad |
+| 1 | **Juan Francisco Gonzales Pacheco** | Frontend y API Gateway | Responsable de validación y calidad |
 | 2 | **Valentina Sarait Nieves Hernandez** | Seguridad | Analista de requisitos |
 | 3 | **Andres Felipe Gamero Sanchez** | Reservas | Diseñador de datos |
 | 4 | **Alvaro David Ospino Sanchez** | Inteligencia artificial | Desarrollador principal |
@@ -1032,7 +1040,7 @@ Resumen de la planificación del proyecto. El detalle completo, con diagramas y 
 
 #### D.1 Proceso de desarrollo
 
-Se adopta **Scrum adaptado** al contexto académico, con **7 sprints de 2 semanas** y tablero Kanban en GitHub Projects. Se seleccionó frente a Cascada, RUP y Kanban porque permite alinear cada fase del cronograma con revisiones de sprint, detectar problemas de integración de microservicios de forma temprana (R-01) y organizar el trabajo en paralelo por módulo (R-05). La comparación completa se presenta en el [Plan de Desarrollo, Sección 3.1](./Plan_de_Desarrollo_de_Software.md#31-selección-y-justificación-del-proceso-de-desarrollo).
+Se adopta **Scrum adaptado** al contexto académico, con **7 sprints de 2 semanas** y tablero Kanban en GitHub Projects. Se seleccionó frente a Cascada, RUP y Kanban porque permite alinear cada fase del cronograma con revisiones de sprint, detectar problemas de integración de microservicios de forma temprana (R-01) y organizar el trabajo en paralelo por módulo (R-05).
 
 #### D.2 Cronograma (14 semanas)
 
@@ -1043,7 +1051,7 @@ Se adopta **Scrum adaptado** al contexto académico, con **7 sprints de 2 semana
 | **Fase 1: Requerimientos y Dominio** | Especificación de Requerimientos (SRS ISO/IEC/IEEE 29148). | Semanas 1–2 | 24 ago – 6 sep |
 | **Fase 2: Comparación Arquitectónica** | [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md). | Semanas 3–4 | 7 sep – 20 sep |
 | **Fase 3: Diseño Arquitectónico** | Especificación de interfaces y modelo de datos. | Semanas 5–6 | 21 sep – 4 oct |
-| **Fase 4: Construcción del Prototipo** | Microservicios, API Gateway, broker y bases de datos desplegados en Kubernetes (meta: $\ge 60\%$ de casos de uso *Must*). | Semanas 7–12 | 5 oct – 15 nov |
+| **Fase 4: Construcción del Prototipo** | Microservicios (Módulos 1 a 4 en AWS Lambda y Módulo 5 en Kubernetes), API Gateway, broker y bases de datos (meta: $\ge 60\%$ de casos de uso *Must*). | Semanas 7–12 | 5 oct – 15 nov |
 | **Fase 5: Validación y Cierre** | Pruebas de carga (ESC-02, ESC-08), verificación de calidad, informe final y sustentación. | Semanas 13–14 | 16 nov – 29 nov |
 
 #### D.3 Presupuesto
