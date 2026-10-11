@@ -9,11 +9,11 @@
 
 
 > * INTEGRANTES:
-> * **Luis Fernando Barraza Sanchez** 
-> * **Alvaro David Ospino Sanchez**
-> * **Valentina  Sarait Nieves Hernandez** 
+> * **Luis Fernando Barraza Sanchez**
 > * **Andres Felipe Gamero Sanchez**
 > * **Juan Francisco Gonzalez Pacheco**
+> * **Valentina  Sarait Nieves Hernandez** 
+> * **Alvaro David Ospino Sanchez**
 ---
 
 ## 1. Introducción
