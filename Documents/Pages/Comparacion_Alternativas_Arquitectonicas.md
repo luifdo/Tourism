@@ -53,7 +53,7 @@ Escala de calificación de **1 a 5**, donde **5 es siempre el valor más favorab
 * **Disponibilidad (5):** RNF-01 y ESC-01 exigen aislar componentes degradados sin interrumpir catálogo ni reservas durante la temporada alta.
 * **Mantenibilidad / Evolución (4):** RNF-05 y ESC-05 exigen ajustar el chatbot de IA (herramientas, parámetros o versión del modelo de Gemini) sin alterar el núcleo, y el SRS §1.2 define la IA como un componente desacoplado.
 * **Costo relativo (3):** Ambas alternativas caben holgadamente dentro del techo de USD 20.000 (el Escenario A del SRS, Apéndice D, usa USD 6.900); el costo diferencia, pero no es restrictivo.
-* **Tiempo de implementación (3):** El horizonte es de 13 semanas, pero la meta del prototipo está acotada a $\ge 60\%$ de los casos de uso *Must* (SRS, Apéndice D, Fase 4) y la propiedad de cada servicio por un integrante permite trabajo en paralelo (R-05).
+* **Tiempo de implementación (3):** El horizonte es de 13 semanas, pero la meta del prototipo está acotada a $\ge 60\%$ de los casos de uso *Must* (SRS, Apéndice D, Fase 4) y la asignación de un responsable por servicio (SRS, Apéndice C) permite trabajo en paralelo (R-05).
 * **Complejidad técnica (2):** Se mitiga con decisiones de proceso (un solo lenguaje para todos los servicios, plantilla base, entorno local con Docker Compose, R-01) y no compromete por sí misma un atributo de calidad.
 
 > [!NOTE]
@@ -81,7 +81,7 @@ La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microser
 
 * **Económicas (SRS §2.4.2):** El techo de USD 20.000 no descarta ninguna alternativa. Los Microservicios incrementan el costo de infraestructura (más contenedores, broker, varias bases de datos), pero el Escenario A (SRS, Apéndice D) demuestra que el prototipo es viable con USD 6.900 y el Escenario B financia la operación en alta disponibilidad durante 12 meses. El modelo sin pagos en línea (SRS §1.2) evita además costos de certificación PCI-DSS en cualquiera de las dos alternativas.
 * **Técnicas (SRS §2.4.1):** La exigencia de software libre y de despliegue en contenedores es compatible con ambas, pero la combinación de un núcleo transaccional y un servicio de IA (chatbot sobre la API de Gemini) favorece una arquitectura que admita despliegues independientes. La exigencia de RNF-02 (*Must*) inclina la decisión hacia la escalabilidad por servicio.
-* **Sociales (SRS §2.4.3):** La inclusión de prestadores con baja alfabetización digital (RF-08) y el soporte bilingüe (RF-10) se resuelven en la capa de presentación y no diferencian a las alternativas. Sí influye el carácter de bien público de la plataforma: su caída en temporada alta afectaría a turistas y a pequeños prestadores, lo que refuerza el peso de la disponibilidad.
+* **Sociales (SRS §2.4.3):** La inclusión de prestadores con baja alfabetización digital (RF-08), el soporte bilingüe (RF-10) y la operación con conectividad limitada mediante la PWA (RNF-13, ADR-004) se resuelven en la capa de presentación y no diferencian a las alternativas. Sí influye el carácter de bien público de la plataforma: su caída en temporada alta afectaría a turistas y a pequeños prestadores, lo que refuerza el peso de la disponibilidad.
 * **Normativas (SRS §2.4.5):** La Ley 1581 de 2012 favorece aislar los datos personales y los documentos legales en el servicio de IAM con su propia base de datos, limitando el alcance de una eventual brecha.
 
 ### 4.2 Qué se gana y qué se sacrifica con cada alternativa
@@ -89,7 +89,7 @@ La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microser
 | Alternativa | Qué se gana | Qué se sacrifica |
 |---|---|---|
 | **A: Monolito Modular** | Construcción más rápida, menor costo de infraestructura, transacciones ACID locales, depuración y despliegue simples, menor superficie de ataque. | Escalabilidad selectiva, aislamiento de fallos y despliegue independiente del servicio de IA; mayor riesgo de acoplamiento con el tiempo. |
-| **B: Microservicios** *(seleccionada)* | Escalado independiente en temporada alta, aislamiento de fallos, evolución y despliegue independiente de la IA, propiedad de cada servicio por un integrante, aislamiento de datos sensibles. | Mayor tiempo de implementación, complejidad operativa (broker, varias bases de datos, observabilidad), consistencia eventual entre servicios y mayor superficie de ataque interna. |
+| **B: Microservicios** *(seleccionada)* | Escalado independiente en temporada alta, aislamiento de fallos, evolución y despliegue independiente de la IA, un responsable por servicio, aislamiento de datos sensibles. | Mayor tiempo de implementación, complejidad operativa (broker, varias bases de datos, observabilidad), consistencia eventual entre servicios y mayor superficie de ataque interna. |
 
 ### 4.3 Restricciones que más influyeron en la decisión
 
