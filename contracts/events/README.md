@@ -11,6 +11,7 @@ Los eventos solo llevan identificadores; los datos personales (por ejemplo, el c
 | Evento | Productor | Consumidores | Caso de uso |
 |---|---|---|---|
 | [`reserva.solicitada.v1`](./reserva.solicitada.v1.json) | booking-service | catalog-service (aviso al prestador, demanda) | UC11 |
+| [`reserva.modificada.v1`](./reserva.modificada.v1.json) | booking-service | catalog-service (aviso al prestador, demanda) | UC12 |
 | [`reserva.confirmada.v1`](./reserva.confirmada.v1.json) | booking-service | catalog-service (correo UC36, métricas) | UC20 |
 | [`reserva.rechazada.v1`](./reserva.rechazada.v1.json) | booking-service | catalog-service (correo, métricas) | UC20 / expiración |
 | [`reserva.cancelada.v1`](./reserva.cancelada.v1.json) | booking-service | catalog-service (correo, métricas) | UC12 |

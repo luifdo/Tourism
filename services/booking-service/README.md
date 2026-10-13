@@ -21,6 +21,7 @@ Disponibilidad de cupos en tiempo real con bloqueo transaccional, máquina de es
 
 **Publica:**
 * `reserva.solicitada.v1`
+* `reserva.modificada.v1`
 * `reserva.confirmada.v1`
 * `reserva.rechazada.v1`
 * `reserva.cancelada.v1`
