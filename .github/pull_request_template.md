@@ -9,7 +9,6 @@
 - [ ] booking-service
 - [ ] review-service
 - [ ] recommendation-service
-- [ ] analytics-service
 - [ ] gateway / frontend / infra
 - [ ] contracts
 

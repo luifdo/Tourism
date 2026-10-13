@@ -1,5 +1,5 @@
 # Documentación
 
-La documentación del proyecto (SRS, Plan de Desarrollo, Comparación de Alternativas Arquitectónicas y ADRs) se mantiene en la rama [`Documents`](https://github.com/luifdo/tourism-platform/tree/Documents/Documents/Pages).
+La documentación del proyecto (SRS, Comparación de Alternativas Arquitectónicas, Registro de Decisiones Arquitectónicas y Plan de Implementación) está en [`Documents/Pages`](../Documents/Pages/README.md).
 
-Esta carpeta queda reservada para la documentación técnica del código (guías de desarrollo, decisiones de implementación y nuevos ADRs) cuando empiece la construcción.
+Esta carpeta queda reservada para la documentación técnica del código (guías de desarrollo y decisiones de implementación) cuando empiece la construcción.

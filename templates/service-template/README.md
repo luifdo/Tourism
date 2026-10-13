@@ -11,7 +11,7 @@
 | Requerimientos no funcionales | <RNFs> |
 | Escenarios de calidad | <ESCs> |
 | Persistencia | <Base de datos propia> |
-| Lenguaje / framework | <Lenguaje> |
+| Lenguaje / framework | Python 3.12 + FastAPI |
 | Puerto interno | `80XX` |
 | Contrato REST | [`contracts/openapi/service-template.yaml`](../../contracts/openapi/) |
 
@@ -43,7 +43,7 @@ tests/
 
 ## Ejecución
 
-Pendiente de la elección del lenguaje: agregar `Dockerfile`, dependencias y comandos de ejecución y pruebas.
+Pendiente (Fase 4): agregar `Dockerfile`, dependencias y comandos de ejecución y pruebas en Python + FastAPI.
 
 ```bash
 # Desde infra/, una vez agregado el servicio al docker-compose:

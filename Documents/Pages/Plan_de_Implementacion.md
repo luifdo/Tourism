@@ -28,11 +28,10 @@
   * [4.2 Comunicación Asíncrona Orientada a Eventos (RabbitMQ)](#42-comunicación-asíncrona-orientada-a-eventos-rabbitmq)
   * [4.3 Idempotencia, Reintentos y DLQ](#43-idempotencia-reintentos-y-dlq)
   * [4.4 Auditoría Asíncrona](#44-auditoría-asíncrona)
-* [5. Modelos Físicos de Persistencia (Database-per-Service)](#5-modelos-físicos-de-persistencia-database-per-service)
-  * [5.1 Esquemas Relacionales y Geoespaciales (PostgreSQL + PostGIS)](#51-esquemas-relacionales-y-geoespaciales-postgresql--postgis)
-  * [5.2 Esquema Documental de Reseñas (PostgreSQL JSONB)](#52-esquema-documental-de-reseñas-postgresql-jsonb)
-  * [5.3 Estructuras en Memoria (Valkey)](#53-estructuras-en-memoria-valkey)
-  * [5.4 Almacenamiento de Objetos (SeaweedFS)](#54-almacenamiento-de-objetos-seaweedfs)
+* [5. Modelo de Persistencia (Database-per-Service)](#5-modelo-de-persistencia-database-per-service)
+  * [5.1 Bases de Datos por Servicio](#51-bases-de-datos-por-servicio)
+  * [5.2 Reglas de Diseño de Datos](#52-reglas-de-diseño-de-datos)
+  * [5.3 Datos en Memoria y Objetos](#53-datos-en-memoria-y-objetos)
 * [6. Flujos de Ejecución y Secuencias Internas Clave](#6-flujos-de-ejecución-y-secuencias-internas-clave)
   * [6.1 Flujo 1: Autenticación, ForwardAuth y Propagación de Identidad](#61-flujo-1-autenticación-forwardauth-y-propagación-de-identidad)
   * [6.2 Flujo 2: Búsqueda Geoespacial Indexada con PostGIS y Caché](#62-flujo-2-búsqueda-geoespacial-indexada-con-postgis-y-caché)
@@ -304,248 +303,39 @@ Para prevenir efectos secundarios no deseados causados por la entrega repetida d
 * **Eventos propios:** El Módulo 1 inserta sus eventos en la misma transacción que la acción (por ejemplo, el cambio de rol y su registro se confirman juntos).
 * **Eventos de otros módulos:** catalog, booking y review publican `auditoria.registrada` (accesos denegados por rol, exportaciones, cambios de estado de reservas, decisiones de moderación). La cola `iam.auditoria` los inserta en la bitácora.
 * **Accesos con token inválido (ESC-04):** Los detecta el endpoint de verificación de ForwardAuth, que pertenece al Módulo 1 y los registra directamente.
-* **Inmutabilidad:** El usuario de base de datos del servicio solo tiene permisos `INSERT` y `SELECT` sobre la tabla (Sección 5.1).
+* **Inmutabilidad:** El usuario de base de datos del servicio solo tiene permisos de inserción y consulta sobre la tabla (Sección 5.2).
 * **Evolución:** Si se exige garantía total de entrega, cada productor adoptará el patrón *outbox*: el evento se guarda en una tabla de su propia base en la misma transacción y un proceso lo publica después (ADR-008).
 
 ---
 
-## 5. Modelos Físicos de Persistencia (Database-per-Service)
+## 5. Modelo de Persistencia (Database-per-Service)
 
-Las cinco bases son bases lógicas dentro de un mismo clúster PostgreSQL (CloudNativePG). Cada servicio tiene su propio usuario con permisos únicamente sobre su base. Las referencias a entidades de otro servicio se guardan como `UUID` **sin** llave foránea.
+La decisión de persistencia (políglota consolidada) y sus alternativas están en el ADR-003; el modelo conceptual de entidades, en el [SRS §3.7](./Requirements_docIEEE.md#37-modelo-de-datos-preliminar). Esta sección define cómo se reparten los datos entre servicios; el esquema físico detallado (DDL) se construye en la Fase 4 a partir de este modelo.
 
-### 5.1 Esquemas Relacionales y Geoespaciales (PostgreSQL + PostGIS)
+### 5.1 Bases de Datos por Servicio
 
-#### 1. Base de Datos: `iam_db` (Módulo 1: Seguridad & IAM)
-```sql
-CREATE TABLE usuarios (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
-    nombre_completo VARCHAR(150) NOT NULL,
-    telefono VARCHAR(30),
-    rol VARCHAR(20) NOT NULL CHECK (rol IN ('TURISTA', 'PRESTADOR', 'ENTIDAD', 'ADMIN')),
-    activo BOOLEAN DEFAULT TRUE,
-    email_verificado BOOLEAN NOT NULL DEFAULT FALSE,
-    habeas_data_aceptado BOOLEAN NOT NULL DEFAULT FALSE,
-    creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
+Las cinco bases son bases lógicas dentro de un mismo clúster PostgreSQL (CloudNativePG), cada una con un usuario propio que solo tiene permisos sobre ella.
 
-CREATE TABLE documentos_verificacion (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
-    tipo_documento VARCHAR(20) NOT NULL CHECK (tipo_documento IN ('RNT', 'RUT')),
-    numero_registro VARCHAR(50),
-    objeto_s3 VARCHAR(500) NOT NULL,          -- llave del archivo en el bucket documentos-verificacion
-    estado VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'APROBADO', 'RECHAZADO')),
-    observaciones TEXT,
-    fecha_subida TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    revisado_por UUID REFERENCES usuarios(id)
-);
+| Base | Dueño | Modelo | Entidades principales |
+|---|---|---|---|
+| `iam_db` | iam-service | Relacional | `USUARIO`, `DOCUMENTO_VERIFICACION`, `BITACORA_AUDITORIA` |
+| `catalog_db` | catalog-service | Relacional + geoespacial (PostGIS) | `PRESTADOR_PERFIL`, `ATRACTIVO_SERVICIO`, `ALERTA_OFICIAL`, proyección `demanda_diaria` |
+| `booking_db` | booking-service | Relacional (ACID) | `DISPONIBILIDAD_CUPO`, `SOLICITUD_RESERVA` |
+| `review_db` | review-service | Documental (JSONB) | `RESENA_OPINION`, `REPORTE_RESENA`, proyección `elegibilidad_resena` |
+| `recommendation_db` | recommendation-service | Relacional | `RECOMENDACION_LOG` |
 
-CREATE TABLE bitacora_auditoria (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id UUID REFERENCES usuarios(id),
-    accion VARCHAR(50) NOT NULL,
-    resultado VARCHAR(20) NOT NULL CHECK (resultado IN ('EXITO', 'DENEGADO', 'ERROR')),
-    servicio_origen VARCHAR(50) NOT NULL,
-    ip_origen VARCHAR(45),
-    event_id UUID UNIQUE,                      -- evita duplicados de auditoria.registrada
-    detalles JSONB,
-    fecha_evento TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_bitacora_fecha ON bitacora_auditoria(fecha_evento);
-CREATE INDEX idx_bitacora_usuario ON bitacora_auditoria(usuario_id);
+### 5.2 Reglas de Diseño de Datos
 
--- Inmutabilidad (RNF-10): el usuario de la aplicación solo inserta y consulta.
-REVOKE UPDATE, DELETE, TRUNCATE ON bitacora_auditoria FROM iam_app;
-GRANT INSERT, SELECT ON bitacora_auditoria TO iam_app;
-```
+* **Sin acceso cruzado:** Ningún servicio lee la base de otro. Las referencias a entidades ajenas (por ejemplo, `servicio_id` en `booking_db`) son identificadores sin llave foránea; los datos que se necesitan de otro servicio se obtienen por REST o se mantienen como **proyecciones locales** alimentadas por eventos (`demanda_diaria` desde `reserva.*`; `elegibilidad_resena` desde `reserva.finalizada`; `PRESTADOR_PERFIL` desde `prestador.aprobado`).
+* **Bitácora inmutable (RNF-10):** El usuario de aplicación de `iam_db` solo tiene permisos de inserción y consulta sobre la bitácora.
+* **Consistencia de cupos:** Las operaciones de reserva bloquean la fila de disponibilidad dentro de una transacción (Sección 2.3, Módulo 3).
+* **Concurrencia optimista:** Las entidades que la PWA puede editar sin conexión (oferta y cupos) llevan un número de versión para detectar conflictos (Sección 6.8).
+* **Privacidad:** `recommendation_db` guarda la justificación y las herramientas usadas, no el texto de las conversaciones (Ley 1581).
 
-#### 2. Base de Datos: `catalog_db` (Módulo 2: Catálogo, GIS & Inteligencia de Destino)
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
+### 5.3 Datos en Memoria y Objetos
 
-CREATE TABLE categorias_servicios (
-    id SERIAL PRIMARY KEY,
-    nombre VARCHAR(50) UNIQUE NOT NULL,
-    descripcion TEXT
-);
-
-CREATE TABLE prestador_perfil (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id UUID UNIQUE NOT NULL,          -- referencia lógica a iam_db.usuarios
-    razon_social VARCHAR(150) NOT NULL,
-    telefono VARCHAR(30),
-    direccion VARCHAR(200),
-    politica_cancelacion TEXT,
-    activo BOOLEAN NOT NULL DEFAULT TRUE,
-    creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE atractivos_servicios (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    prestador_id UUID NOT NULL REFERENCES prestador_perfil(id),
-    categoria_id INT REFERENCES categorias_servicios(id),
-    nombre VARCHAR(150) NOT NULL,
-    descripcion TEXT NOT NULL,
-    ubicacion_nombre VARCHAR(150) NOT NULL,
-    zona VARCHAR(80) NOT NULL,
-    coordenadas GEOMETRY(Point, 4326) NOT NULL,
-    tarifa_base NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
-    capacidad_aforo_diario INT NOT NULL DEFAULT 50,
-    estado VARCHAR(20) DEFAULT 'PUBLICADO' CHECK (estado IN ('BORRADOR', 'PUBLICADO', 'INACTIVO')),
-    version INT NOT NULL DEFAULT 1,           -- control de concurrencia optimista (PWA, Sección 6.8)
-    imagenes_urls TEXT[],
-    creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_servicios_coordenadas ON atractivos_servicios USING GIST(coordenadas);
-CREATE INDEX idx_servicios_categoria ON atractivos_servicios(categoria_id);
-
-CREATE TABLE alertas_oficiales (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entidad_usuario_id UUID NOT NULL,         -- referencia lógica a iam_db.usuarios
-    atractivo_servicio_id UUID REFERENCES atractivos_servicios(id),  -- nulo si la alerta es por zona
-    zona VARCHAR(80),
-    nivel_alerta VARCHAR(20) NOT NULL CHECK (nivel_alerta IN ('INFORMATIVA', 'PREVENTIVA', 'CRITICA')),
-    titulo VARCHAR(150) NOT NULL,
-    mensaje TEXT NOT NULL,
-    activa BOOLEAN DEFAULT TRUE,
-    fecha_emision TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    fecha_expiracion TIMESTAMP WITH TIME ZONE
-);
-
--- Proyección de demanda alimentada por los eventos reserva.* (Sección 6.7)
-CREATE TABLE demanda_diaria (
-    servicio_id UUID NOT NULL REFERENCES atractivos_servicios(id),
-    fecha DATE NOT NULL,
-    personas_solicitadas INT NOT NULL DEFAULT 0,
-    personas_confirmadas INT NOT NULL DEFAULT 0,
-    personas_finalizadas INT NOT NULL DEFAULT 0,
-    actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (servicio_id, fecha)
-);
-```
-
-#### 3. Base de Datos: `booking_db` (Módulo 3: Reservas & Cupos)
-```sql
-CREATE TABLE disponibilidad_cupo (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    servicio_id UUID NOT NULL,                -- referencia lógica a catalog_db.atractivos_servicios
-    fecha DATE NOT NULL,
-    cupos_totales INT NOT NULL CHECK (cupos_totales >= 0),
-    cupos_disponibles INT NOT NULL CHECK (cupos_disponibles >= 0),
-    tarifa_especial NUMERIC(12, 2),
-    version INT NOT NULL DEFAULT 1,
-    UNIQUE (servicio_id, fecha)
-);
-
-CREATE TABLE solicitudes_reserva (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    turista_id UUID NOT NULL,                 -- referencia lógica a iam_db.usuarios
-    servicio_id UUID NOT NULL,
-    prestador_id UUID NOT NULL,
-    fecha_reserva DATE NOT NULL,
-    cantidad_personas INT NOT NULL CHECK (cantidad_personas > 0),
-    precio_total NUMERIC(12, 2) NOT NULL,
-    estado VARCHAR(20) NOT NULL DEFAULT 'SOLICITADA'
-        CHECK (estado IN ('SOLICITADA', 'CONFIRMADA', 'RECHAZADA', 'CANCELADA', 'FINALIZADA')),
-    expira_en TIMESTAMP WITH TIME ZONE NOT NULL,   -- creado_en + 48 horas
-    motivo_rechazo_cancelacion TEXT,
-    creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_reservas_turista ON solicitudes_reserva(turista_id);
-CREATE INDEX idx_reservas_servicio ON solicitudes_reserva(servicio_id);
-CREATE INDEX idx_reservas_pendientes ON solicitudes_reserva(expira_en) WHERE estado = 'SOLICITADA';
-```
-
-#### 4. Base de Datos: `recommendation_db` (Módulo 5: IA & Recomendación)
-```sql
-CREATE TABLE recomendacion_log (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    conversacion_id UUID NOT NULL,
-    turista_id UUID,                          -- referencia lógica a iam_db.usuarios
-    servicio_id UUID NOT NULL,                -- referencia lógica a catalog_db.atractivos_servicios
-    justificacion TEXT NOT NULL,              -- texto mostrado al turista (RNF-08)
-    herramientas_usadas JSONB NOT NULL,       -- nombres y parámetros de las herramientas consultadas
-    modelo VARCHAR(80) NOT NULL,              -- versión de Gemini usada
-    fecha_generacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_recomendacion_turista ON recomendacion_log(turista_id);
-```
-
-> No se almacena el texto completo de las conversaciones (Ley 1581). Solo se registra lo necesario para verificar RF-06 y RNF-08.
-
----
-
-### 5.2 Esquema Documental de Reseñas (PostgreSQL JSONB)
-
-Base de datos: `review_db` (Módulo 4: Reseñas & Moderación)
-
-```sql
-CREATE TABLE elegibilidad_resena (           -- alimentada por reserva.finalizada
-    reserva_id UUID PRIMARY KEY,
-    turista_id UUID NOT NULL,
-    servicio_id UUID NOT NULL,
-    finalizada_en TIMESTAMP WITH TIME ZONE NOT NULL
-);
-
-CREATE TABLE resenas (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    reserva_id UUID UNIQUE NOT NULL REFERENCES elegibilidad_resena(reserva_id),  -- una reseña por reserva
-    servicio_id UUID NOT NULL,
-    turista_id UUID NOT NULL,
-    puntuacion INT NOT NULL CHECK (puntuacion BETWEEN 1 AND 5),
-    calificaciones_detalle JSONB NOT NULL DEFAULT '{}',
-    comentario TEXT,
-    estado_moderacion VARCHAR(20) NOT NULL DEFAULT 'PUBLICADO'
-        CHECK (estado_moderacion IN ('PUBLICADO', 'EN_REVISION', 'OCULTO')),
-    respuesta_prestador JSONB,
-    creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_resenas_servicio ON resenas(servicio_id) WHERE estado_moderacion = 'PUBLICADO';
-CREATE INDEX idx_resenas_detalle ON resenas USING GIN (calificaciones_detalle);
-
-CREATE TABLE reportes_resena (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    resena_id UUID NOT NULL REFERENCES resenas(id),
-    reportado_por UUID NOT NULL,
-    motivo VARCHAR(300) NOT NULL,
-    fecha TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-```
-
-Ejemplo del contenido JSONB:
-
-```json
-{
-  "calificaciones_detalle": { "limpieza": 5, "guianza": 5, "relacion_calidad_precio": 4 },
-  "respuesta_prestador": { "texto": "¡Muchas gracias! Te esperamos de vuelta.", "respondido_en": "2026-10-14T10:15:00Z" }
-}
-```
-
----
-
-### 5.3 Estructuras en Memoria (Valkey)
-
-* **Prefijo `token:revocado:{jti}`:** JWT revocados anticipadamente hasta su expiración (TTL = tiempo restante del token).
-* **Prefijo `catalog:item:{servicioId}` y `catalog:buscar:{hash}`:** Ficha del atractivo y resultados de búsqueda (TTL = 300 a 600 segundos).
-* **Prefijo `chat:session:{conversacionId}`:** Últimos 10 mensajes de la conversación con el chatbot del Módulo 5 (TTL = 24 horas).
-* **Prefijo `evento:procesado:{consumidor}:{eventId}`:** Idempotencia de consumidores (TTL = 24 horas).
-* **Prefijo `idem:{servicio}:{idempotencyKey}`:** Respuesta almacenada de un formulario ya procesado, para devolverla si la PWA lo reenvía (TTL = 48 horas).
-
-El *rate limiting* por IP lo aplica Traefik con su middleware `RateLimit`, por lo que no ocupa claves en Valkey.
-
----
-
-### 5.4 Almacenamiento de Objetos (SeaweedFS)
-
-| Bucket | Dueño | Contenido |
-|---|---|---|
-| `documentos-verificacion` | iam-service | Archivos PDF/imagen de RNT y RUT. Acceso solo mediante URLs firmadas de corta duración para el Administrador. |
-| `respaldos-postgres` | CloudNativePG | Respaldos base y archivos WAL para restauración (RNF-09, ESC-06). |
-| `imagenes-catalogo` | catalog-service | Imágenes de los atractivos publicadas por los prestadores. |
+* **Valkey:** caché del catálogo, sesiones del chatbot (TTL de 24 h), tokens revocados, idempotencia de eventos y de formularios reenviados por la PWA. El *rate limiting* lo aplica Traefik.
+* **SeaweedFS (API S3):** documentos RNT/RUT (acceso solo mediante URLs firmadas para el Administrador), imágenes del catálogo y respaldos de PostgreSQL.
 
 ---
 
@@ -734,7 +524,7 @@ sequenceDiagram
 
 Al estar unificado en el **Módulo 2 (Catálogo, GIS & Inteligencia de Destino)**:
 
-1. **Proyección de demanda:** El consumidor `catalog.demanda` actualiza `demanda_diaria` con cada evento `reserva.*` (suma al solicitar, mueve a confirmadas al confirmar, resta al rechazar o cancelar y suma a finalizadas al finalizar). La idempotencia por `event_id` evita contar dos veces. El Módulo 2 nunca consulta `booking_db`.
+1. **Proyección de demanda:** El consumidor `catalog.demanda` actualiza la proyección `demanda_diaria` con cada evento `reserva.*` (suma al solicitar, mueve a confirmadas al confirmar, resta al rechazar o cancelar y suma a finalizadas al finalizar). La idempotencia por `event_id` evita contar dos veces. El Módulo 2 nunca consulta `booking_db`.
 2. **Cálculo de aforos:** Un CronJob cada 30 minutos compara la demanda activa por fecha y zona con `capacidad_aforo_diario` y calcula el índice de saturación.
 3. **Mapa de calor:** El backend transforma coordenadas y porcentajes de saturación a **GeoJSON** para su visualización en Leaflet.js por parte de la Entidad de Gestión.
 4. **Alertas:** Cuando la Entidad emite una alerta (UC26), se inserta en `alertas_oficiales`; la PWA la muestra en el mapa y el chatbot la consulta con la herramienta `alertas_oficiales` antes de recomendar una zona.

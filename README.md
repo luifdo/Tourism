@@ -1,9 +1,9 @@
 # Plataforma Digital de Turismo — Santa Marta
 
-Plataforma para la gestión integrada y sostenible del turismo en Santa Marta, construida con una arquitectura de microservicios 100% software libre.
+Plataforma para la gestión integrada y sostenible del turismo en Santa Marta, construida con una arquitectura de 5 microservicios en Python + FastAPI, desplegados como contenedores en Kubernetes (k3s) y priorizando el software libre (la API de Gemini del chatbot es la única dependencia propietaria).
 
 **Curso:** Arquitectura de Software · Ingeniería de Sistemas — Universidad del Magdalena  
-**Documentación:** [rama `Documents`](https://github.com/luifdo/tourism-platform/tree/Documents/Documents/Pages) (SRS, Plan de Desarrollo, Comparación de Alternativas Arquitectónicas y ADRs)
+**Documentación:** [`Documents/Pages`](./Documents/Pages/README.md) (SRS, Comparación de Alternativas Arquitectónicas, Registro de Decisiones Arquitectónicas y Plan de Implementación)
 
 ---
 
@@ -15,30 +15,37 @@ Monorepo con servicios aislados: cada microservicio vive en su propia carpeta y 
 tourism-platform/
 ├── services/                      # un microservicio por carpeta
 │   ├── iam-service/               # Módulo 1: Seguridad & IAM
-│   ├── catalog-service/           # Módulo 2: Catálogo & GIS
+│   ├── catalog-service/           # Módulo 2: Catálogo, GIS & Inteligencia de Destino
 │   ├── booking-service/           # Módulo 3: Reservas & Cupos
 │   ├── review-service/            # Módulo 4: Reseñas & Moderación
-│   ├── recommendation-service/    # Módulo 5: IA & Recomendación (Python)
-│   └── analytics-service/         # Módulo 6: Analítica & Destino
-├── gateway/                       # API Gateway (Nginx o Traefik)
-├── frontend/                      # Interfaz web
+│   └── recommendation-service/    # Módulo 5: IA & Recomendación (chatbot con Gemini)
+├── gateway/                       # API Gateway (Traefik)
+├── frontend/                      # Interfaz web (PWA)
 ├── contracts/                     # contratos REST (OpenAPI) y esquemas de eventos
 ├── infra/                         # docker-compose, PostgreSQL, RabbitMQ, observabilidad
 ├── templates/service-template/    # plantilla base para nuevos servicios
+├── Documents/Pages/               # documentación del proyecto (SRS, ADR, Plan)
 ├── docs/                          # documentación técnica del código
 └── .github/                       # CODEOWNERS, plantilla de PR y workflows
 ```
 
 ## Servicios y responsables
 
+Responsables según el [SRS, Apéndice C](./Documents/Pages/Requirements_docIEEE.md#apéndice-c-equipo-de-trabajo-y-asignación-de-roles). Todos los servicios usan Python 3.12 + FastAPI.
+
 | Servicio | Módulo | Responsable | Persistencia | Puerto |
 |---|---|---|---|---|
-| [iam-service](./services/iam-service/) | 1: Seguridad & IAM | Juan Francisco Gonzalez (@JuanFranG) | PostgreSQL `iam_db` | 8001 |
-| [catalog-service](./services/catalog-service/) | 2: Catálogo & GIS | Valentina Nieves (@nievesita) | PostgreSQL + PostGIS `catalog_db` | 8002 |
+| [iam-service](./services/iam-service/) | 1: Seguridad & IAM | Valentina Nieves (@nievesita) | PostgreSQL `iam_db` | 8001 |
+| [catalog-service](./services/catalog-service/) | 2: Catálogo, GIS & Inteligencia de Destino | Luis Fernando Barraza (@luifdo) | PostgreSQL + PostGIS `catalog_db` | 8002 |
 | [booking-service](./services/booking-service/) | 3: Reservas & Cupos | Andres Gamero (@AFGamero) | PostgreSQL `booking_db` | 8003 |
-| [review-service](./services/review-service/) | 4: Reseñas & Moderación | Alvaro Ospino (@alvaroospino) | Documental (por definir) | 8004 |
-| [recommendation-service](./services/recommendation-service/) | 5: IA & Recomendación | Luis Fernando Barraza (@luifdo) | Por definir | 8005 |
-| [analytics-service](./services/analytics-service/) | 6: Analítica & Destino | Luis Fernando Barraza (@luifdo) | Por definir | 8006 |
+| [review-service](./services/review-service/) | 4: Reseñas & Moderación | Luis Fernando Barraza (@luifdo) | PostgreSQL JSONB `review_db` | 8004 |
+| [recommendation-service](./services/recommendation-service/) | 5: IA & Recomendación | Alvaro Ospino (@alvaroospino) | PostgreSQL `recommendation_db` + Valkey | 8005 |
+
+| Componente | Responsable |
+|---|---|
+| `frontend/` (PWA) y `gateway/` (Traefik) | Juan Francisco Gonzalez (@JuanFranG) |
+| `contracts/` e `infra/` | Luis Fernando Barraza (@luifdo), arquitecto |
+| `templates/` | Alvaro Ospino (@alvaroospino), desarrollador principal |
 
 ## Reglas de independencia
 
@@ -73,9 +80,12 @@ docker compose up -d
 * `feature/<servicio>-<tarea>`: una rama por historia de usuario, por ejemplo `feature/booking-solicitar-reserva`.
 * Sprints de 2 semanas con tablero en GitHub Projects (ver Plan de Desarrollo, §3).
 
-## Decisiones pendientes
+## Decisiones tomadas
 
-* Lenguaje de los servicios principales: Spring Boot o NestJS.
-* API Gateway: Nginx o Traefik.
-* Base documental de review-service: MongoDB Community o FerretDB.
-* Almacén de recommendation-service y analytics-service.
+Ver el [Registro de Decisiones Arquitectónicas](./Documents/Pages/Registro_Decisiones_Arquitectonicas.md):
+
+* Lenguaje: Python 3.12 + FastAPI en los 5 servicios (ADR-006).
+* Despliegue: contenedores en Kubernetes (k3s); Docker Compose solo para desarrollo local (ADR-005).
+* API Gateway: Traefik (ADR-007).
+* Reseñas: PostgreSQL con JSONB en lugar de MongoDB (ADR-003).
+* Conectividad limitada: PWA con catálogo sin conexión y formularios diferidos (ADR-004).

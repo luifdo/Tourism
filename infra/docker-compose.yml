@@ -27,7 +27,7 @@ services:
     image: valkey/valkey:8
     ports: ["6379:6379"]
 
-  # Base documental de review-service: pendiente de decidir MongoDB o FerretDB (SRS §3.6.4).
+  # review-service usa PostgreSQL con JSONB (base review_db), ver ADR-003.
 
   # ---------- Mensajería ----------
   rabbitmq:
@@ -67,7 +67,7 @@ services:
   #     rabbitmq: { condition: service_healthy }
 
   # ---------- API Gateway ----------
-  # Pendiente de decidir Nginx o Traefik (SRS §3.6.4).
+  # Traefik (ADR-007); en el clúster k3s viene incluido como Ingress.
 
 volumes:
   postgres-data:
