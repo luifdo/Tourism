@@ -3,7 +3,8 @@
 **Proyecto:** Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta  
 **Curso:** Arquitectura de Software  
 **Programa:** Ingeniería de Sistemas — Universidad del Magdalena  
-**Fase:** Fase 2 — Comparación Arquitectónica ([Plan de Desarrollo](./Plan_de_Desarrollo_de_Software.md))  
+**Fase:** Fase 2 — Comparación Arquitectónica ([SRS, Apéndice D](./Requirements_docIEEE.md#apéndice-d-plan-de-proyecto-cronograma-y-presupuesto))  
+**Decisiones derivadas:** [Registro de Decisiones Arquitectónicas](./Registro_Decisiones_Arquitectonicas.md) (ADR-002 y siguientes)  
 **Documento base:** [Especificación de Requerimientos (SRS)](./Requirements_docIEEE.md)  
 
 ---
@@ -17,14 +18,14 @@ Este documento presenta el proceso de diseño seguido para seleccionar el estilo
 ### 1.1 Alternativa A: Monolito Modular
 
 * **Estilo arquitectónico:** Monolito modular con arquitectura hexagonal (puertos y adaptadores) por módulo.
-* **Idea general de estructura:** Una única aplicación desplegable que agrupa los seis contextos del dominio (IAM, Catálogo & GIS, Reservas, Reseñas, IA, Analítica) como módulos internos con fronteras explícitas. Los módulos se comunican mediante llamadas en proceso a través de interfaces; las tareas diferidas (correos, auditoría) se ejecutan con una cola de trabajos interna. Persistencia en una sola instancia de PostgreSQL + PostGIS con un esquema por módulo. Se escala replicando la aplicación completa detrás de Nginx.
+* **Idea general de estructura:** Una única aplicación desplegable que agrupa los cinco contextos del dominio (IAM, Catálogo, GIS & Analítica, Reservas, Reseñas, IA) como módulos internos con fronteras explícitas. Los módulos se comunican mediante llamadas en proceso a través de interfaces; las tareas diferidas (correos, auditoría) se ejecutan con una cola de trabajos interna. Persistencia en una sola instancia de PostgreSQL + PostGIS con un esquema por módulo. Se escala replicando la aplicación completa detrás de Nginx.
 * **Ventaja principal:** Menor tiempo y complejidad de implementación: un solo repositorio, un solo despliegue, transacciones ACID locales entre módulos y sin infraestructura distribuida que operar, lo que se ajusta directamente a las 14 semanas y al equipo de 5 personas.
 * **Desventaja principal:** Escala y falla como un bloque: un pico de búsquedas en el catálogo obliga a replicar toda la aplicación, una falla en un módulo (p. ej. Reseñas) puede degradar el sistema completo (contrario a ESC-01) y el chatbot de IA (integración con Gemini y herramientas) no puede ajustarse ni desplegarse sin redesplegar el núcleo (contrario a ESC-05).
 
 ### 1.2 Alternativa B: Microservicios Orientados a Eventos
 
 * **Estilo arquitectónico:** Microservicios por *Bounded Context* con comunicación híbrida: síncrona REST y asíncrona orientada a eventos (Pub/Sub).
-* **Idea general de estructura:** Seis microservicios independientes (SRS §3.6.1) detrás de un API Gateway (Nginx / Traefik) que centraliza TLS, validación de JWT, *rate limiting* y CORS. Las operaciones de respuesta inmediata usan REST/JSON; las tareas no críticas (correos, auditoría) se desacoplan mediante RabbitMQ y el chatbot de IA se consume como un servicio independiente. Cada servicio gestiona su propio almacén (*Database-per-Service*): PostgreSQL + PostGIS, MongoDB y Redis / Valkey.
+* **Idea general de estructura:** Cinco microservicios independientes en Python + FastAPI (SRS §3.6.1), desplegados como contenedores en Kubernetes (k3s) detrás de un API Gateway (Traefik) que centraliza TLS, validación de JWT, *rate limiting* y CORS. Las operaciones de respuesta inmediata usan REST/JSON; las tareas no críticas (correos, métricas, auditoría) se desacoplan mediante RabbitMQ y el chatbot de IA se consume como un servicio independiente. Cada servicio gestiona su propio almacén (*Database-per-Service*): PostgreSQL (con PostGIS y JSONB) y Valkey.
 * **Ventaja principal:** Escalabilidad y aislamiento de fallos por servicio: el Catálogo puede escalar de forma independiente en temporada alta (ESC-02, ESC-08), una falla en Reseñas no interrumpe catálogo ni reservas (ESC-01) y el chatbot de IA se ajusta o se reemplaza sin detener el núcleo transaccional (ESC-05).
 * **Desventaja principal:** Mayor complejidad técnica y operativa: más contenedores, consistencia eventual entre servicios, necesidad de observabilidad distribuida y una curva de aprendizaje significativa para el equipo (riesgo R-01), lo que alarga el tiempo de implementación.
 
@@ -51,12 +52,12 @@ Escala de calificación de **1 a 5**, donde **5 es siempre el valor más favorab
 * **Seguridad (5):** RNF-04 y RNF-10 son *Must*; la plataforma trata datos personales bajo la Ley 1581 de 2012 y documentos legales de prestadores (RNT, RUT).
 * **Disponibilidad (5):** RNF-01 y ESC-01 exigen aislar componentes degradados sin interrumpir catálogo ni reservas durante la temporada alta.
 * **Mantenibilidad / Evolución (4):** RNF-05 y ESC-05 exigen ajustar el chatbot de IA (herramientas, parámetros o versión del modelo de Gemini) sin alterar el núcleo, y el SRS §1.2 define la IA como un componente desacoplado.
-* **Costo relativo (3):** Ambas alternativas caben holgadamente dentro del techo de USD 20.000 (el Escenario A del Plan usa USD 6.900); el costo diferencia, pero no es restrictivo.
-* **Tiempo de implementación (3):** El horizonte es de 14 semanas, pero la meta del prototipo está acotada a $\ge 60\%$ de los casos de uso *Must* (Plan, Fase 4) y la propiedad 1:1 de cada servicio permite trabajo en paralelo (R-05).
-* **Complejidad técnica (2):** Se mitiga con decisiones de proceso (plantillas base, Docker Compose unificado, R-01) y no compromete por sí misma un atributo de calidad.
+* **Costo relativo (3):** Ambas alternativas caben holgadamente dentro del techo de USD 20.000 (el Escenario A del SRS, Apéndice D, usa USD 6.900); el costo diferencia, pero no es restrictivo.
+* **Tiempo de implementación (3):** El horizonte es de 14 semanas, pero la meta del prototipo está acotada a $\ge 60\%$ de los casos de uso *Must* (SRS, Apéndice D, Fase 4) y la propiedad de cada servicio por un integrante permite trabajo en paralelo (R-05).
+* **Complejidad técnica (2):** Se mitiga con decisiones de proceso (un solo lenguaje para todos los servicios, plantilla base, entorno local con Docker Compose, R-01) y no compromete por sí misma un atributo de calidad.
 
 > [!NOTE]
-> **Análisis de sensibilidad:** El resultado depende del horizonte de evaluación. Si se evaluara solo el prototipo académico, asignando peso 5 a *Tiempo de implementación* y a *Complejidad técnica*, el Monolito Modular obtendría **122** frente a **114** de los Microservicios. El equipo adopta como horizonte el **despliegue piloto institucional de 12 meses** (Plan, Escenario B), en el cual la escalabilidad, la disponibilidad y la evolución del sistema pesan más que la velocidad de construcción inicial.
+> **Análisis de sensibilidad:** El resultado depende del horizonte de evaluación. Si se evaluara solo el prototipo académico, asignando peso 5 a *Tiempo de implementación* y a *Complejidad técnica*, el Monolito Modular obtendría **122** frente a **114** de los Microservicios. El equipo adopta como horizonte el **despliegue piloto institucional de 12 meses** (SRS, Apéndice D, Escenario B), en el cual la escalabilidad, la disponibilidad y la evolución del sistema pesan más que la velocidad de construcción inicial.
 
 ---
 
@@ -78,8 +79,8 @@ La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microser
 
 ### 4.1 Influencia de las restricciones
 
-* **Económicas (SRS §2.4.2):** El techo de USD 20.000 no descarta ninguna alternativa. Los Microservicios incrementan el costo de infraestructura (más contenedores, broker, varias bases de datos), pero el Escenario A del Plan demuestra que el prototipo es viable con USD 6.900 y el Escenario B financia la operación en alta disponibilidad durante 12 meses. El modelo sin pagos en línea (SRS §1.2) evita además costos de certificación PCI-DSS en cualquiera de las dos alternativas.
-* **Técnicas (SRS §2.4.1):** La exigencia de software libre y de despliegue en contenedores Docker es compatible con ambas, pero la combinación de un núcleo transaccional y un servicio de IA (chatbot sobre la API de Gemini) favorece una arquitectura que admita múltiples lenguajes y despliegues independientes. La exigencia de RNF-02 (*Must*) inclina la decisión hacia la escalabilidad por servicio.
+* **Económicas (SRS §2.4.2):** El techo de USD 20.000 no descarta ninguna alternativa. Los Microservicios incrementan el costo de infraestructura (más contenedores, broker, varias bases de datos), pero el Escenario A (SRS, Apéndice D) demuestra que el prototipo es viable con USD 6.900 y el Escenario B financia la operación en alta disponibilidad durante 12 meses. El modelo sin pagos en línea (SRS §1.2) evita además costos de certificación PCI-DSS en cualquiera de las dos alternativas.
+* **Técnicas (SRS §2.4.1):** La exigencia de software libre y de despliegue en contenedores es compatible con ambas, pero la combinación de un núcleo transaccional y un servicio de IA (chatbot sobre la API de Gemini) favorece una arquitectura que admita despliegues independientes. La exigencia de RNF-02 (*Must*) inclina la decisión hacia la escalabilidad por servicio.
 * **Sociales (SRS §2.4.3):** La inclusión de prestadores con baja alfabetización digital (RF-08) y el soporte bilingüe (RF-10) se resuelven en la capa de presentación y no diferencian a las alternativas. Sí influye el carácter de bien público de la plataforma: su caída en temporada alta afectaría a turistas y a pequeños prestadores, lo que refuerza el peso de la disponibilidad.
 * **Normativas (SRS §2.4.5):** La Ley 1581 de 2012 favorece aislar los datos personales y los documentos legales en el servicio de IAM con su propia base de datos, limitando el alcance de una eventual brecha.
 
@@ -87,8 +88,8 @@ La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microser
 
 | Alternativa | Qué se gana | Qué se sacrifica |
 |---|---|---|
-| **A: Monolito Modular** | Construcción más rápida, menor costo de infraestructura, transacciones ACID locales, depuración y despliegue simples, menor superficie de ataque. | Escalabilidad selectiva, aislamiento de fallos, despliegue independiente del servicio de IA y libertad de lenguaje por módulo; mayor riesgo de acoplamiento con el tiempo. |
-| **B: Microservicios** *(seleccionada)* | Escalado independiente en temporada alta, aislamiento de fallos, evolución y despliegue independiente de la IA, propiedad 1:1 de cada servicio por integrante, aislamiento de datos sensibles. | Mayor tiempo de implementación, complejidad operativa (broker, varias bases de datos, observabilidad), consistencia eventual entre servicios y mayor superficie de ataque interna. |
+| **A: Monolito Modular** | Construcción más rápida, menor costo de infraestructura, transacciones ACID locales, depuración y despliegue simples, menor superficie de ataque. | Escalabilidad selectiva, aislamiento de fallos y despliegue independiente del servicio de IA; mayor riesgo de acoplamiento con el tiempo. |
+| **B: Microservicios** *(seleccionada)* | Escalado independiente en temporada alta, aislamiento de fallos, evolución y despliegue independiente de la IA, propiedad de cada servicio por un integrante, aislamiento de datos sensibles. | Mayor tiempo de implementación, complejidad operativa (broker, varias bases de datos, observabilidad), consistencia eventual entre servicios y mayor superficie de ataque interna. |
 
 ### 4.3 Restricciones que más influyeron en la decisión
 
@@ -100,10 +101,10 @@ La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microser
 
 * **Calidad priorizada:** Se privilegian escalabilidad, disponibilidad y mantenibilidad porque son atributos *Must*/*Should* verificables (ESC-01, ESC-02, ESC-05, ESC-08) y difíciles de incorporar después en un monolito.
 * **Tiempo controlado:**
-  * Meta de prototipo acotada a $\ge 60\%$ de los casos de uso *Must* (Plan, Fase 4).
-  * Plantillas base comunes para los microservicios y un único `docker-compose` de desarrollo local antes de cualquier despliegue en nube (mitigación de R-01).
-  * Propiedad 1:1 de cada módulo por integrante (SRS Apéndice D), lo que permite desarrollo en paralelo con sprints de 2 semanas (mitigación de R-05).
+  * Meta de prototipo acotada a $\ge 60\%$ de los casos de uso *Must* (SRS, Apéndice D, Fase 4).
+  * Un solo lenguaje y framework (Python + FastAPI), una plantilla base común para los microservicios y un `docker-compose` de desarrollo local antes del despliegue en k3s (mitigación de R-01).
+  * Propiedad de cada componente por un integrante (SRS Apéndice C), lo que permite desarrollo en paralelo con sprints de 2 semanas (mitigación de R-05).
 * **Costo controlado:**
   * En el prototipo, las bases de datos de cada servicio se alojan como bases lógicas separadas dentro de una misma instancia de PostgreSQL, conservando el principio *Database-per-Service* sin multiplicar servidores.
-  * Despliegue sobre un único host con Docker Compose en el Escenario A (USD 6.900); la orquestación con alta disponibilidad se reserva para el piloto institucional (Escenario B).
-* **Seguridad compensada:** La mayor superficie de ataque se mitiga con validación perimetral de JWT en el API Gateway, comunicación interna en red privada de contenedores, cifrado Argon2id y bitácora de auditoría inmutable (RNF-04, RNF-10, R-02).
+  * Despliegue en un clúster k3s de un solo nodo en el Escenario A (USD 6.900), que ya ofrece escalado automático y actualizaciones sin interrupción; el Escenario B agrega nodos para alta disponibilidad (ADR-005).
+* **Seguridad compensada:** La mayor superficie de ataque se mitiga con validación perimetral de JWT en el API Gateway, políticas de red de Kubernetes que solo permiten el tráfico previsto, cifrado Argon2id y bitácora de auditoría inmutable (RNF-04, RNF-10, R-02).

@@ -3,9 +3,10 @@
 
 **Curso:** Arquitectura de Software — Experiencia Final de Diseño  
 **Programa:** Ingeniería de Sistemas — Universidad del Magdalena  
-**Versión:** 1.0 (Especificación Técnica Interna)  
-**Fecha:** Agosto 2026  
+**Versión:** 1.1 (Especificación Técnica Interna)  
+**Fecha:** Octubre 2026  
 **Documento Complementario de Alto Nivel:** [Especificación de Requerimientos de Software (SRS IEEE 29148)](./Requirements_docIEEE.md)  
+**Decisiones de diseño:** [Registro de Decisiones Arquitectónicas](./Registro_Decisiones_Arquitectonicas.md)  
 
 ---
 
@@ -14,32 +15,40 @@
 * [1. Introducción y Enfoque de Implementación](#1-introducción-y-enfoque-de-implementación)
   * [1.1 Propósito del documento](#11-propósito-del-documento)
   * [1.2 Consolidación Arquitectónica: Unificación del Módulo 2 y Módulo 6](#12-consolidación-arquitectónica-unificación-del-módulo-2-y-módulo-6)
+  * [1.3 Plataforma y Lenguaje](#13-plataforma-y-lenguaje)
 * [2. Arquitectura Interna y Descomposición de Microservicios](#2-arquitectura-interna-y-descomposición-de-microservicios)
   * [2.1 Topología General de Servicios (5 Microservicios + Perímetro)](#21-topología-general-de-servicios-5-microservicios--perímetro)
-  * [2.2 Estructura Interna por Microservicio (Arquitectura Limpia / Hexagonal)](#22-estructura-interna-por-microservicio-arquitectura-limpia--hexagonal)
+  * [2.2 Estructura Interna por Microservicio (Arquitectura Hexagonal)](#22-estructura-interna-por-microservicio-arquitectura-hexagonal)
   * [2.3 Especificación Interna de cada Componente](#23-especificación-interna-de-cada-componente)
 * [3. Stack Tecnológico Detallado y Decisiones FOSS](#3-stack-tecnológico-detallado-y-decisiones-foss)
   * [3.1 Matriz de Tecnologías y Versiones](#31-matriz-de-tecnologías-y-versiones)
   * [3.2 Justificación Técnica de Decisiones Abiertas](#32-justificación-técnica-de-decisiones-abiertas)
 * [4. Mecanismos de Comunicación y Protocolos Internos](#4-mecanismos-de-comunicación-y-protocolos-internos)
   * [4.1 Comunicación Síncrona REST / HTTPS](#41-comunicación-síncrona-rest--https)
-  * [4.2 Comunicación Asíncrona Orientada a Eventos (Message Broker)](#42-comunicación-asíncrona-orientada-a-eventos-message-broker)
-  * [4.3 Manejo de Idempotencia y Políticas de Reintento (DLQ)](#43-manejo-de-idempotencia-y-políticas-de-reintento-dlq)
+  * [4.2 Comunicación Asíncrona Orientada a Eventos (RabbitMQ)](#42-comunicación-asíncrona-orientada-a-eventos-rabbitmq)
+  * [4.3 Idempotencia, Reintentos y DLQ](#43-idempotencia-reintentos-y-dlq)
+  * [4.4 Auditoría Asíncrona](#44-auditoría-asíncrona)
 * [5. Modelos Físicos de Persistencia (Database-per-Service)](#5-modelos-físicos-de-persistencia-database-per-service)
-  * [5.1 Esquema Relacional y Geoespacial (PostgreSQL + PostGIS)](#51-esquema-relacional-y-geoespacial-postgresql--postgis)
-  * [5.2 Esquema NoSQL Documental (MongoDB / JSONB)](#52-esquema-nosql-documental-mongodb--jsonb)
-  * [5.3 Estructuras en Memoria y Estrategia de Caché (Valkey / Redis)](#53-estructuras-en-memoria-y-estrategia-de-caché-valkey--redis)
+  * [5.1 Esquemas Relacionales y Geoespaciales (PostgreSQL + PostGIS)](#51-esquemas-relacionales-y-geoespaciales-postgresql--postgis)
+  * [5.2 Esquema Documental de Reseñas (PostgreSQL JSONB)](#52-esquema-documental-de-reseñas-postgresql-jsonb)
+  * [5.3 Estructuras en Memoria (Valkey)](#53-estructuras-en-memoria-valkey)
+  * [5.4 Almacenamiento de Objetos (SeaweedFS)](#54-almacenamiento-de-objetos-seaweedfs)
 * [6. Flujos de Ejecución y Secuencias Internas Clave](#6-flujos-de-ejecución-y-secuencias-internas-clave)
-  * [6.1 Flujo 1: Autenticación, Emisión de Tokens y Propagación de Identidad](#61-flujo-1-autenticación-emisión-de-tokens-y-propagación-de-identidad)
+  * [6.1 Flujo 1: Autenticación, ForwardAuth y Propagación de Identidad](#61-flujo-1-autenticación-forwardauth-y-propagación-de-identidad)
   * [6.2 Flujo 2: Búsqueda Geoespacial Indexada con PostGIS y Caché](#62-flujo-2-búsqueda-geoespacial-indexada-con-postgis-y-caché)
   * [6.3 Flujo 3: Transacción Atómica de Reserva y Bloqueo de Cupos](#63-flujo-3-transacción-atómica-de-reserva-y-bloqueo-de-cupos)
-  * [6.4 Flujo 4: Publicación de Reseña, Pre-filtrado Heurístico y Despacho de Eventos](#64-flujo-4-publicación-de-reseña-pre-filtrado-heurístico-y-despacho-de-eventos)
-  * [6.5 Flujo 5: Consulta al Chatbot de Recomendaciones con Gemini y Herramientas](#65-flujo-5-consulta-al-chatbot-de-recomendaciones-con-gemini-y-herramientas)
-  * [6.6 Flujo 6: Consolidación Analítica de Capacidad de Carga y Alertas Institucionales](#66-flujo-6-consolidación-analítica-de-capacidad-de-carga-y-alertas-institucionales)
-* [7. Entorno de Ejecución, Contenedores y Observabilidad](#7-entorno-de-ejecución-contenedores-y-observabilidad)
-  * [7.1 Orquestación Local con Docker Compose](#71-orquestación-local-con-docker-compose)
-  * [7.2 Redes Virtuales y Segmentación de Seguridad](#72-redes-virtuales-y-segmentación-de-seguridad)
-  * [7.3 Telemetría y Monitoreo con Prometheus y Grafana](#73-telemetría-y-monitoreo-con-prometheus-y-grafana)
+  * [6.4 Flujo 4: Máquina de Estados, Expiración y Finalización de Reservas](#64-flujo-4-máquina-de-estados-expiración-y-finalización-de-reservas)
+  * [6.5 Flujo 5: Publicación, Reporte y Moderación de Reseñas](#65-flujo-5-publicación-reporte-y-moderación-de-reseñas)
+  * [6.6 Flujo 6: Consulta al Chatbot de Recomendaciones con Gemini y Herramientas](#66-flujo-6-consulta-al-chatbot-de-recomendaciones-con-gemini-y-herramientas)
+  * [6.7 Flujo 7: Analítica de Demanda por Eventos y Alertas Institucionales](#67-flujo-7-analítica-de-demanda-por-eventos-y-alertas-institucionales)
+  * [6.8 Flujo 8: Sincronización de Formularios de la PWA sin Conexión](#68-flujo-8-sincronización-de-formularios-de-la-pwa-sin-conexión)
+* [7. Entorno de Ejecución, Despliegue y Observabilidad](#7-entorno-de-ejecución-despliegue-y-observabilidad)
+  * [7.1 Entorno de Desarrollo Local con Docker Compose](#71-entorno-de-desarrollo-local-con-docker-compose)
+  * [7.2 Despliegue en Kubernetes (k3s)](#72-despliegue-en-kubernetes-k3s)
+  * [7.3 Recursos por Microservicio](#73-recursos-por-microservicio)
+  * [7.4 Red, Secretos y Seguridad](#74-red-secretos-y-seguridad)
+  * [7.5 Telemetría y Monitoreo](#75-telemetría-y-monitoreo)
+  * [7.6 Respaldos y Recuperación](#76-respaldos-y-recuperación)
 * [8. Estrategia de Pruebas Internas y Validación de Carga](#8-estrategia-de-pruebas-internas-y-validación-de-carga)
 
 ---
@@ -50,7 +59,7 @@
 
 El propósito del presente documento es detallar la **arquitectura técnica interna, los modelos de ejecución, los contratos de comunicación y los mecanismos de persistencia** que sustentan el desarrollo de la Plataforma Digital para la Gestión Integrada y Sostenible del Turismo en Santa Marta.
 
-A diferencia de la [Especificación de Requerimientos de Software (SRS)](./Requirements_docIEEE.md), que se enfoca en la perspectiva de alto nivel (el *qué* del sistema, acuerdos de alcance, requerimientos funcionales, atributos de calidad y cronograma general), este Plan de Implementación define el **funcionamiento interno** (el *cómo* técnico, decisiones de bajo nivel, diseño de componentes, esquemas de bases de datos, manejo de concurrencia y despliegue físico).
+A diferencia de la [Especificación de Requerimientos de Software (SRS)](./Requirements_docIEEE.md), que se enfoca en la perspectiva de alto nivel (el *qué* del sistema, acuerdos de alcance, requerimientos funcionales, atributos de calidad y cronograma general), este Plan de Implementación define el **funcionamiento interno** (el *cómo* técnico, decisiones de bajo nivel, diseño de componentes, esquemas de bases de datos, manejo de concurrencia y despliegue físico). Las convenciones de este documento (nombres de eventos, rutas, bases de datos y puertos) son las mismas del monorepo (`contracts/`, `services/`, `infra/`).
 
 ---
 
@@ -63,7 +72,15 @@ En la concepción original de la arquitectura se contemplaban 6 microservicios. 
 #### Justificación Técnica de la Fusión:
 1. **Cohesión de Dominio y Co-localización de Datos:** Los indicadores analíticos (demanda por zonas, cálculo de presión sobre atractivos, capacidad de carga ambiental y generación de mapas de calor) operan sobre las mismas entidades geoespaciales y tablas de servicios que administra el catálogo. Separarlos en dos microservicios obligaba a duplicar esquemas espaciales o a realizar costosas consultas distribuidas a través de la red.
 2. **Eficiencia en la Persistencia Espacial:** La extensión espacial **PostGIS** de PostgreSQL permite ejecutar funciones de agregación analítica espacial directa (`ST_DWithin`, `ST_ClusterKMeans`, densidades kernel) en la misma base de datos donde residen los puntos de interés turístico, optimizando drásticamente los tiempos de respuesta.
-3. **Reducción de Sobrecarga Operativa:** Se reduce la cantidad de servicios a compilar, desplegar y monitorear de 6 a **5 microservicios core**, disminuyendo el riesgo técnico **R-01** (curva de aprendizaje en microservicios) y simplificando la orquestación en Docker Compose.
+3. **Reducción de Sobrecarga Operativa:** Se reduce la cantidad de servicios a construir, desplegar y monitorear de 6 a **5 microservicios core**, disminuyendo el riesgo técnico **R-01** (curva de aprendizaje en microservicios) y simplificando la operación del clúster.
+
+---
+
+### 1.3 Plataforma y Lenguaje
+
+* **Lenguaje y framework:** Los 5 microservicios se escriben en **Python 3.12 con FastAPI**, bajo orientación a objetos y arquitectura hexagonal (ADR-006). Cada servicio es una aplicación HTTP estándar (ASGI) que se ejecuta con Uvicorn dentro de un contenedor; no depende de una plataforma de ejecución concreta, por lo que el mismo código podría ejecutarse en otra plataforma de contenedores o *serverless* sin reescribirse.
+* **Plataforma:** Todos los componentes se despliegan como contenedores en **Kubernetes (k3s)** (ADR-005). Docker Compose se usa solo como entorno de desarrollo local (Sección 7.1).
+* **Frontend:** **PWA** en Vue.js 3 con Workbox para la operación sin conexión (ADR-004, Sección 6.8).
 
 ---
 
@@ -71,93 +88,43 @@ En la concepción original de la arquitectura se contemplaban 6 microservicios. 
 
 ### 2.1 Topología General de Servicios (5 Microservicios + Perímetro)
 
-La plataforma se organiza en **cinco microservicios desacoplados**, un **API Gateway perimetral** y una **infraestructura transversal de mensajería y observabilidad**:
+La plataforma se organiza en **cinco microservicios desacoplados**, un **API Gateway perimetral (Traefik)** y una **infraestructura transversal de mensajería (RabbitMQ) y observabilidad (Prometheus, Grafana y Loki)**:
 
-```mermaid
-flowchart TB
-    classDef clientStyle fill:#eff6ff,stroke:#2563eb,stroke-width:2px,color:#1e40af,font-weight:bold;
-    classDef gwStyle fill:#f5f3ff,stroke:#7c3aed,stroke-width:2px,color:#5b21b6,font-weight:bold;
-    classDef coreStyle fill:#f0fdf4,stroke:#16a34a,stroke-width:2px,color:#14532d,font-weight:bold;
-    classDef aiStyle fill:#fdf4ff,stroke:#c026d3,stroke-width:2px,color:#701a75,font-weight:bold;
-    classDef brokerStyle fill:#fffbeb,stroke:#d97706,stroke-width:2px,color:#78350f,font-weight:bold;
-    classDef dbStyle fill:#f8fafc,stroke:#475569,stroke-width:2px,color:#0f172a;
-    classDef cacheStyle fill:#fff1f2,stroke:#e11d48,stroke-width:2px,color:#881337;
+![Diagrama de Arquitectura de Microservicios](./Diagrama_Arquitectura_Microservicios.svg)
 
-    Clients["Clientes Web & Móviles<br><i>(Turistas, Prestadores, Entidades, Admins)</i>"]:::clientStyle
-    APIGW["API Gateway & Reverse Proxy<br><i>(Nginx / Traefik: TLS, JWT Perimetral, Rate Limiting)</i>"]:::gwStyle
-
-    Clients ==>|HTTPS / REST| APIGW
-
-    subgraph Microservicios["Ecosistema de Microservicios FOSS (5 Módulos)"]
-        direction TB
-        MS1["Módulo 1: Seguridad & IAM<br><i>(Autenticación, RBAC, Auditoría, Validación RNT/RUT)</i>"]:::coreStyle
-        MS2["Módulo 2: Catálogo, GIS & Inteligencia de Destino<br><i>(Atractivos, PostGIS, Mapas OSM, Analítica, Aforos, Alertas)</i>"]:::coreStyle
-        MS3["Módulo 3: Reservas & Cupos<br><i>(Motor Transaccional de Cupos, Solicitudes, Estados)</i>"]:::coreStyle
-        MS4["Módulo 4: Reseñas & Moderación<br><i>(Opiniones, Calificaciones, Pre-filtro Heurístico)</i>"]:::coreStyle
-        MS5["Módulo 5: IA & Recomendación<br><i>(Chatbot, Herramientas de consulta, Integración con Gemini API)</i>"]:::aiStyle
-    end
-
-    APIGW -->|/api/v1/auth, /api/v1/users| MS1
-    APIGW -->|/api/v1/catalog, /api/v1/destinations, /api/v1/analytics| MS2
-    APIGW -->|/api/v1/bookings, /api/v1/availability| MS3
-    APIGW -->|/api/v1/reviews| MS4
-    APIGW -->|/api/v1/recommendations/chat| MS5
-
-    subgraph EventBus["Bus de Mensajería & Eventos Asíncronos"]
-        Broker["Message Broker FOSS<br><i>(RabbitMQ / Redis Streams)</i>"]:::brokerStyle
-    end
-
-    MS3 -.->|Publica: reserva.creada / reserva.confirmada| Broker
-    MS4 -.->|Publica: resena.creada| Broker
-    MS2 -.->|Publica: alerta.oficial / Envia notificaciones| Broker
-    Broker -.->|Consume: despacho de correos SMTP| MS2
-
-    subgraph Persistencia["Persistencia Políglota FOSS (Database-per-Service)"]
-        direction LR
-        DB1[("PostgreSQL<br>db_iam")]:::dbStyle
-        DB2[("PostgreSQL + PostGIS<br>db_catalog_analytics")]:::dbStyle
-        DB3[("PostgreSQL<br>db_bookings")]:::dbStyle
-        DB4[("MongoDB Community / JSONB<br>db_reviews")]:::dbStyle
-        Cache[("Valkey / Redis<br>Caché, Sesiones & Rate Limit")]:::cacheStyle
-    end
-
-    MS1 --- DB1
-    MS2 --- DB2
-    MS3 --- DB3
-    MS4 --- DB4
-    MS1 & MS2 & MS3 & MS5 --- Cache
-
-    Gemini["Google Gemini API<br><i>(Servicio externo de IA)</i>"]
-    MS5 ==>|HTTPS / API| Gemini
-    MS5 -->|Herramientas de solo lectura| MS2 & MS3 & MS4
-```
+| Servicio | Módulo | Puerto interno | Prefijo en el Gateway | Base de datos | Responsable |
+|---|---|---|---|---|---|
+| `iam-service` | 1: Seguridad & IAM | `8001` | `/api/iam` | `iam_db` (PostgreSQL) + SeaweedFS | Valentina Nieves |
+| `catalog-service` | 2: Catálogo, GIS & Destino | `8002` | `/api/catalog` | `catalog_db` (PostgreSQL + PostGIS) | Luis Barraza |
+| `booking-service` | 3: Reservas & Cupos | `8003` | `/api/bookings` | `booking_db` (PostgreSQL) | Andres Gamero |
+| `review-service` | 4: Reseñas & Moderación | `8004` | `/api/reviews` | `review_db` (PostgreSQL JSONB) | Luis Barraza |
+| `recommendation-service` | 5: IA & Recomendación | `8005` | `/api/recommendations` | `recommendation_db` (PostgreSQL) + Valkey | Alvaro Ospino |
 
 ---
 
-### 2.2 Estructura Interna por Microservicio (Arquitectura Limpia / Hexagonal)
+### 2.2 Estructura Interna por Microservicio (Arquitectura Hexagonal)
 
-Cada microservicio del backend se organiza internamente bajo los principios de **Arquitectura Hexagonal (Ports & Adapters)** para desacoplar las reglas de negocio de los detalles de infraestructura, frameworks y bases de datos:
+Cada microservicio del backend se organiza bajo los principios de **Arquitectura Hexagonal (Ports & Adapters)** para desacoplar las reglas de negocio de los detalles de infraestructura, frameworks y bases de datos. El dominio se modela con clases (entidades, objetos de valor y servicios de dominio) y no importa FastAPI, SQLAlchemy ni RabbitMQ:
+
+![Diagrama de paquetes de un microservicio](./Diagrama_Paquetes_Microservicio.svg)
 
 ```text
-src/
-├── domain/                    # Entidades puras y reglas de negocio del dominio
-│   ├── model/                 # Objetos de dominio, Value Objects y Agregados
-│   └── exception/             # Excepciones de negocio tipadas
-├── application/               # Casos de uso y orquestación de flujos
-│   ├── port/
-│   │   ├── in/                # Interfaces de entrada (casos de uso)
-│   │   └── out/               # Interfaces de salida (repositorios, brokers, mailers)
-│   ├── service/               # Implementación de casos de uso
-│   └── dto/                   # Data Transfer Objects de entrada y salida
-└── infrastructure/            # Adaptadores técnicos (detalles externos)
-    ├── adapter/
-    │   ├── in/
-    │   │   └── rest/          # Controladores HTTP REST, filtros y mapeo de DTOs
-    │   └── out/
-    │       ├── persistence/   # Entidades ORM / JPA / Repositorios SQL y NoSQL
-    │       ├── messaging/     # Productores y consumidores de colas RabbitMQ
-    │       └── external/      # Clientes HTTP (OpenStreetMap, SMTP)
-    └── config/                # Inyección de dependencias, beans y variables de entorno
+services/<servicio>/
+├── Dockerfile
+├── requirements.txt
+├── src/
+│   ├── main.py                    # Composición: crea la app FastAPI e inyecta los adaptadores
+│   ├── domain/                    # Entidades, objetos de valor y reglas de negocio puras
+│   ├── application/               # Casos de uso (una clase por caso de uso)
+│   │   └── ports/                 # Interfaces (clases abstractas) de repositorios y publicadores
+│   └── infrastructure/            # Adaptadores que implementan los puertos
+│       ├── http/                  # Routers FastAPI y esquemas Pydantic (contrato OpenAPI)
+│       ├── persistence/           # Repositorios SQLAlchemy sobre la base propia del servicio
+│       └── messaging/             # Publicador y consumidores RabbitMQ (aio-pika)
+├── k8s/                           # Deployment, Service y HPA del servicio
+└── tests/
+    ├── unit/
+    └── integration/
 ```
 
 ---
@@ -168,21 +135,25 @@ src/
 * **Responsabilidad Interna:** Gestión centralizada del ciclo de vida de usuarios, autenticación basada en credenciales robustas, autorización por roles (RBAC), control documental de prestadores y bitácora de auditoría inmutable.
 * **Mecanismos Internos:**
   * **Cifrado de Contraseñas:** Algoritmo **Argon2id** (configuración recomendada RFC 9106: memoria 64 MB, 3 iteraciones, 4 hilos de paralelismo) que previene ataques por fuerza bruta basados en GPU/ASIC.
-  * **Generador y Validador de Tokens:** Generación de JWTs firmados con clave simétrica robusta (`HS256` con clave de 256 bits) o asimétrica (`RS256`), con tiempo de vida corto (15 a 60 minutos para Access Token) y Refresh Tokens revocables almacenados en caché.
-  * **Bitácora de Auditoría Asíncrona:** Registro inmutable de transacciones críticas (`USUARIO_REGISTRO`, `LOGIN_FALLIDO`, `ROL_MODIFICADO`, `PRESTADOR_VALIDADO`). Las inserciones se realizan en la tabla relacional `bitacora_auditoria` con índice temporal B-Tree.
+  * **Emisión de Tokens:** JWT firmados con **RS256** (clave privada solo en el Módulo 1), con tiempo de vida corto (15 a 60 minutos para el Access Token) y Refresh Tokens revocables. Los identificadores de tokens revocados se guardan en Valkey hasta su expiración.
+  * **Verificación para el Gateway:** Endpoint `GET /api/iam/auth/verificar` usado por el middleware ForwardAuth de Traefik: valida firma, expiración y revocación, y responde con los encabezados `X-Usuario-Id` y `X-Usuario-Rol`. Un token inválido produce HTTP 401 y un registro en la bitácora.
+  * **Verificación de Prestadores:** Los documentos RNT y RUT se guardan en SeaweedFS; al aprobar un prestador (UC28) se publica `prestador.aprobado`.
+  * **Bitácora de Auditoría:** Sus propios eventos (`LOGIN_FALLIDO`, `ROL_MODIFICADO`, `PRESTADOR_VALIDADO`) se insertan en la misma transacción de la acción; los de los demás módulos llegan por el evento `auditoria.registrada` (Sección 4.4).
 
 #### 2. Módulo 2: Catálogo, GIS & Inteligencia de Destino (Módulo Unificado)
-* **Responsabilidad Interna:** Administración y renderizado del catálogo turístico, procesamiento de consultas espaciales con mapas libres, analítica agregada de demanda turística, estimación de capacidad de carga y despacho de alertas institucionales y correos transaccionales.
+* **Responsabilidad Interna:** Administración del catálogo turístico y de los perfiles de prestador, consultas espaciales con mapas libres, analítica agregada de demanda, estimación de capacidad de carga, alertas institucionales y correos transaccionales.
 * **Mecanismos Internos:**
-  * **Capa Geoespacial PostGIS:** Almacenamiento de puntos georreferenciados mediante el tipo nativo `GEOMETRY(Point, 4326)` o `GEOGRAPHY(Point)`. Búsquedas por radio y proximidad ejecutadas mediante la función `ST_DWithin` optimizada con índices espaciales `GIST`.
-  * **Caché de Segundo Nivel:** Consultas de alto tráfico (catálogo general y listados de categorías) cacheadas en **Valkey/Redis** con un tiempo de expiración (TTL) de 300 segundos, invalidándose ante mutaciones del catálogo mediante eventos.
-  * **Submódulo de Analítica y Capacidad de Carga:** Rutinas de agregación SQL sobre reservas y visitas para calcular el índice de saturación de cada atractivo:
-    $$\text{Índice de Saturación} = \frac{\sum \text{Visitantes Estimados}}{\text{Capacidad de Carga Oficial}}$$
-    Si el índice supera el 85%, el sistema marca el atractivo con bandera de advertencia y habilita al rol Entidad para emitir alertas oficiales (UC26).
-  * **Worker de Notificaciones Transaccionales (SMTP):** Consumidor interno que escucha eventos de reservas confirmadas/canceladas y envía correos electrónicos formateados en HTML con plantillas embebidas mediante conexión SMTP segura (TLS).
+  * **Capa Geoespacial PostGIS:** Almacenamiento de puntos georreferenciados mediante el tipo nativo `GEOMETRY(Point, 4326)`. Búsquedas por radio y proximidad ejecutadas mediante la función `ST_DWithin` optimizada con índices espaciales `GIST`.
+  * **Caché de Segundo Nivel:** Consultas de alto tráfico (catálogo general y listados de categorías) cacheadas en **Valkey** con un tiempo de expiración (TTL) de 300 segundos, invalidándose ante mutaciones del catálogo.
+  * **Perfiles de Prestador:** Se crean al consumir `prestador.aprobado`; solo un prestador con perfil activo puede publicar ofertas (UC17).
+  * **Analítica de Demanda por Eventos:** El módulo consume los eventos `reserva.*` y mantiene su propia tabla `demanda_diaria` (Sección 6.7). No consulta `booking_db`.
+  * **Índice de Saturación:**
+    $$\text{Índice de Saturación} = \frac{\sum \text{Personas con reserva activa}}{\text{Capacidad de Carga Oficial}}$$
+    Si el índice supera el 85%, el atractivo se marca con bandera de advertencia y se habilita al rol Entidad para emitir alertas oficiales (UC26).
+  * **Notificaciones Transaccionales (SMTP):** Consumidor que escucha los eventos de reservas y envía correos HTML con plantillas embebidas mediante conexión SMTP segura (TLS).
 
 #### 3. Módulo 3: Reservas & Cupos (Bookings & Availability Service)
-* **Responsabilidad Interna:** Motor transaccional de alta consistencia para consulta, bloqueo temporal y confirmación de cupos de servicios turísticos.
+* **Responsabilidad Interna:** Motor transaccional de alta consistencia para consulta, bloqueo y gestión del ciclo de vida de las reservas.
 * **Mecanismos Internos:**
   * **Control de Concurrencia y Bloqueo Atómico:** Para evitar condiciones de carrera (*race conditions*) y sobreventa (*overbooking*), las operaciones de reserva ejecutan una consulta de actualización con bloqueo pesimista a nivel de fila en PostgreSQL:
     ```sql
@@ -190,26 +161,27 @@ src/
     WHERE servicio_id = $1 AND fecha = $2 
     FOR UPDATE;
     ```
-    Si `cupos_disponibles >= personas_solicitadas`, se descuentan los cupos atómicamente y se inserta la solicitud de reserva en estado `Solicitada` dentro de una transacción serializable.
-  * **Publicador de Eventos de Dominio:** Al persistirse exitosamente una reserva o confirmarse por parte del prestador, se publica de forma asíncrona el evento `reserva.creada` o `reserva.confirmada` hacia el broker de mensajería.
+    Si `cupos_disponibles >= personas_solicitadas`, se descuentan los cupos atómicamente y se inserta la solicitud de reserva en estado `SOLICITADA` dentro de la misma transacción.
+  * **Máquina de Estados:** La clase de dominio `Reserva` solo permite las transiciones de la Sección 6.4; cualquier otra devuelve HTTP 409.
+  * **Tareas Programadas:** Un `CronJob` de Kubernetes ejecuta cada 15 minutos la expiración de solicitudes vencidas y la finalización de reservas cuya fecha ya pasó.
+  * **Publicador de Eventos de Dominio:** Cada transición publica su evento (`reserva.solicitada`, `reserva.confirmada`, `reserva.rechazada`, `reserva.cancelada`, `reserva.finalizada`) después de confirmar la transacción.
 
 #### 4. Módulo 4: Reseñas & Moderación (Reviews & Moderation Service)
-* **Responsabilidad Interna:** Captura de opiniones y calificaciones de turistas, réplicas de prestadores y filtro de moderación previo.
+* **Responsabilidad Interna:** Captura de opiniones y calificaciones de turistas con reservas finalizadas, réplicas de prestadores, reportes de contenido y moderación manual.
 * **Mecanismos Internos:**
-  * **Pre-filtro Heurístico Ligero:** Procesador léxico embebido en el microservicio que normaliza el texto (minúsculas, remoción de diacríticos y lematización básica) y evalúa una lista negra de patrones y palabras ofensivas.
-    * Si el texto supera el umbral de sensibilidad, se almacena con estado `En_Revision` y se encola para moderación del Administrador (UC29).
-    * Si el texto es limpio, se publica inmediatamente con estado `Publicado`.
-  * **Almacenamiento NoSQL / Semi-estructurado:** Almacenamiento en colecciones de MongoDB o tablas relacionales con columnas `JSONB` de PostgreSQL para permitir estructuras de calificaciones multidimensionales (limpieza, puntualidad, precio, amabilidad) y respuestas anidadas del prestador.
+  * **Elegibilidad:** El módulo consume `reserva.finalizada` y guarda en `elegibilidad_resena` qué turista puede reseñar qué servicio. Sin ese registro, la reseña se rechaza con HTTP 403.
+  * **Moderación posterior:** Las reseñas se publican de inmediato con estado `PUBLICADO`. Un turista o prestador puede reportarlas (UC39); al recibir un reporte pasan a `EN_REVISION` y quedan ocultas hasta que el Administrador las publica de nuevo u oculta definitivamente (UC29).
+  * **Almacenamiento Documental:** Tabla con columnas `JSONB` en PostgreSQL para las calificaciones multidimensionales (limpieza, guianza, relación calidad-precio) y la respuesta anidada del prestador.
 
 #### 5. Módulo 5: IA & Recomendación (AI Recommendation Chatbot)
 * **Responsabilidad Interna:** Chatbot turístico que atiende consultas en lenguaje natural (español e inglés) y entrega recomendaciones personalizadas y justificadas (RNF-08). Usa la API de Gemini como modelo de lenguaje; el equipo no entrena ni aloja ningún modelo.
 * **Mecanismos Internos:**
-  * **Herramientas de consulta (*tools*):** Funciones de solo lectura que el servicio declara a Gemini y ejecuta cuando el modelo las solicita. Consultan catálogo, disponibilidad, historial del turista, reseñas, capacidad de carga y alertas oficiales a través de los contratos REST de los demás módulos.
+  * **Herramientas de consulta (*tools*):** Funciones de solo lectura que el servicio declara a Gemini y ejecuta cuando el modelo las solicita. Consultan catálogo, disponibilidad, historial del turista, reseñas, capacidad de carga y alertas oficiales a través de los contratos REST de los Módulos 2, 3 y 4.
   * **Respuestas ancladas en datos:** Lo que el chatbot afirma sobre servicios, precios, disponibilidad o reseñas proviene de las herramientas, no de la memoria del modelo; se descartan los servicios recomendados que no hayan sido consultados.
-  * **Identidad controlada por el servidor:** El identificador del turista se toma del token JWT; el modelo nunca lo decide ni lo recibe como parámetro.
-  * **Memoria de sesión:** La conversación reciente se conserva en Valkey con expiración, para dar continuidad al diálogo.
-  * **Explicabilidad y registro (RNF-08):** Cada recomendación incluye su justificación y se registra en `RECOMENDACION_LOG`.
-  * **Aislamiento ante fallos:** Si Gemini no está disponible, solo falla el chatbot; el catálogo y las reservas siguen operando (ESC-01).
+  * **Identidad controlada por el servidor:** El identificador del turista llega en el encabezado `X-Usuario-Id` que agrega el gateway; el modelo nunca lo decide ni lo recibe como parámetro.
+  * **Memoria de sesión:** La conversación reciente (últimos 10 mensajes) se conserva en Valkey con expiración de 24 horas.
+  * **Explicabilidad y registro (RNF-08):** Cada recomendación incluye su justificación y se registra en la tabla `recomendacion_log` de `recommendation_db`.
+  * **Aislamiento ante fallos:** Si Gemini no está disponible, solo falla el chatbot; el catálogo y las reservas siguen operando (ESC-01). El Deployment mantiene al menos una réplica activa (RNF-12).
 * **Alcance:** No crea, modifica ni cancela reservas desde el chat; orienta al turista hacia las pantallas de la plataforma. Detalle técnico en la [Guía Técnica del Módulo 5](./Guia_Tecnica_Modulo_IA.md).
 
 ---
@@ -220,27 +192,28 @@ src/
 
 | Capa / Componente | Tecnología Seleccionada | Versión | Licencia | Rol en la Arquitectura |
 |---|---|---|---|---|
-| **API Gateway & Reverse Proxy** | **Nginx** | 1.24+ | BSD-2-Clause | Terminación TLS/SSL, enrutamiento perimetral, validación de cabeceras, compresión gzip y Rate Limiting. |
-| **Backend Core (Módulos 1, 2, 3, 4)** | **Node.js (NestJS / Express)** o **Java (Spring Boot)** | Node 20 LTS / Java 17+ | MIT / Apache 2.0 | Microservicios transaccionales con tipado estricto, inyección de dependencias y controladores REST. |
-| **Backend IA (Módulo 5)** | **Python (FastAPI) + API de Google Gemini** | Python 3.11+ | PSF / BSD; Gemini: términos comerciales de Google (servicio externo, no FOSS) | Microservicio del chatbot: integra Gemini y expone las herramientas de consulta. No incluye modelo propio. |
-| **Base de Datos Relacional / GIS** | **PostgreSQL + PostGIS** | PG 16 / PostGIS 3.4 | PostgreSQL / GPL-2.0 | Persistencia transaccional ACID para IAM, Reservas y Catálogo con soporte geoespacial. |
-| **Base de Datos Documental** | **MongoDB Community Edition** *(o PG JSONB)* | 7.0+ | SSPL / PostgreSQL | Almacenamiento de reseñas, calificaciones multidimensionales y bitácoras semiestructuradas. |
-| **Caché en Memoria** | **Valkey** *(fork FOSS de Redis)* | 7.2+ | BSD-3-Clause | Caché de segundo nivel, almacenamiento de listas de revocación de tokens y control de sesiones. |
-| **Message Broker (Event Bus)** | **RabbitMQ** | 3.12+ | MPL 2.0 | Bus de mensajería asíncrona basado en el estándar AMQP 0-9-1 para eventos desacoplados. |
-| **Cartografía y Mapas Web** | **OpenStreetMap + Leaflet.js** | Leaflet 1.9+ | ODbL / BSD-2-Clause | Visualización interactiva de mapas en el frontend sin costos comerciales por consulta. |
-| **Frontend Web** | **HTML5, Vanilla CSS3, JavaScript / Vue.js** | Vue 3 (opcional) | MIT | Interfaz de usuario responsiva, accesible (WCAG 2.1 AA) e internacionalizada (i18n). |
-| **Contenedores y Orquestación** | **Docker & Docker Compose** | Engine 24+ | Apache 2.0 | Estandarización y ejecución reproducible de todos los servicios e infraestructura en Linux. |
-| **Observabilidad y Métricas** | **Prometheus + Grafana** | Prom 2.45+ / Graf 10+ | Apache 2.0 / AGPL-3.0 | Recolección de métricas de rendimiento y visualización de tableros de salud operativa. |
+| **API Gateway & Ingress** | **Traefik** | v3 | MIT | Terminación TLS, enrutamiento por prefijo, ForwardAuth, Rate Limiting y CORS. Incluido por defecto en k3s. |
+| **Backend (Módulos 1 a 5)** | **Python + FastAPI**, Uvicorn, Pydantic v2, SQLAlchemy 2, aio-pika | Python 3.12 | PSF / MIT / BSD / Apache 2.0 | Microservicios REST orientados a objetos con arquitectura hexagonal. |
+| **Integración de IA (Módulo 5)** | **API de Google Gemini** (SDK `google-genai`) | Modelo configurable por variable de entorno | Términos comerciales de Google (servicio externo, no FOSS) | Modelo de lenguaje con llamada a funciones para el chatbot. |
+| **Base de Datos Relacional / GIS / Documental** | **PostgreSQL + PostGIS** (JSONB) con **CloudNativePG** | PG 16 / PostGIS 3.4 | PostgreSQL / GPL-2.0 / Apache 2.0 | Persistencia ACID de los 5 servicios, consultas geoespaciales y documentos de reseñas. |
+| **Caché en Memoria** | **Valkey** | 8 | BSD-3-Clause | Caché de catálogo, sesiones del chatbot, tokens revocados e idempotencia. |
+| **Almacenamiento de Objetos** | **SeaweedFS** (API S3) | 3.x | Apache 2.0 | Documentos RNT/RUT y respaldos de PostgreSQL. |
+| **Message Broker (Event Bus)** | **RabbitMQ** | 4 | MPL 2.0 | Bus de mensajería AMQP 0-9-1 para eventos desacoplados. |
+| **Cartografía y Mapas Web** | **OpenStreetMap + Leaflet.js** | Leaflet 1.9+ | ODbL / BSD-2-Clause | Mapas interactivos sin costos comerciales por consulta. |
+| **Frontend Web** | **Vue.js 3 + Vite + Workbox** (PWA) | Vue 3 | MIT | Interfaz responsiva, accesible (WCAG 2.1 AA), bilingüe y con operación sin conexión. |
+| **Contenedores y Orquestación** | **Docker** (construcción de imágenes) y **k3s** (Kubernetes) | k3s estable | Apache 2.0 | Despliegue declarativo, HPA, *rolling updates* y autorreparación. Docker Compose solo en desarrollo. |
+| **Observabilidad** | **Prometheus + Grafana + Loki** | Prometheus 3 / Grafana 12 / Loki 3 | Apache 2.0 / AGPL-3.0 | Métricas, tableros de salud y registros centralizados. |
+| **Pruebas de carga** | **k6** | 1.x | AGPL-3.0 | Validación de ESC-02 y ESC-08. |
 
 ---
 
 ### 3.2 Justificación Técnica de Decisiones Abiertas
 
-1. **Adopción de Valkey frente a Redis:** En 2024, Redis cambió su modelo de licenciamiento a licencias no aprobadas por la OSI (RSALv2 / SSPL). Para preservar el compromiso de Software Libre 100% (FOSS) y compatibilidad directa de protocolos (`redis-cli`, librerías cliente), se adopta **Valkey**, bifurcación comunitaria bajo licencia permisiva BSD-3-Clause respaldada por la Linux Foundation.
+1. **Adopción de Valkey frente a Redis:** En 2024, Redis cambió su modelo de licenciamiento a licencias no aprobadas por la OSI (RSALv2 / SSPL). Para preservar el compromiso con el software libre y la compatibilidad de protocolo (`redis-cli`, librerías cliente), se adopta **Valkey**, bifurcación comunitaria bajo licencia BSD-3-Clause respaldada por la Linux Foundation.
 2. **PostGIS como núcleo analítico y de catálogo:** Al unificar el Módulo 6 dentro del Módulo 2, PostGIS se convierte en el motor analítico central. Permite cálculos espaciales de proximidad y clusters de saturación directamente en el motor de base de datos sin requerir herramientas analíticas de terceros.
-3. **Persistencia de Reseñas: MongoDB vs PostgreSQL JSONB:**
-   * Si el equipo busca minimizar la cantidad de motores en ejecución local (mitigación del riesgo de memoria en Docker), las reseñas se modelan como tablas relacionales con campos `JSONB` e índices `GIN` dentro de PostgreSQL.
-   * Si se despliega MongoDB Community, se aísla en su propio contenedor dentro de la red interna de datos.
+3. **Reseñas en PostgreSQL JSONB en lugar de MongoDB:** MongoDB Community se distribuye bajo SSPL, licencia que la OSI no reconoce como de código abierto, lo que contradice la prioridad FOSS del proyecto. JSONB ofrece el modelo documental que necesitan las reseñas (calificaciones variables y respuestas anidadas, con índices `GIN`) sin agregar un motor más que operar, respaldar y monitorear (ADR-003). Si el volumen de reseñas lo exigiera, FerretDB (Apache 2.0) permite exponer una API compatible con MongoDB sobre PostgreSQL.
+4. **Traefik como API Gateway:** Viene incluido en k3s como controlador de Ingress, configura rutas y middlewares (ForwardAuth, RateLimit, CORS) con recursos de Kubernetes y evita operar un proxy adicional (ADR-007).
+5. **Python en los 5 servicios:** Un solo lenguaje reduce la curva de aprendizaje (R-01), permite compartir la plantilla base y las prácticas de pruebas, y es el lenguaje natural del chatbot (ADR-006).
 
 ---
 
@@ -248,75 +221,101 @@ src/
 
 ### 4.1 Comunicación Síncrona REST / HTTPS
 
-Las peticiones iniciadas por clientes web o móviles interactúan exclusivamente con el **API Gateway** a través de HTTPS. El Gateway realiza la terminación SSL y redirige internamente las solicitudes al microservicio correspondiente a través de la red privada de Docker:
+Las peticiones de la PWA interactúan exclusivamente con el **API Gateway (Traefik)** a través de HTTPS. Traefik termina TLS, aplica los middlewares y enruta por prefijo al Service de Kubernetes de cada microservicio:
 
-* **Formato de Carga:** JSON (Content-Type: `application/json`).
-* **Estándar de Errores:** Respuestas de error estructuradas conforme a la especificación **RFC 7807 (Problem Details for HTTP APIs)**:
-  ```json
-  {
-    "type": "https://api.turismosantamarta.gov.co/errors/insufficient-availability",
-    "title": "Cupos insuficientes",
-    "status": 409,
-    "detail": "El servicio no cuenta con los 4 cupos solicitados para la fecha 2026-10-15.",
-    "instance": "/api/v1/bookings",
-    "timestamp": "2026-10-15T14:32:00Z"
-  }
-  ```
-* **Trazabilidad y Correlación:** Cada petición entrante en el API Gateway recibe un identificador único en la cabecera `X-Correlation-ID`. Dicho identificador es propagado a todas las llamadas internas y registrado en los logs de los microservicios para auditoría y observabilidad.
+| Prefijo | Servicio destino | Autenticación |
+|---|---|---|
+| `/api/iam/auth/login`, `/api/iam/auth/registro`, `/api/iam/auth/recuperar` | `iam-service:8001` | Pública |
+| `/api/iam/...` (resto) | `iam-service:8001` | ForwardAuth |
+| `/api/catalog/servicios`, `/api/catalog/buscar`, `/api/catalog/alertas` (GET) | `catalog-service:8002` | Pública (RF-01) |
+| `/api/catalog/...` (resto, incluye `/api/catalog/analitica`) | `catalog-service:8002` | ForwardAuth |
+| `/api/bookings/disponibilidad` (GET) | `booking-service:8003` | Pública |
+| `/api/bookings/...` (resto) | `booking-service:8003` | ForwardAuth |
+| `/api/reviews/...` (GET públicos, escritura protegida) | `review-service:8004` | Mixta |
+| `/api/recommendations/chat` | `recommendation-service:8005` | ForwardAuth |
+
+Convenciones:
+* **Identidad:** En las rutas protegidas, Traefik consulta `GET /api/iam/auth/verificar` (ForwardAuth). Si la respuesta es 200, reenvía la petición agregando `X-Usuario-Id` y `X-Usuario-Rol`; los servicios confían en esos encabezados porque las políticas de red solo permiten tráfico desde Traefik y desde el Módulo 5 (Sección 7.4). Cada servicio verifica el rol requerido por su endpoint (RBAC) y responde 403 si no corresponde.
+* **Llamadas entre servicios:** Solo el Módulo 5 llama a otros servicios (sus herramientas), con el `X-Usuario-Id` original de la petición.
+* **Errores:** Formato común `{ "error": "<CODIGO>", "message": "<texto>", "correlation_id": "<id>" }`.
+* **Trazabilidad y Correlación:** Cada petición entrante en el gateway recibe un identificador en la cabecera `X-Correlation-ID`, que se propaga a las llamadas internas y a los eventos y se registra en los logs de todos los servicios.
+* **Idempotencia de formularios:** Los `POST`/`PUT` que la PWA puede reintentar aceptan el encabezado `Idempotency-Key` (Sección 6.8).
 
 ---
 
-### 4.2 Comunicación Asíncrona Orientada a Eventos (Message Broker)
+### 4.2 Comunicación Asíncrona Orientada a Eventos (RabbitMQ)
 
-Para garantizar que operaciones lentas (envío de correos electrónicos transaccionales, auditoría) no bloqueen las peticiones de los usuarios, se utiliza un bus de mensajería con **RabbitMQ**:
+Para que las tareas secundarias (correos, métricas, habilitación de reseñas, auditoría) no bloqueen las peticiones de los usuarios, se usa **RabbitMQ**:
 
-#### Topología de RabbitMQ:
-* **Exchange Principal:** `tourism.topic` (Tipo: `topic`, Durable: `true`).
-* **Routing Keys y Colas:**
+* **Exchange:** `turismo.eventos` (tipo `topic`, durable). La clave de enrutamiento es el `event_type` (por ejemplo `reserva.confirmada`).
+* **Colas:** Cada consumidor declara su propia cola durable (`<servicio>.<propósito>`) y la enlaza a las claves que le interesan; un consumidor caído no afecta a los demás.
+* **Contratos:** Sobre común `envelope.v1.json` y un esquema JSON por evento en `contracts/events/` del monorepo.
 
-| Routing Key | Evento Emitido Por | Colas Suscritas | Consumidor Interno | Acción Ejecutada |
+| Evento (routing key) | Productor | Cola consumidora | Consumidor | Acción ejecutada |
 |---|---|---|---|---|
-| `booking.confirmed` | Módulo 3 (Reservas) | `q.notifications.email` | Módulo 2 (Catálogo/Analítica) | Envía correo de confirmación al turista con datos del prestador. |
-| `booking.cancelled` | Módulo 3 (Reservas) | `q.notifications.email` | Módulo 2 (Catálogo/Analítica) | Notifica al prestador y libera cupos. |
-| `alert.published` | Módulo 2 (Catálogo/Analítica) | `q.notifications.broadcast` | Módulo 2 (Catálogo/Analítica) | Despacha notificaciones oficiales sobre aforo o cierres temporales. |
+| `reserva.solicitada` | booking-service | `catalog.notificaciones`, `catalog.demanda` | catalog-service | Avisa al prestador por correo; suma a la demanda del día. |
+| `reserva.confirmada` | booking-service | `catalog.notificaciones`, `catalog.demanda` | catalog-service | Correo de confirmación al turista (UC36); actualiza métricas. |
+| `reserva.rechazada` | booking-service | `catalog.notificaciones`, `catalog.demanda` | catalog-service | Correo al turista; resta de la demanda. |
+| `reserva.cancelada` | booking-service | `catalog.notificaciones`, `catalog.demanda` | catalog-service | Correo a la otra parte; resta de la demanda. |
+| `reserva.finalizada` | booking-service | `review.elegibilidad`, `catalog.demanda` | review-service, catalog-service | Habilita la reseña del turista; registra ocupación efectiva. |
+| `resena.publicada` | review-service | `catalog.calificaciones` | catalog-service | Actualiza calificación promedio y métricas del prestador (UC22). |
+| `prestador.aprobado` | iam-service | `catalog.prestadores` | catalog-service | Crea el perfil del prestador y habilita UC17. |
+| `auditoria.registrada` | catalog, booking y review | `iam.auditoria` | iam-service | Inserta el evento en la bitácora (Sección 4.4). |
 
 > El Módulo 5 no participa en el bus de eventos: obtiene los datos que necesita bajo demanda mediante sus herramientas de consulta.
 
 #### Esquema Estándar de Mensaje JSON:
 ```json
 {
-  "eventId": "a7b3c94d-5821-4bfe-98e3-0d2938174201",
-  "eventType": "booking.confirmed",
-  "occurredAt": "2026-10-12T16:20:00Z",
-  "correlationId": "corr-88de-5c16-1e3d-4a4f",
-  "producer": "bookings-service",
-  "data": {
-    "bookingId": "c4d8e219-9f7a-4b02-861d-910283746192",
-    "touristId": "u-102938",
-    "touristEmail": "turista@ejemplo.com",
-    "serviceId": "srv-playa-cristal-01",
-    "serviceName": "Tour Playa Cristal con Guía Local",
-    "reservationDate": "2026-11-05",
-    "partySize": 2
+  "event_id": "a7b3c94d-5821-4bfe-98e3-0d2938174201",
+  "event_type": "reserva.confirmada",
+  "version": 1,
+  "occurred_at": "2026-10-12T16:20:00Z",
+  "producer": "booking-service",
+  "correlation_id": "corr-88de-5c16-1e3d-4a4f",
+  "payload": {
+    "reserva_id": "c4d8e219-9f7a-4b02-861d-910283746192",
+    "servicio_id": "0b6f1a52-3c1e-4c8e-9f0a-7d2a91c4e5b3",
+    "turista_id": "5e2d7c10-8a4b-4f61-b3d2-1c9e0f7a6b54",
+    "prestador_id": "9a1c3e5f-2b4d-4c6e-8f0a-1b3d5f7a9c2e",
+    "fecha_reserva": "2026-11-05",
+    "numero_personas": 2
   }
 }
 ```
 
+Los eventos solo llevan identificadores; el consumidor que necesita datos de contacto (por ejemplo, el correo del turista para UC36) los obtiene por REST del servicio dueño, de modo que los datos personales no viajan por el bus.
+
 ---
 
-### 4.3 Manejo de Idempotencia y Políticas de Reintento (DLQ)
+### 4.3 Idempotencia, Reintentos y DLQ
 
 Para prevenir efectos secundarios no deseados causados por la entrega repetida de mensajes en el bus:
-1. **Identificador de Idempotencia:** Cada consumidor almacena en caché Valkey el `eventId` procesado con un TTL de 24 horas. Si llega un mensaje con un `eventId` ya existente en la caché, se reconoce (`ACK`) y se descarta su reejecución.
-2. **Dead Letter Queue (DLQ):** Los mensajes que fallen durante el procesamiento tras 3 intentos sucesivos con retroceso exponencial (*exponential backoff*: 1s, 5s, 25s) son enrutados automáticamente al exchange `tourism.dlx` y depositados en la cola `q.dead-letter` para análisis del equipo de operaciones.
+
+1. **Confirmación de publicación:** Los productores publican con *publisher confirms* y mensajes persistentes; si el broker no confirma, el publicador reintenta y deja un registro de error.
+2. **Identificador de Idempotencia:** Cada consumidor guarda en Valkey el `event_id` procesado con un TTL de 24 horas. Si llega un mensaje con un `event_id` ya existente, se reconoce (`ACK`) y se descarta su reejecución.
+3. **Dead Letter Queue (DLQ):** Los mensajes que fallan tras 3 intentos con retroceso exponencial (1s, 5s, 25s) se enrutan al exchange `turismo.dlx` y quedan en la cola `turismo.dead-letter` para análisis del equipo.
+
+---
+
+### 4.4 Auditoría Asíncrona
+
+* **Dueño único:** El Módulo 1 es el único que escribe en `bitacora_auditoria` (`iam_db`).
+* **Eventos propios:** El Módulo 1 inserta sus eventos en la misma transacción que la acción (por ejemplo, el cambio de rol y su registro se confirman juntos).
+* **Eventos de otros módulos:** catalog, booking y review publican `auditoria.registrada` (accesos denegados por rol, exportaciones, cambios de estado de reservas, decisiones de moderación). La cola `iam.auditoria` los inserta en la bitácora.
+* **Accesos con token inválido (ESC-04):** Los detecta el endpoint de verificación de ForwardAuth, que pertenece al Módulo 1 y los registra directamente.
+* **Inmutabilidad:** El usuario de base de datos del servicio solo tiene permisos `INSERT` y `SELECT` sobre la tabla (Sección 5.1).
+* **Evolución:** Si se exige garantía total de entrega, cada productor adoptará el patrón *outbox*: el evento se guarda en una tabla de su propia base en la misma transacción y un proceso lo publica después (ADR-008).
 
 ---
 
 ## 5. Modelos Físicos de Persistencia (Database-per-Service)
 
-### 5.1 Esquema Relacional y Geoespacial (PostgreSQL + PostGIS)
+Las cinco bases son bases lógicas dentro de un mismo clúster PostgreSQL (CloudNativePG). Cada servicio tiene su propio usuario con permisos únicamente sobre su base. Las referencias a entidades de otro servicio se guardan como `UUID` **sin** llave foránea.
 
-#### 1. Base de Datos: `db_iam` (Módulo 1: Seguridad & IAM)
+### 5.1 Esquemas Relacionales y Geoespaciales (PostgreSQL + PostGIS)
+
+#### 1. Base de Datos: `iam_db` (Módulo 1: Seguridad & IAM)
 ```sql
 CREATE TABLE usuarios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -326,6 +325,7 @@ CREATE TABLE usuarios (
     telefono VARCHAR(30),
     rol VARCHAR(20) NOT NULL CHECK (rol IN ('TURISTA', 'PRESTADOR', 'ENTIDAD', 'ADMIN')),
     activo BOOLEAN DEFAULT TRUE,
+    email_verificado BOOLEAN NOT NULL DEFAULT FALSE,
     habeas_data_aceptado BOOLEAN NOT NULL DEFAULT FALSE,
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -336,7 +336,7 @@ CREATE TABLE documentos_verificacion (
     usuario_id UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
     tipo_documento VARCHAR(20) NOT NULL CHECK (tipo_documento IN ('RNT', 'RUT')),
     numero_registro VARCHAR(50),
-    archivo_url VARCHAR(500) NOT NULL,
+    objeto_s3 VARCHAR(500) NOT NULL,          -- llave del archivo en el bucket documentos-verificacion
     estado VARCHAR(20) DEFAULT 'PENDIENTE' CHECK (estado IN ('PENDIENTE', 'APROBADO', 'RECHAZADO')),
     observaciones TEXT,
     fecha_subida TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -347,15 +347,22 @@ CREATE TABLE bitacora_auditoria (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id UUID REFERENCES usuarios(id),
     accion VARCHAR(50) NOT NULL,
-    ip_origen VARCHAR(45) NOT NULL,
+    resultado VARCHAR(20) NOT NULL CHECK (resultado IN ('EXITO', 'DENEGADO', 'ERROR')),
+    servicio_origen VARCHAR(50) NOT NULL,
+    ip_origen VARCHAR(45),
+    event_id UUID UNIQUE,                      -- evita duplicados de auditoria.registrada
     detalles JSONB,
     fecha_evento TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_bitacora_fecha ON bitacora_auditoria(fecha_evento);
 CREATE INDEX idx_bitacora_usuario ON bitacora_auditoria(usuario_id);
+
+-- Inmutabilidad (RNF-10): el usuario de la aplicación solo inserta y consulta.
+REVOKE UPDATE, DELETE, TRUNCATE ON bitacora_auditoria FROM iam_app;
+GRANT INSERT, SELECT ON bitacora_auditoria TO iam_app;
 ```
 
-#### 2. Base de Datos: `db_catalog_analytics` (Módulo 2: Catálogo, GIS & Inteligencia de Destino)
+#### 2. Base de Datos: `catalog_db` (Módulo 2: Catálogo, GIS & Inteligencia de Destino)
 ```sql
 CREATE EXTENSION IF NOT EXISTS postgis;
 
@@ -365,17 +372,30 @@ CREATE TABLE categorias_servicios (
     descripcion TEXT
 );
 
+CREATE TABLE prestador_perfil (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    usuario_id UUID UNIQUE NOT NULL,          -- referencia lógica a iam_db.usuarios
+    razon_social VARCHAR(150) NOT NULL,
+    telefono VARCHAR(30),
+    direccion VARCHAR(200),
+    politica_cancelacion TEXT,
+    activo BOOLEAN NOT NULL DEFAULT TRUE,
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE atractivos_servicios (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    prestador_id UUID NOT NULL,
+    prestador_id UUID NOT NULL REFERENCES prestador_perfil(id),
     categoria_id INT REFERENCES categorias_servicios(id),
     nombre VARCHAR(150) NOT NULL,
     descripcion TEXT NOT NULL,
     ubicacion_nombre VARCHAR(150) NOT NULL,
+    zona VARCHAR(80) NOT NULL,
     coordenadas GEOMETRY(Point, 4326) NOT NULL,
     tarifa_base NUMERIC(12, 2) NOT NULL DEFAULT 0.0,
     capacidad_aforo_diario INT NOT NULL DEFAULT 50,
     estado VARCHAR(20) DEFAULT 'PUBLICADO' CHECK (estado IN ('BORRADOR', 'PUBLICADO', 'INACTIVO')),
+    version INT NOT NULL DEFAULT 1,           -- control de concurrencia optimista (PWA, Sección 6.8)
     imagenes_urls TEXT[],
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -384,8 +404,9 @@ CREATE INDEX idx_servicios_categoria ON atractivos_servicios(categoria_id);
 
 CREATE TABLE alertas_oficiales (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    entidad_usuario_id UUID NOT NULL,
-    atractivo_servicio_id UUID REFERENCES atractivos_servicios(id),
+    entidad_usuario_id UUID NOT NULL,         -- referencia lógica a iam_db.usuarios
+    atractivo_servicio_id UUID REFERENCES atractivos_servicios(id),  -- nulo si la alerta es por zona
+    zona VARCHAR(80),
     nivel_alerta VARCHAR(20) NOT NULL CHECK (nivel_alerta IN ('INFORMATIVA', 'PREVENTIVA', 'CRITICA')),
     titulo VARCHAR(150) NOT NULL,
     mensaje TEXT NOT NULL,
@@ -393,105 +414,177 @@ CREATE TABLE alertas_oficiales (
     fecha_emision TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     fecha_expiracion TIMESTAMP WITH TIME ZONE
 );
+
+-- Proyección de demanda alimentada por los eventos reserva.* (Sección 6.7)
+CREATE TABLE demanda_diaria (
+    servicio_id UUID NOT NULL REFERENCES atractivos_servicios(id),
+    fecha DATE NOT NULL,
+    personas_solicitadas INT NOT NULL DEFAULT 0,
+    personas_confirmadas INT NOT NULL DEFAULT 0,
+    personas_finalizadas INT NOT NULL DEFAULT 0,
+    actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (servicio_id, fecha)
+);
 ```
 
-#### 3. Base de Datos: `db_bookings` (Módulo 3: Reservas & Cupos)
+#### 3. Base de Datos: `booking_db` (Módulo 3: Reservas & Cupos)
 ```sql
 CREATE TABLE disponibilidad_cupo (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    servicio_id UUID NOT NULL,
+    servicio_id UUID NOT NULL,                -- referencia lógica a catalog_db.atractivos_servicios
     fecha DATE NOT NULL,
     cupos_totales INT NOT NULL CHECK (cupos_totales >= 0),
     cupos_disponibles INT NOT NULL CHECK (cupos_disponibles >= 0),
     tarifa_especial NUMERIC(12, 2),
+    version INT NOT NULL DEFAULT 1,
     UNIQUE (servicio_id, fecha)
 );
-CREATE INDEX idx_disp_servicio_fecha ON disponibilidad_cupo(servicio_id, fecha);
 
 CREATE TABLE solicitudes_reserva (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    turista_id UUID NOT NULL,
+    turista_id UUID NOT NULL,                 -- referencia lógica a iam_db.usuarios
     servicio_id UUID NOT NULL,
+    prestador_id UUID NOT NULL,
     fecha_reserva DATE NOT NULL,
     cantidad_personas INT NOT NULL CHECK (cantidad_personas > 0),
     precio_total NUMERIC(12, 2) NOT NULL,
-    estado VARCHAR(20) NOT NULL DEFAULT 'SOLICITADA' 
+    estado VARCHAR(20) NOT NULL DEFAULT 'SOLICITADA'
         CHECK (estado IN ('SOLICITADA', 'CONFIRMADA', 'RECHAZADA', 'CANCELADA', 'FINALIZADA')),
+    expira_en TIMESTAMP WITH TIME ZONE NOT NULL,   -- creado_en + 48 horas
     motivo_rechazo_cancelacion TEXT,
     creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     actualizado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_reservas_turista ON solicitudes_reserva(turista_id);
 CREATE INDEX idx_reservas_servicio ON solicitudes_reserva(servicio_id);
+CREATE INDEX idx_reservas_pendientes ON solicitudes_reserva(expira_en) WHERE estado = 'SOLICITADA';
 ```
+
+#### 4. Base de Datos: `recommendation_db` (Módulo 5: IA & Recomendación)
+```sql
+CREATE TABLE recomendacion_log (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    conversacion_id UUID NOT NULL,
+    turista_id UUID,                          -- referencia lógica a iam_db.usuarios
+    servicio_id UUID NOT NULL,                -- referencia lógica a catalog_db.atractivos_servicios
+    justificacion TEXT NOT NULL,              -- texto mostrado al turista (RNF-08)
+    herramientas_usadas JSONB NOT NULL,       -- nombres y parámetros de las herramientas consultadas
+    modelo VARCHAR(80) NOT NULL,              -- versión de Gemini usada
+    fecha_generacion TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_recomendacion_turista ON recomendacion_log(turista_id);
+```
+
+> No se almacena el texto completo de las conversaciones (Ley 1581). Solo se registra lo necesario para verificar RF-06 y RNF-08.
 
 ---
 
-### 5.2 Esquema NoSQL Documental (MongoDB / JSONB)
+### 5.2 Esquema Documental de Reseñas (PostgreSQL JSONB)
 
-Colección: `resenas` (Módulo 4: Reseñas & Moderación)
+Base de datos: `review_db` (Módulo 4: Reseñas & Moderación)
+
+```sql
+CREATE TABLE elegibilidad_resena (           -- alimentada por reserva.finalizada
+    reserva_id UUID PRIMARY KEY,
+    turista_id UUID NOT NULL,
+    servicio_id UUID NOT NULL,
+    finalizada_en TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
+CREATE TABLE resenas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reserva_id UUID UNIQUE NOT NULL REFERENCES elegibilidad_resena(reserva_id),  -- una reseña por reserva
+    servicio_id UUID NOT NULL,
+    turista_id UUID NOT NULL,
+    puntuacion INT NOT NULL CHECK (puntuacion BETWEEN 1 AND 5),
+    calificaciones_detalle JSONB NOT NULL DEFAULT '{}',
+    comentario TEXT,
+    estado_moderacion VARCHAR(20) NOT NULL DEFAULT 'PUBLICADO'
+        CHECK (estado_moderacion IN ('PUBLICADO', 'EN_REVISION', 'OCULTO')),
+    respuesta_prestador JSONB,
+    creado_en TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX idx_resenas_servicio ON resenas(servicio_id) WHERE estado_moderacion = 'PUBLICADO';
+CREATE INDEX idx_resenas_detalle ON resenas USING GIN (calificaciones_detalle);
+
+CREATE TABLE reportes_resena (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    resena_id UUID NOT NULL REFERENCES resenas(id),
+    reportado_por UUID NOT NULL,
+    motivo VARCHAR(300) NOT NULL,
+    fecha TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+Ejemplo del contenido JSONB:
 
 ```json
 {
-  "_id": { "$oid": "64fe8b1092a71d45c82901a1" },
-  "servicioId": "c4d8e219-9f7a-4b02-861d-910283746192",
-  "turistaId": "u-102938",
-  "turistaNombre": "Carlos M.",
-  "puntuacion": 5,
-  "calificacionesDetalle": {
-    "limpieza": 5,
-    "guianza": 5,
-    "relacionCalidadPrecio": 4
-  },
-  "comentario": "Excelente recorrido ecológico en Minca, muy recomendado para conectar con la naturaleza.",
-  "contieneLenguajeSensible": false,
-  "estadoModeracion": "PUBLICADO",
-  "respuestaPrestador": {
-    "texto": "¡Muchas gracias Carlos! Te esperamos de vuelta.",
-    "respondidoEn": "2026-10-14T10:15:00Z"
-  },
-  "creadoEn": "2026-10-12T18:00:00Z"
+  "calificaciones_detalle": { "limpieza": 5, "guianza": 5, "relacion_calidad_precio": 4 },
+  "respuesta_prestador": { "texto": "¡Muchas gracias! Te esperamos de vuelta.", "respondido_en": "2026-10-14T10:15:00Z" }
 }
 ```
 
 ---
 
-### 5.3 Estructuras en Memoria y Estrategia de Caché (Valkey / Redis)
+### 5.3 Estructuras en Memoria (Valkey)
 
-* **Prefijo `token:blacklist:{jwtId}`:** Almacena JWTs revocados anticipadamente hasta su expiración (TTL = tiempo restante del token).
-* **Prefijo `rate_limit:{ip}:{ruta}`:** Llaves enteras gestionadas con el algoritmo *Token Bucket* / *Fixed Window Counter* (`INCR` con TTL de 60 segundos) para bloquear abusos si se superan 100 peticiones por minuto.
-* **Prefijo `catalog:item:{servicioId}`:** Serialización JSON con la ficha del atractivo y sus coordenadas (TTL = 600 segundos).
+* **Prefijo `token:revocado:{jti}`:** JWT revocados anticipadamente hasta su expiración (TTL = tiempo restante del token).
+* **Prefijo `catalog:item:{servicioId}` y `catalog:buscar:{hash}`:** Ficha del atractivo y resultados de búsqueda (TTL = 300 a 600 segundos).
 * **Prefijo `chat:session:{conversacionId}`:** Últimos 10 mensajes de la conversación con el chatbot del Módulo 5 (TTL = 24 horas).
+* **Prefijo `evento:procesado:{consumidor}:{eventId}`:** Idempotencia de consumidores (TTL = 24 horas).
+* **Prefijo `idem:{servicio}:{idempotencyKey}`:** Respuesta almacenada de un formulario ya procesado, para devolverla si la PWA lo reenvía (TTL = 48 horas).
+
+El *rate limiting* por IP lo aplica Traefik con su middleware `RateLimit`, por lo que no ocupa claves en Valkey.
+
+---
+
+### 5.4 Almacenamiento de Objetos (SeaweedFS)
+
+| Bucket | Dueño | Contenido |
+|---|---|---|
+| `documentos-verificacion` | iam-service | Archivos PDF/imagen de RNT y RUT. Acceso solo mediante URLs firmadas de corta duración para el Administrador. |
+| `respaldos-postgres` | CloudNativePG | Respaldos base y archivos WAL para restauración (RNF-09, ESC-06). |
+| `imagenes-catalogo` | catalog-service | Imágenes de los atractivos publicadas por los prestadores. |
 
 ---
 
 ## 6. Flujos de Ejecución y Secuencias Internas Clave
 
-### 6.1 Flujo 1: Autenticación, Emisión de Tokens y Propagación de Identidad
+### 6.1 Flujo 1: Autenticación, ForwardAuth y Propagación de Identidad
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Usuario (Frontend)
-    participant GW as API Gateway
+    actor User as Usuario (PWA)
+    participant GW as Traefik
     participant IAM as Módulo 1 (IAM)
-    participant Cache as Valkey (Caché)
-    participant DB as PostgreSQL (db_iam)
+    participant DB as PostgreSQL (iam_db)
+    participant Svc as Servicio protegido
 
-    User->>GW: POST /api/v1/auth/login {email, password}
-    GW->>IAM: Proxy a /auth/login
+    User->>GW: POST /api/iam/auth/login {email, password}
+    GW->>IAM: Ruta pública
     IAM->>DB: Consultar usuario por email
-    DB-->>IAM: Registro de usuario y password_hash (Argon2id)
-    IAM->>IAM: Verificar Argon2id(password, hash)
-    alt Credenciales Válidas
-        IAM->>IAM: Generar JWT (sub, rol, exp, jti)
+    DB-->>IAM: Registro y password_hash (Argon2id)
+    alt Credenciales válidas
+        IAM->>IAM: Generar JWT RS256 (sub, rol, exp, jti)
         IAM->>DB: Registrar LOGIN_EXITOSO en bitácora
-        IAM-->>GW: HTTP 200 {access_token, token_type: Bearer, user_info}
-        GW-->>User: Retornar token al cliente
-    else Credenciales Inválidas
+        IAM-->>User: HTTP 200 {access_token, refresh_token}
+    else Credenciales inválidas
         IAM->>DB: Registrar LOGIN_FALLIDO en bitácora
-        IAM-->>GW: HTTP 401 Unauthorized
-        GW-->>User: HTTP 401 Unauthorized
+        IAM-->>User: HTTP 401 Unauthorized
+    end
+
+    User->>GW: GET /api/bookings/mis-reservas (Bearer JWT)
+    GW->>IAM: ForwardAuth: GET /api/iam/auth/verificar
+    alt Token válido
+        IAM-->>GW: 200 + X-Usuario-Id, X-Usuario-Rol
+        GW->>Svc: Petición + encabezados de identidad + X-Correlation-ID
+        Svc-->>User: Respuesta
+    else Token inválido o revocado
+        IAM->>DB: Registrar ACCESS_DENIED en bitácora
+        IAM-->>GW: 401
+        GW-->>User: HTTP 401
     end
 ```
 
@@ -503,24 +596,22 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor Tur as Turista
-    participant GW as API Gateway
+    participant GW as Traefik
     participant Cache as Valkey
     participant Cat as Módulo 2 (Catálogo & GIS)
-    participant PostGIS as DB PostGIS
+    participant PostGIS as PostgreSQL + PostGIS (catalog_db)
 
-    Tur->>GW: GET /api/v1/catalog/search?lat=11.24&lon=-74.21&radius=5000&cat=Playas
-    GW->>Cat: Proxy consulta de búsqueda
-    Cat->>Cache: GET cache:search:11.24:-74.21:5000:Playas
-    alt Respuesta en Caché (Hit)
-        Cache-->>Cat: JSON con atractivos en radio
-        Cat-->>GW: HTTP 200 (Desde Caché)
-        GW-->>Tur: Lista de resultados en < 50ms
-    else No está en Caché (Miss)
-        Cat->>PostGIS: SELECT id, nombre, ST_Distance(...) WHERE ST_DWithin(...)
-        PostGIS-->>Cat: Conjunto de filas ordenadas por cercanía
-        Cat->>Cache: SETEX cache:search:... 300s (JSON)
-        Cat-->>GW: HTTP 200 (Resultados frescos)
-        GW-->>Tur: Lista de atractivos con marcadores OSM
+    Tur->>GW: GET /api/catalog/buscar?lat=11.24&lon=-74.21&radio=5000&cat=Playas
+    GW->>Cat: Ruta pública
+    Cat->>Cache: GET catalog:buscar:{hash}
+    alt Respuesta en caché (hit)
+        Cache-->>Cat: JSON con atractivos en el radio
+        Cat-->>Tur: HTTP 200 en < 50 ms
+    else No está en caché (miss)
+        Cat->>PostGIS: SELECT ... WHERE ST_DWithin(...) ORDER BY ST_Distance(...)
+        PostGIS-->>Cat: Filas ordenadas por cercanía
+        Cat->>Cache: SET catalog:buscar:{hash} EX 300
+        Cat-->>Tur: HTTP 200 con marcadores para el mapa OSM
     end
 ```
 
@@ -532,76 +623,96 @@ sequenceDiagram
 sequenceDiagram
     autonumber
     actor Tur as Turista
-    participant GW as API Gateway
+    participant GW as Traefik
     participant Book as Módulo 3 (Reservas & Cupos)
-    participant DB as PostgreSQL (db_bookings)
+    participant DB as PostgreSQL (booking_db)
     participant Broker as RabbitMQ
 
-    Tur->>GW: POST /api/v1/bookings {servicioId, fecha, partySize: 2} (Bearer Token)
-    GW->>GW: Validar firma de JWT y rol 'TURISTA'
-    GW->>Book: Enrutar solicitud a Módulo 3
-    Book->>DB: BEGIN TRANSACTION;
-    Book->>DB: SELECT cupos_disponibles FROM disponibilidad_cupo FOR UPDATE;
-    alt Cupos Disponibles >= 2
-        Book->>DB: UPDATE disponibilidad_cupo SET cupos_disponibles = cupos_disponibles - 2;
-        Book->>DB: INSERT INTO solicitudes_reserva (...) VALUES (..., 'SOLICITADA');
-        Book->>DB: COMMIT;
-        Book->>Broker: Publicar evento 'booking.created' en tourism.topic
-        Book-->>GW: HTTP 201 Created {reservaId, estado: 'SOLICITADA'}
-        GW-->>Tur: Solicitud confirmada al usuario
-    else Sin Cupos Suficientes
-        Book->>DB: ROLLBACK;
-        Book-->>GW: HTTP 409 Conflict (RFC 7807: Cupos Insuficientes)
-        GW-->>Tur: Error estructurado explicativo
+    Tur->>GW: POST /api/bookings {servicio_id, fecha, numero_personas: 2} (Bearer JWT)
+    GW->>GW: ForwardAuth y rol TURISTA
+    GW->>Book: Petición con X-Usuario-Id
+    Book->>DB: BEGIN
+    Book->>DB: SELECT cupos_disponibles ... FOR UPDATE
+    alt Cupos disponibles >= 2
+        Book->>DB: UPDATE disponibilidad_cupo SET cupos_disponibles = cupos_disponibles - 2
+        Book->>DB: INSERT INTO solicitudes_reserva (..., 'SOLICITADA', expira_en = now() + 48 h)
+        Book->>DB: COMMIT
+        Book->>Broker: Publicar reserva.solicitada (con confirmación)
+        Book-->>Tur: HTTP 201 {reserva_id, estado: 'SOLICITADA'}
+    else Sin cupos suficientes
+        Book->>DB: ROLLBACK
+        Book-->>Tur: HTTP 409 Conflict (cupos insuficientes)
     end
 ```
 
 ---
 
-### 6.4 Flujo 4: Publicación de Reseña, Pre-filtrado Heurístico y Despacho de Eventos
+### 6.4 Flujo 4: Máquina de Estados, Expiración y Finalización de Reservas
+
+![Máquina de estados de la reserva](./Diagrama_Maquina_Estados_Reserva.svg)
+
+| Transición | Quién la ejecuta | Endpoint o proceso | Cupos | Evento |
+|---|---|---|---|---|
+| (inicio) → `SOLICITADA` | Turista (UC11) | `POST /api/bookings` | Descuenta | `reserva.solicitada` |
+| `SOLICITADA` → `CONFIRMADA` | Prestador (UC20) | `POST /api/bookings/{id}/confirmar` | — | `reserva.confirmada` |
+| `SOLICITADA` → `RECHAZADA` | Prestador (UC20) | `POST /api/bookings/{id}/rechazar` | Libera | `reserva.rechazada` |
+| `SOLICITADA` → `RECHAZADA` | Sistema (plazo de 48 h vencido) | CronJob `expirar-solicitudes` | Libera | `reserva.rechazada` (motivo: plazo vencido) |
+| `SOLICITADA` → `CANCELADA` | Turista (UC12) | `POST /api/bookings/{id}/cancelar` | Libera | `reserva.cancelada` |
+| `CONFIRMADA` → `CANCELADA` | Turista o prestador, según la política publicada | `POST /api/bookings/{id}/cancelar` | Libera | `reserva.cancelada` |
+| `CONFIRMADA` → `FINALIZADA` | Sistema (fecha de la reserva superada) | CronJob `finalizar-reservas` | — | `reserva.finalizada` |
+
+El CronJob se ejecuta cada 15 minutos con `UPDATE ... WHERE estado = 'SOLICITADA' AND expira_en < now() RETURNING *`, libera los cupos de cada fila devuelta en la misma transacción y luego publica los eventos. La modificación de una reserva (UC12) solo se permite en `SOLICITADA` y ajusta los cupos dentro de una transacción con bloqueo.
+
+---
+
+### 6.5 Flujo 5: Publicación, Reporte y Moderación de Reseñas
 
 ```mermaid
 sequenceDiagram
     autonumber
+    participant Broker as RabbitMQ
     actor Tur as Turista
-    participant GW as API Gateway
     participant Rev as Módulo 4 (Reseñas)
-    participant Filter as Pre-filtro Heurístico (Embebido)
-    participant DB as MongoDB / JSONB
-    participant Broker as RabbitMQ
+    participant DB as PostgreSQL (review_db)
+    actor Adm as Administrador
 
-    Tur->>GW: POST /api/v1/reviews {servicioId, rating: 5, comentario}
-    GW->>Rev: Proxy reseña
-    Rev->>Filter: Evaluar comentario (análisis léxico)
-    alt Comentario Aprobado (Limpio)
-        Filter-->>Rev: Resultado: LIMPIO
-        Rev->>DB: Insertar documento {estadoModeracion: 'PUBLICADO'}
-        Rev->>Broker: Publicar 'review.published'
-        Rev-->>GW: HTTP 201 Created {estado: 'PUBLICADO'}
-    else Detectado Lenguaje Ofensivo
-        Filter-->>Rev: Resultado: SOSPECHOSO
-        Rev->>DB: Insertar documento {estadoModeracion: 'EN_REVISION'}
-        Rev-->>GW: HTTP 202 Accepted {mensaje: 'Reseña enviada a moderación'}
+    Broker->>Rev: reserva.finalizada
+    Rev->>DB: INSERT INTO elegibilidad_resena
+    Tur->>Rev: POST /api/reviews {reserva_id, puntuacion, comentario}
+    Rev->>DB: ¿Existe elegibilidad para (reserva, turista)?
+    alt Elegible
+        Rev->>DB: INSERT resena estado 'PUBLICADO'
+        Rev->>Broker: Publicar resena.publicada
+        Rev-->>Tur: HTTP 201
+    else No elegible
+        Rev->>Broker: Publicar auditoria.registrada (ACCESS_DENIED)
+        Rev-->>Tur: HTTP 403
     end
-    GW-->>Tur: Respuesta al cliente
+    Note over Tur,Rev: Otro turista o el prestador reporta la reseña (UC39)
+    Tur->>Rev: POST /api/reviews/{id}/reportes {motivo}
+    Rev->>DB: INSERT reporte y UPDATE estado 'EN_REVISION'
+    Adm->>Rev: POST /api/reviews/{id}/moderacion {decision}
+    Rev->>DB: UPDATE estado 'PUBLICADO' u 'OCULTO'
+    Rev->>Broker: Publicar auditoria.registrada (MODERACION)
 ```
 
 ---
 
-### 6.5 Flujo 5: Consulta al Chatbot de Recomendaciones con Gemini y Herramientas
+### 6.6 Flujo 6: Consulta al Chatbot de Recomendaciones con Gemini y Herramientas
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor Tur as Turista
-    participant GW as API Gateway
+    participant GW as Traefik
     participant AI as Módulo 5 (Chatbot)
     participant Gem as Gemini API
     participant Core as Módulos 2, 3 y 4
-    participant Cache as Valkey (Caché)
+    participant Cache as Valkey
+    participant DB as PostgreSQL (recommendation_db)
 
-    Tur->>GW: POST /api/v1/recommendations/chat (mensaje + JWT)
-    GW->>AI: Reenvía con identidad validada
+    Tur->>GW: POST /api/recommendations/chat (mensaje + JWT)
+    GW->>AI: Reenvía con X-Usuario-Id validado
     AI->>Cache: Recuperar historial reciente de la conversación
     AI->>Gem: Mensaje + historial + herramientas disponibles
     loop Mientras Gemini solicite herramientas (máx. 6)
@@ -612,181 +723,156 @@ sequenceDiagram
     end
     Gem-->>AI: Respuesta con recomendaciones
     AI->>AI: Validar que los servicios provengan de las herramientas y que cada uno tenga justificación (RNF-08)
-    AI->>Cache: Guardar conversación actualizada
+    AI->>DB: INSERT recomendacion_log
+    AI->>Cache: Guardar conversación actualizada (TTL 24 h)
     AI-->>Tur: Respuesta del chatbot + recomendaciones justificadas
 ```
 
 ---
 
-### 6.6 Flujo 6: Consolidación Analítica de Capacidad de Carga y Alertas Institucionales
+### 6.7 Flujo 7: Analítica de Demanda por Eventos y Alertas Institucionales
 
 Al estar unificado en el **Módulo 2 (Catálogo, GIS & Inteligencia de Destino)**:
 
-1. **Cálculo de Aforos:** Un cron programado cada 30 minutos ejecuta una consulta agregada que suma las reservas activas por fecha y sector geográfico, comparándola con la capacidad oficial registrada en `atractivos_servicios.capacidad_aforo_diario`.
-2. **Generación de Mapa de Calor:** El backend transforma las coordenadas y porcentajes de saturación a formato **GeoJSON** para su visualización inmediata en Leaflet.js por parte de la Entidad de Gestión.
-3. **Emisión de Alertas:** Cuando la Entidad emite una alerta preventiva (UC26), se inserta en `alertas_oficiales` y se publica el evento `alert.published` en RabbitMQ, lo que dispara una notificación visual flotante para los turistas que visualizan el mapa interactivo.
+1. **Proyección de demanda:** El consumidor `catalog.demanda` actualiza `demanda_diaria` con cada evento `reserva.*` (suma al solicitar, mueve a confirmadas al confirmar, resta al rechazar o cancelar y suma a finalizadas al finalizar). La idempotencia por `event_id` evita contar dos veces. El Módulo 2 nunca consulta `booking_db`.
+2. **Cálculo de aforos:** Un CronJob cada 30 minutos compara la demanda activa por fecha y zona con `capacidad_aforo_diario` y calcula el índice de saturación.
+3. **Mapa de calor:** El backend transforma coordenadas y porcentajes de saturación a **GeoJSON** para su visualización en Leaflet.js por parte de la Entidad de Gestión.
+4. **Alertas:** Cuando la Entidad emite una alerta (UC26), se inserta en `alertas_oficiales`; la PWA la muestra en el mapa y el chatbot la consulta con la herramienta `alertas_oficiales` antes de recomendar una zona.
 
 ---
 
-## 7. Entorno de Ejecución, Contenedores y Observabilidad
+### 6.8 Flujo 8: Sincronización de Formularios de la PWA sin Conexión
 
-### 7.1 Orquestación Local con Docker Compose
+Formularios con envío diferido: perfil (UC4), reseña (UC15), registro y edición de oferta (UC17, UC18) y cupos y tarifas (UC19). Solicitar y confirmar reservas (UC11, UC20) requieren conexión.
 
-Para el entorno de desarrollo y validación académica, todos los componentes se ejecutan mediante un archivo `docker-compose.yml` unificado:
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Pre as Prestador
+    participant PWA as PWA (Service Worker + IndexedDB)
+    participant GW as Traefik
+    participant Cat as Módulo 2 (Catálogo)
+    participant Cache as Valkey
 
-```yaml
-version: '3.8'
-
-services:
-  # 1. Reverse Proxy & Perímetro
-  api-gateway:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-    networks:
-      - frontend-net
-      - backend-net
-    depends_on:
-      - iam-service
-      - catalog-service
-      - bookings-service
-      - reviews-service
-
-  # 2. Microservicios Backend Core
-  iam-service:
-    build: ./services/iam-service
-    environment:
-      - PORT=3001
-      - DB_URL=postgresql://iam_user:iam_pass@postgres-iam:5432/db_iam
-      - JWT_SECRET=super_secret_key_minimum_32_characters_long
-      - REDIS_URL=redis://valkey-cache:6379
-    networks:
-      - backend-net
-      - data-net
-    depends_on:
-      - postgres-iam
-      - valkey-cache
-
-  catalog-service:
-    build: ./services/catalog-service
-    environment:
-      - PORT=3002
-      - DB_URL=postgresql://catalog_user:catalog_pass@postgres-catalog:5432/db_catalog_analytics
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-      - REDIS_URL=redis://valkey-cache:6379
-    networks:
-      - backend-net
-      - data-net
-    depends_on:
-      - postgres-catalog
-      - rabbitmq
-
-  bookings-service:
-    build: ./services/bookings-service
-    environment:
-      - PORT=3003
-      - DB_URL=postgresql://booking_user:booking_pass@postgres-bookings:5432/db_bookings
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-    networks:
-      - backend-net
-      - data-net
-    depends_on:
-      - postgres-bookings
-      - rabbitmq
-
-  reviews-service:
-    build: ./services/reviews-service
-    environment:
-      - PORT=3004
-      - MONGO_URL=mongodb://mongodb-reviews:27017/db_reviews
-      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
-    networks:
-      - backend-net
-      - data-net
-    depends_on:
-      - mongodb-reviews
-      - rabbitmq
-
-  # 3. Microservicio de Inteligencia Artificial (Chatbot)
-  ai-service:
-    build: ./services/ai-service
-    environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - GEMINI_MODEL=${GEMINI_MODEL}
-      - REDIS_URL=redis://valkey-cache:6379
-    networks:
-      - backend-net
-    depends_on:
-      - valkey-cache
-
-  # 4. Bases de Datos & Middleware FOSS
-  postgres-iam:
-    image: postgres:16-alpine
-    networks: [data-net]
-  postgres-catalog:
-    image: postgis/postgis:16-3.4-alpine
-    networks: [data-net]
-  postgres-bookings:
-    image: postgres:16-alpine
-    networks: [data-net]
-  mongodb-reviews:
-    image: mongo:7.0
-    networks: [data-net]
-  valkey-cache:
-    image: valkey/valkey:7.2-alpine
-    networks: [data-net]
-  rabbitmq:
-    image: rabbitmq:3.12-management-alpine
-    networks: [backend-net]
-
-  # 5. Observabilidad
-  prometheus:
-    image: prom/prometheus:v2.45.0
-    networks: [backend-net]
-  grafana:
-    image: grafana/grafana:10.0.0
-    ports:
-      - "3000:3000"
-    networks: [backend-net]
-
-networks:
-  frontend-net:
-    driver: bridge
-  backend-net:
-    driver: bridge
-  data-net:
-    driver: bridge
+    Pre->>PWA: Edita su oferta sin conexión
+    PWA->>PWA: Guarda en IndexedDB {Idempotency-Key, versión, datos} con estado "Pendiente de envío"
+    Note over PWA: Evento online, Background Sync o apertura de la app
+    PWA->>GW: PUT /api/catalog/servicios/{id} (Idempotency-Key, If-Match: versión)
+    GW->>Cat: ForwardAuth y reenvío
+    Cat->>Cache: ¿Ya se procesó idem:catalog:{key}?
+    alt Ya procesado (reenvío)
+        Cache-->>Cat: Respuesta guardada
+        Cat-->>PWA: Misma respuesta 200 (sin duplicar)
+    else Versión coincide
+        Cat->>Cat: Actualiza el registro y version = version + 1
+        Cat->>Cache: SET idem:catalog:{key} EX 172800
+        Cat-->>PWA: 200
+        PWA->>PWA: Borra el pendiente y avisa "Enviado"
+    else La oferta cambió en el servidor
+        Cat-->>PWA: 409 Conflict con la versión actual
+        PWA->>Pre: Muestra ambas versiones para que decida
+    end
 ```
 
+**Estrategias de caché del Service Worker (Workbox):**
+
+| Recurso | Estrategia | Detalle |
+|---|---|---|
+| Aplicación (HTML, JS, CSS, traducciones) | *Precache* + *cache first* | Se actualiza con cada versión publicada. |
+| `GET /api/catalog/servicios`, `/buscar`, `/alertas` | *Stale-while-revalidate* | Máximo 7 días; la interfaz muestra la fecha de la última actualización. |
+| Teselas del mapa de OSM | *Cache first* solo para teselas visualizadas | Sin descarga masiva, según la política de uso de OSM. |
+| Rutas autenticadas | *Network only* | Los datos personales no se cachean; los borradores en IndexedDB se eliminan al cerrar sesión. |
+
 ---
 
-### 7.2 Redes Virtuales y Segmentación de Seguridad
+## 7. Entorno de Ejecución, Despliegue y Observabilidad
 
-Para garantizar el principio de menor privilegio en la red interna:
-* **`frontend-net`:** Conecta únicamente a clientes externos con el API Gateway.
-* **`backend-net`:** Conecta el API Gateway con los 5 microservicios, el broker RabbitMQ y los agentes de monitoreo.
-* **`data-net`:** Conecta exclusivamente a cada microservicio con su base de datos asignada. Ningún cliente externo ni servicio no autorizado puede acceder directamente a los puertos de PostgreSQL o MongoDB.
+### 7.1 Entorno de Desarrollo Local con Docker Compose
+
+Para el desarrollo, el archivo `infra/docker-compose.yml` del monorepo levanta la infraestructura compartida (PostgreSQL con PostGIS y las cinco bases, Valkey, RabbitMQ, Traefik, Prometheus y Grafana), y cada servicio se agrega con su `Dockerfile` cuando está listo:
+
+```bash
+cd infra
+cp .env.example .env
+docker compose up -d
+```
+
+Docker Compose **no** es el entorno de despliegue del prototipo: no ofrece escalado automático ni *rolling updates*, que son necesarios para ESC-05 y ESC-08. Para probar esos escenarios en local se usa un clúster k3d (k3s en contenedores).
 
 ---
 
-### 7.3 Telemetría y Monitoreo con Prometheus y Grafana
+### 7.2 Despliegue en Kubernetes (k3s)
 
-1. **Exposición de Métricas:** Cada microservicio expone un endpoint `/metrics` en formato estándar Prometheus con métricas críticas:
+![Diagrama de despliegue en Kubernetes](./Diagrama_Despliegue_Kubernetes.svg)
+
+* **Clúster:** k3s sobre máquinas virtuales Linux de bajo costo. Escenario A (prototipo): 1 nodo de 4 vCPU y 8 GB de RAM. Escenario B (piloto): 3 nodos para alta disponibilidad.
+* **Espacios de nombres:**
+
+| Namespace | Contenido |
+|---|---|
+| `kube-system` | Traefik (Ingress de k3s), cert-manager para certificados TLS. |
+| `turismo-app` | `frontend`, los 5 microservicios y los CronJobs del Módulo 3 y el Módulo 2. |
+| `turismo-datos` | Clúster PostgreSQL (CloudNativePG), Valkey, RabbitMQ y SeaweedFS. |
+| `observabilidad` | Prometheus, Grafana, Loki y Blackbox exporter. |
+
+* **Manifiestos:** Cada servicio tiene su carpeta `k8s/` (Deployment, Service, HPA) basada en `templates/service-template/k8s/`; la infraestructura compartida está en `infra/k8s/`. Se aplican con `kubectl apply -k` (Kustomize).
+* **Imágenes:** GitHub Actions construye la imagen de cada servicio y la publica en GitHub Container Registry con la etiqueta del commit.
+* **Actualizaciones:** Estrategia `RollingUpdate` con `maxUnavailable: 0` y `maxSurge: 1`, de modo que siempre hay réplicas atendiendo (ESC-05, RNF-12).
+
+---
+
+### 7.3 Recursos por Microservicio
+
+| Servicio | Réplicas mínimas | HPA (máx., objetivo de CPU) | Sondas | Notas |
+|---|---|---|---|---|
+| `iam-service` | 2 | 4, 70% | `/health` (readiness y liveness) | Atiende ForwardAuth en cada petición protegida. |
+| `catalog-service` | 2 | 6, 70% | `/health` | Servicio más presionado en temporada alta (ESC-02, ESC-08). |
+| `booking-service` | 2 | 6, 70% | `/health` | Bloqueo por fila; escala sin perder consistencia. |
+| `review-service` | 1 | 3, 75% | `/health` | Su caída no afecta catálogo ni reservas (ESC-01). |
+| `recommendation-service` | 1 | 3, 75% | `/health` | Siempre al menos una réplica activa (RNF-12). |
+| `frontend` | 2 | — | `/` | Archivos estáticos de la PWA. |
+
+Las sondas de *readiness* se consultan cada 2 segundos con umbral de 2 fallos, de modo que una réplica con problemas sale del enrutamiento en menos de 5 segundos (ESC-01).
+
+---
+
+### 7.4 Red, Secretos y Seguridad
+
+* **Políticas de red (NetworkPolicy):** Por defecto se niega todo el tráfico entrante en `turismo-app` y `turismo-datos`; se permiten explícitamente: Traefik → servicios y frontend; cada servicio → su base de datos, Valkey y RabbitMQ; `recommendation-service` → catalog, booking y review; Prometheus → `/metrics` de todos.
+* **Secretos:** Credenciales de bases de datos, clave privada JWT, `GEMINI_API_KEY` y credenciales SMTP se guardan como `Secret` de Kubernetes; nunca en el repositorio ni en las imágenes.
+* **Contenedores:** Imágenes `python:3.12-slim`, usuario sin privilegios y sistema de archivos de solo lectura cuando el servicio lo permite.
+
+---
+
+### 7.5 Telemetría y Monitoreo
+
+1. **Exposición de Métricas:** Cada microservicio expone `/metrics` en formato Prometheus (instrumentación de FastAPI) con métricas críticas:
    * `http_requests_total{method, route, status}`
-   * `http_request_duration_seconds{route}` (para auditar percentil 95: $p95 < 2.0$s)
-   * `database_connection_pool_active`
-   * `rabbitmq_messages_unacknowledged`
-2. **Dashboard de Grafana:** Visualización en tiempo real del estado de salud de los 5 microservicios, consumo de CPU/Memoria de contenedores y tiempos de respuesta por ruta crítica.
+   * `http_request_duration_seconds{route}` (para verificar el percentil 95: $p95 < 2.0$s)
+   * conexiones activas a la base de datos y mensajes pendientes por cola de RabbitMQ.
+2. **Sondas de disponibilidad (RNF-01):** El Blackbox exporter consulta cada 15 segundos el `/health` de cada servicio a través del gateway y calcula la disponibilidad mensual.
+3. **Registros:** Los logs en formato JSON (con `X-Correlation-ID`) se recolectan con Loki para seguir una petición entre servicios.
+4. **Dashboards de Grafana:** Estado de salud de los 5 microservicios, réplicas activas del HPA, consumo de CPU y memoria, tiempos de respuesta por ruta crítica y uso de la API de Gemini.
+
+---
+
+### 7.6 Respaldos y Recuperación
+
+* **Respaldo:** CloudNativePG realiza un respaldo base diario y archiva el WAL de forma continua en el bucket `respaldos-postgres` de SeaweedFS (RPO real menor a 24 h).
+* **Restauración (ESC-06):** Se crea un clúster PostgreSQL nuevo desde el respaldo (*recovery*) y se apunta `booking-service` a él; el procedimiento se documenta y se ensaya al menos una vez (RNF-09).
 
 ---
 
 ## 8. Estrategia de Pruebas Internas y Validación de Carga
 
-1. **Pruebas Unitarias:** Implementadas con `Jest` (Node.js), `JUnit 5 / Mockito` (Java) o `pytest` (Python) para validar la lógica pura del dominio y de los casos de uso con cobertura mínima del 70%.
-2. **Pruebas de Integración:** Pruebas contra contenedores reales efímeros utilizando **Testcontainers** para validar que las consultas espaciales en PostGIS y los bloqueos transaccionales en PostgreSQL operan correctamente.
-3. **Pruebas de Rendimiento y Carga (k6 / Locust):**
-   * **Simulación ESC-02:** 500 usuarios virtuales concurrentes consultando el catálogo y mapa interactivo mediante peticiones `GET /api/v1/catalog/search` durante 10 minutos para validar $p95 < 2.0$s.
-   * **Simulación ESC-08 (Escalabilidad):** Aumento progresivo hasta 1.000 usuarios concurrentes, agregando réplicas de contenedores del Módulo 2 y 3 con `docker compose up --scale catalog-service=2 --scale bookings-service=2`.
+1. **Pruebas Unitarias:** `pytest` sobre el dominio y los casos de uso, con los puertos simulados; cobertura mínima del 70%.
+2. **Pruebas de Integración:** `pytest` con **Testcontainers** (PostgreSQL + PostGIS, Valkey y RabbitMQ reales y efímeros) para validar consultas espaciales, bloqueos transaccionales, consumidores de eventos e idempotencia.
+3. **Pruebas de Contrato:** Validación de los eventos contra los esquemas de `contracts/events/` y de las respuestas REST contra el OpenAPI de cada servicio.
+4. **Pruebas de Rendimiento y Carga (k6):**
+   * **ESC-02:** 500 solicitudes por segundo sobre `GET /api/catalog/buscar` durante 10 minutos; criterio $p95 < 2.0$s y 0 errores 5xx.
+   * **ESC-08:** Rampa hasta 1.000 solicitudes por segundo sobre catálogo y reservas durante 30 minutos; se registran las réplicas creadas por el HPA y el tiempo en que quedan listas.
+5. **Pruebas de Disponibilidad (ESC-01):** Se eliminan los pods de `review-service` (`kubectl delete pod` y luego `kubectl scale --replicas=0`) mientras k6 consulta catálogo y reservas; se mide el tiempo de aislamiento y la ausencia de errores en las rutas no afectadas.
+6. **Pruebas de Despliegue (ESC-05, RNF-12):** Actualización de la imagen de `recommendation-service` durante una prueba de carga del núcleo; criterio: 0 errores 5xx en catálogo y reservas.
+7. **Pruebas de Recuperación (ESC-06):** Simulacro de restauración de `booking_db` desde el respaldo, midiendo el RTO.
+8. **Pruebas sin Conexión (ESC-09):** Playwright con el navegador en modo sin conexión: se editan oferta y cupos, se restablece la red y se verifica la sincronización en menos de 60 segundos sin duplicados, y que el catálogo previamente consultado se muestra sin red.
+9. **Pruebas del Chatbot:** Conjunto de conversaciones tipo, validación de salida, seguridad (inyección de instrucciones) y equidad, según la [Guía Técnica del Módulo 5](./Guia_Tecnica_Modulo_IA.md).

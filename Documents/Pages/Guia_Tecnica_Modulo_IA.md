@@ -8,7 +8,7 @@
 
 Ofrecer al turista un **chatbot** al que puede consultar en lenguaje natural (español e inglés) sobre la oferta turística de Santa Marta y recibir recomendaciones personalizadas y explicables (RF-06, UC14, RNF-08).
 
-El chatbot usa la **API de Gemini** como modelo de lenguaje. Cuando para responder necesita información de otros sistemas de la plataforma (catálogo, reservas, reseñas, analítica), el modelo la solicita mediante **tools** y el servicio las ejecuta. No se entrena ni se mantiene un modelo propio.
+El chatbot usa la **API de Gemini** como modelo de lenguaje. Cuando para responder necesita información de otros sistemas de la plataforma (catálogo y analítica, reservas, reseñas), el modelo la solicita mediante **tools** y el servicio las ejecuta. No se entrena ni se mantiene un modelo propio.
 
 ## 2. Principios
 
@@ -34,13 +34,14 @@ El chatbot usa la **API de Gemini** como modelo de lenguaje. Cuando para respond
 
 ## 4. Arquitectura
 
-* **Lenguaje y framework:** Python con FastAPI.
+* **Lenguaje y framework:** Python 3.12 con FastAPI, igual que los demás servicios, con la estructura hexagonal de la plantilla del monorepo.
+* **Despliegue:** Contenedor en Kubernetes (k3s) con al menos una réplica siempre activa (RNF-12) y HPA para escalar con la demanda.
 * **Modelo:** API de Gemini, usando su capacidad de llamada a funciones (function calling). La clave se guarda en una variable de entorno y nunca en el repositorio.
 * **Interacción:** el turista envía un mensaje por el API Gateway y recibe la respuesta; la respuesta puede entregarse en streaming para que el texto aparezca mientras se genera.
 * **Sesión:** la conversación reciente (últimos 10 mensajes) se guarda en Valkey con un TTL de 24 horas.
-* **Registro:** las recomendaciones entregadas se guardan en `RECOMENDACION_LOG` (RNF-08).
+* **Registro:** las recomendaciones entregadas se guardan en la tabla `recomendacion_log` de la base propia `recommendation_db` (PostgreSQL), con la justificación, las herramientas usadas y la versión del modelo (RNF-08). No se guarda el texto completo de la conversación.
 * **Endpoints:** `POST /api/recommendations/chat` para enviar un mensaje y `GET /health` para el estado del servicio.
-* **Configuración:** `GEMINI_API_KEY`, `GEMINI_MODEL`, `REDIS_URL` y las URLs de los servicios consultados.
+* **Configuración:** `GEMINI_API_KEY` y `GEMINI_MODEL` (como `Secret` y `ConfigMap` de Kubernetes), `VALKEY_URL`, `DB_URL` y las URLs internas de catalog, booking y review.
 
 ## 5. Tools
 
@@ -53,10 +54,12 @@ Las tools son funciones que el servicio declara a Gemini y ejecuta cuando el mod
 | `consultar_disponibilidad(servicio_id, fecha)` | booking | UC10 | El turista menciona una fecha o pregunta por cupos |
 | `historial_turista()` | booking | UC13 | Quiere personalizar según lo que el turista ya reservó |
 | `resenas_servicio(id)` | review | UC15 | Necesita opiniones o calificación de un servicio |
-| `presion_capacidad_carga(zona)` | analytics | UC24 | Prioriza destinos con menor aforo |
-| `alertas_oficiales()` | analytics | UC26 | Verifica avisos activos antes de recomendar una zona |
+| `presion_capacidad_carga(zona)` | catalog | UC24 | Prioriza destinos con menor aforo |
+| `alertas_oficiales()` | catalog | UC26 | Verifica avisos activos antes de recomendar una zona |
 
-`historial_turista` no recibe `turista_id` como parámetro: el servicio lo toma del JWT, de modo que el modelo no puede consultar datos de otro turista.
+`historial_turista` no recibe `turista_id` como parámetro: el servicio lo toma del encabezado `X-Usuario-Id` que agrega el gateway tras validar el JWT, de modo que el modelo no puede consultar datos de otro turista.
+
+> El Módulo 2 absorbió la antigua analítica (Módulo 6), por lo que las tools de capacidad de carga y alertas consultan a catalog-service.
 
 ## 6. Respuesta y validaciones
 
@@ -90,7 +93,7 @@ Los resultados de las tools y los mensajes del turista se tratan como datos, nun
 * **Sostenibilidad:** el chatbot prioriza destinos con baja presión de capacidad de carga y evita zonas con alertas oficiales (§2.4.4).
 * **Equidad (§2.4.6):** las instrucciones del modelo prohíben favorecer a un operador sobre otro; se verifica con pruebas.
 * **Privacidad:** la conversación y los resultados de las tools viajan a la API de Gemini, un servicio externo. Por eso al modelo se le envía el mínimo necesario: nunca nombre, correo ni documento del turista, solo el contenido de la conversación y los datos públicos del catálogo. Se deben revisar las condiciones de uso de datos del plan de Gemini que se utilice antes de enviar información de turistas reales (Ley 1581).
-* **Uso del servicio externo:** la API de Gemini es una dependencia propietaria; el SRS (§2.4.1, §3.6.4) debe recoger esta excepción a la restricción de software libre.
+* **Uso del servicio externo:** la API de Gemini es la única dependencia propietaria del sistema; el SRS (§2.4.1, §3.6.4) y el ADR-010 recogen esta excepción a la prioridad de software libre.
 
 ## 8. Pruebas
 
@@ -107,7 +110,8 @@ Los resultados de las tools y los mensajes del turista se tratan como datos, nun
 * **catalog:** endpoint de búsqueda con filtros y texto libre, y endpoint de detalle.
 * **booking:** endpoints de disponibilidad e historial del turista.
 * **review:** endpoint de reseñas y puntuación promedio por servicio.
-* **iam:** mecanismo de autenticación entre servicios y forma de consultar el consentimiento del turista.
-* **analytics:** endpoints de capacidad de carga y alertas.
-* **gateway:** ruta `/api/recommendations/chat` con tiempos de espera suficientes para la respuesta del modelo y, si se usa streaming, sin almacenamiento intermedio.
+* **catalog (analítica):** endpoints de capacidad de carga y alertas.
+* **iam:** verificación del token para el gateway (ForwardAuth) y forma de consultar el consentimiento del turista.
+* **gateway (Traefik):** ruta `/api/recommendations/chat` protegida con ForwardAuth, con tiempos de espera suficientes para la respuesta del modelo y, si se usa streaming, sin almacenamiento intermedio.
+* **infra:** política de red que permita a recommendation-service llamar a catalog, booking y review.
 * **frontend:** ventana de chat que muestre la respuesta, las recomendaciones con su justificación y el enlace a la ficha de cada servicio.
