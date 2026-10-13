@@ -53,8 +53,8 @@
     <g transform="translate(0, 0)">
       <rect width="400" height="54" rx="6" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.2" filter="url(#shadow5)"/>
       <rect x="12" y="14" width="14" height="26" rx="3" fill="#3b82f6"/>
-      <text x="36" y="27" class="legend-title">Infraestructura Cloud Multi-AZ (12 meses)</text>
-      <text x="36" y="44" class="legend-pct">Cómputo Kubernetes, PostgreSQL Multi-AZ, S3, CDN</text>
+      <text x="36" y="27" class="legend-title">Infraestructura cloud en alta disponibilidad (12 meses)</text>
+      <text x="36" y="44" class="legend-pct">Clúster k3s de 3 nodos, PostgreSQL replicado, almacenamiento S3, CDN</text>
       <text x="385" y="34" text-anchor="end" class="legend-amount">$7.200 (36%)</text>
     </g>
 
