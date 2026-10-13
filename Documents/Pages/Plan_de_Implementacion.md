@@ -64,7 +64,7 @@ A diferencia de la [Especificación de Requerimientos de Software (SRS)](./Requi
 
 ### 1.2 Consolidación Arquitectónica: Unificación del Módulo 2 y Módulo 6
 
-En la concepción original de la arquitectura se contemplaban 6 microservicios. No obstante, tras el análisis de cohesión funcional, acoplamiento de datos y viabilidad operativa para un equipo de 5 ingenieros en 14 semanas, **el Módulo 6 (Analítica & Destino) ha sido absorbido íntegramente por el Módulo 2 (Catálogo & GIS)**, pasando a denominarse:
+En la concepción original de la arquitectura se contemplaban 6 microservicios. No obstante, tras el análisis de cohesión funcional, acoplamiento de datos y viabilidad operativa para un equipo de 5 ingenieros en 13 semanas, **el Módulo 6 (Analítica & Destino) ha sido absorbido íntegramente por el Módulo 2 (Catálogo & GIS)**, pasando a denominarse:
 
 > **Módulo 2: Catálogo, GIS & Inteligencia de Destino (Catalog, GIS & Destination Analytics Service)**
 
@@ -593,7 +593,9 @@ Docker Compose **no** es el entorno de despliegue del prototipo: no ofrece escal
 
 ### 7.2 Despliegue en Kubernetes (k3s)
 
-![Diagrama de despliegue en Kubernetes](./Diagrama_Despliegue_Kubernetes.svg)
+![Despliegue: vista de infraestructura](./Diagrama_Despliegue_Kubernetes.svg)
+
+Las vistas de despliegue por actor (Turista, Prestador, Entidad y Administrador) están en el [SRS §3.6.5](./Requirements_docIEEE.md#365-despliegue-y-operación).
 
 * **Clúster:** k3s sobre máquinas virtuales Linux de bajo costo. Escenario A (prototipo): 1 nodo de 4 vCPU y 8 GB de RAM. Escenario B (piloto): 3 nodos para alta disponibilidad.
 * **Espacios de nombres:**

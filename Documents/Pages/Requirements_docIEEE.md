@@ -24,7 +24,7 @@
 |---|---|---|
 | 1.0 | Agosto 2026 | Versión inicial del SRS bajo ISO/IEC/IEEE 29148:2018. |
 | 1.0.1 | Octubre 2026 | Atención de la retroalimentación del Grupo 2, exclusión justificada de pagos en línea y redefinición del Módulo 5 como chatbot sobre la API de Gemini. |
-| 1.1 | 13 de octubre de 2026 | Revisión de coherencia: despliegue de los 5 microservicios como contenedores en Kubernetes (k3s) con Python y FastAPI; Traefik como API Gateway; RabbitMQ como único broker; persistencia del Módulo 5; auditoría asíncrona; observabilidad; máquina de estados de la reserva; operación con conectividad limitada mediante PWA (RNF-13, ESC-09); reseñas como requerimiento propio (RF-14, UC39); corrección de relaciones UML de casos de uso; diagramas regenerados y asignación de componentes por integrante. |
+| 1.1 | 13 de octubre de 2026 | Revisión de coherencia: despliegue de los 5 microservicios como contenedores en Kubernetes (k3s) con Python y FastAPI; Traefik como API Gateway; RabbitMQ como único broker; persistencia del Módulo 5; auditoría asíncrona; observabilidad; máquina de estados de la reserva; operación con conectividad limitada mediante PWA (RNF-13, ESC-09); reseñas como requerimiento propio (RF-14, UC39); corrección de relaciones UML de casos de uso; diagramas regenerados (despliegue por actor, presupuesto con ambos escenarios); cronograma ajustado a 13 semanas con sustentación del 15 al 17 de noviembre; asignación de componentes por integrante. |
 
 ---
 
@@ -99,7 +99,7 @@ El sistema garantiza atributos de calidad esenciales como escalabilidad elástic
 
 #### 1.2.1 Decisión de Alcance: Exclusión de Pasarela de Pagos en Línea
 
-Para resguardar el carácter de bien público gratuito y cumplir con el horizonte del prototipo (14 semanas, 5 ingenieros), se evaluó y formalizó la exclusión del procesamiento de pagos en línea en el núcleo transaccional:
+Para resguardar el carácter de bien público gratuito y cumplir con el horizonte del prototipo (13 semanas, 5 ingenieros), se evaluó y formalizó la exclusión del procesamiento de pagos en línea en el núcleo transaccional:
 
 * **Alternativas evaluadas:**
   * **A. Pasarela comercial integrada:** Cobro automático en línea al emitir la reserva. *Descartada* por contravenir el modelo gratuito sin comisiones, imponer cumplimiento normativo PCI-DSS, requerir gestión compleja de reembolsos y derecho de retracto (Ley 1480 de 2011), y excluir a prestadores comunitarios sin bancarización corporativa.
@@ -308,7 +308,7 @@ Conforme al estándar ISO/IEC/IEEE 29148:2018, los interesados del sistema se cl
 
 #### 2.4.2 Restricciones Económicas y de Recursos
 * **Techo Presupuestal:** Límite financiero estricto de **USD 20.000**, con esquemas de ejecución transparente para prototipo académico (USD 6.900) o despliegue institucional piloto (USD 20.000). Desglose en el [Apéndice D](#apéndice-d-plan-de-proyecto-cronograma-y-presupuesto).
-* **Talento Humano:** Proyecto ejecutado por un equipo de 5 ingenieros en un marco temporal de 14 semanas lectivas (dentro del máximo de 6 meses del enunciado).
+* **Talento Humano:** Proyecto ejecutado por un equipo de 5 ingenieros en un marco temporal de 13 semanas lectivas, del 24 de agosto al 17 de noviembre de 2026, con sustentación entre el 15 y el 17 de noviembre (dentro del máximo de 6 meses del enunciado).
 * **Modelo Gratuito:** Sin monetización directa ni comisiones sobre transacciones de reserva.
 
 #### 2.4.3 Restricciones Sociales y de Accesibilidad
@@ -706,11 +706,29 @@ La plataforma prioriza el **Software Libre y de Código Abierto (FOSS)**, con li
 
 #### 3.6.5 Despliegue y Operación
 
-La plataforma se despliega en un clúster **k3s**: un nodo en el prototipo (Escenario A) y tres nodos en el piloto institucional (Escenario B). Cada microservicio corre como un *Deployment* con sondas de `/health`, límites de recursos y un HPA; los almacenes de datos y el broker se ejecutan en un espacio de nombres separado, y las políticas de red solo permiten el tráfico previsto (Traefik hacia los servicios, cada servicio hacia su base de datos, el Módulo 5 hacia los Módulos 2, 3 y 4). El detalle de manifiestos, réplicas y respaldos está en el [Plan de Implementación](./Plan_de_Implementacion.md), sección 7.
+La plataforma se despliega en un clúster **k3s**: un nodo en el prototipo (Escenario A) y tres nodos en el piloto institucional (Escenario B). Cada microservicio corre como un *Deployment* con sondas de `/health`, límites de recursos y un HPA; los almacenes de datos y el broker se ejecutan en un espacio de nombres separado, y las políticas de red solo permiten el tráfico previsto (Traefik hacia los servicios, cada servicio hacia su base de datos, el Módulo 5 hacia los Módulos 2, 3 y 4). El detalle de réplicas y respaldos está en el [Plan de Implementación](./Plan_de_Implementacion.md), sección 7.
 
-![Diagrama de despliegue en Kubernetes](./Diagrama_Despliegue_Kubernetes.svg)
+Para facilitar su lectura, el despliegue se presenta en una vista de infraestructura y una vista por actor, con solo los nodos y servicios que cada actor utiliza. Las fuentes PlantUML están en [`fuentes/`](./fuentes/).
 
-*Fuente del diagrama: [`fuentes/despliegue_k3s.puml`](./fuentes/despliegue_k3s.puml).*
+##### Vista de infraestructura
+
+![Despliegue: vista de infraestructura](./Diagrama_Despliegue_Kubernetes.svg)
+
+##### Vista del Turista
+
+![Despliegue: vista del Turista](./Diagrama_Despliegue_Turista.svg)
+
+##### Vista del Prestador de Servicios Turísticos
+
+![Despliegue: vista del Prestador](./Diagrama_Despliegue_Prestador.svg)
+
+##### Vista de la Entidad de Gestión del Destino
+
+![Despliegue: vista de la Entidad de Gestión](./Diagrama_Despliegue_Entidad.svg)
+
+##### Vista del Administrador de la Plataforma
+
+![Despliegue: vista del Administrador](./Diagrama_Despliegue_Administrador.svg)
 
 ---
 
@@ -975,9 +993,9 @@ Resumen de la planificación del proyecto, con su proceso, cronograma y presupue
 
 #### D.1 Proceso de desarrollo
 
-Se adopta **Scrum adaptado** al contexto académico, con **7 sprints de 2 semanas** y tablero Kanban en GitHub Projects. Se seleccionó frente a Cascada, RUP y Kanban porque permite alinear cada fase del cronograma con revisiones de sprint, detectar problemas de integración de microservicios de forma temprana (R-01) y organizar el trabajo en paralelo por módulo (R-05). La justificación completa está en el [Registro de Decisiones Arquitectónicas](./Registro_Decisiones_Arquitectonicas.md) (ADR-001).
+Se adopta **Scrum adaptado** al contexto académico, con **6 sprints de 2 semanas** seguidos de la sustentación, y tablero Kanban en GitHub Projects. Se seleccionó frente a Cascada, RUP y Kanban porque permite alinear cada fase del cronograma con revisiones de sprint, detectar problemas de integración de microservicios de forma temprana (R-01) y organizar el trabajo en paralelo por módulo (R-05). La justificación completa está en el [Registro de Decisiones Arquitectónicas](./Registro_Decisiones_Arquitectonicas.md) (ADR-001).
 
-#### D.2 Cronograma (14 semanas)
+#### D.2 Cronograma (13 semanas)
 
 ![Cronograma General de Ejecución](./Diagrama_Cronograma_Gantt.svg)
 
@@ -986,12 +1004,13 @@ Se adopta **Scrum adaptado** al contexto académico, con **7 sprints de 2 semana
 | **Fase 1: Requerimientos y Dominio** | Especificación de Requerimientos (SRS ISO/IEC/IEEE 29148). | Semanas 1–2 | 24 ago – 6 sep |
 | **Fase 2: Comparación Arquitectónica** | [Comparación y Selección de Alternativas Arquitectónicas](./Comparacion_Alternativas_Arquitectonicas.md). | Semanas 3–4 | 7 sep – 20 sep |
 | **Fase 3: Diseño Arquitectónico** | Especificación de interfaces, modelo de datos, diagramas de paquetes y despliegue, y [Registro de Decisiones Arquitectónicas](./Registro_Decisiones_Arquitectonicas.md). | Semanas 5–6 | 21 sep – 4 oct |
-| **Fase 4: Construcción del Prototipo** | 5 microservicios en Python + FastAPI desplegados en k3s, API Gateway Traefik, RabbitMQ, PostgreSQL, Valkey y PWA (meta: $\ge 60\%$ de casos de uso *Must*). | Semanas 7–12 | 5 oct – 15 nov |
-| **Fase 5: Validación y Cierre** | Pruebas de carga (ESC-02, ESC-08), prueba sin conexión (ESC-09), verificación de calidad, informe final y sustentación. | Semanas 13–14 | 16 nov – 29 nov |
+| **Fase 4: Construcción del Prototipo** | 5 microservicios en Python + FastAPI desplegados en k3s, API Gateway Traefik, RabbitMQ, PostgreSQL, Valkey y PWA (meta: $\ge 60\%$ de casos de uso *Must*). | Semanas 7–10 | 5 oct – 1 nov |
+| **Fase 5: Validación y Cierre** | Pruebas de carga (ESC-02, ESC-08), prueba sin conexión (ESC-09), verificación de calidad e informe final. | Semanas 11–12 | 2 nov – 14 nov |
+| **Sustentación** | Presentación y defensa del proyecto. | Semanas 12–13 | 15, 16 y 17 nov |
 
 #### D.3 Presupuesto
 
-Techo presupuestal: **USD 20.000**. Se plantean dos escenarios:
+Techo presupuestal: **USD 20.000**. Se plantean dos escenarios: el **Escenario A** financia el prototipo académico durante las 13 semanas del proyecto y el **Escenario B** el piloto institucional durante 12 meses.
 
 | Rubro | Escenario A: Prototipo Académico (USD) | Escenario B: Piloto Institucional 12 meses (USD) |
 |---|---:|---:|
@@ -1005,4 +1024,4 @@ Techo presupuestal: **USD 20.000**. Se plantean dos escenarios:
 | Contingencia | 900 (15%) | 1.600 (8%) |
 | **Total** | **6.900** | **20.000** |
 
-![Distribución del presupuesto, Escenario B](./Diagrama_Distribucion_Presupuesto.svg)
+![Distribución del presupuesto, Escenarios A y B](./Diagrama_Distribucion_Presupuesto.svg)

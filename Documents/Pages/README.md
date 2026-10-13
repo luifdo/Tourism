@@ -40,11 +40,15 @@
 | [Arquitectura de microservicios](./Diagrama_Arquitectura_Microservicios.svg) | SRS §3.6.1, Plan §2.1 | [`generar_svg_arquitectura.py`](./fuentes/generar_svg_arquitectura.py) |
 | [Responsabilidades por módulo](./Diagrama_Modulos_Responsabilidades.svg) | SRS §3.6.1 | [`generar_svg_arquitectura.py`](./fuentes/generar_svg_arquitectura.py) |
 | [Máquina de estados de la reserva](./Diagrama_Maquina_Estados_Reserva.svg) | SRS §3.6.1, Plan §6.4 | [`maquina_estados_reserva.mmd`](./fuentes/maquina_estados_reserva.mmd) |
-| [Despliegue en Kubernetes](./Diagrama_Despliegue_Kubernetes.svg) | SRS §3.6.5, Plan §7.2 | [`despliegue_k3s.puml`](./fuentes/despliegue_k3s.puml) |
+| [Despliegue — infraestructura](./Diagrama_Despliegue_Kubernetes.svg) | SRS §3.6.5, Plan §7.2 | [`despliegue_k3s.puml`](./fuentes/despliegue_k3s.puml) |
+| [Despliegue — Turista](./Diagrama_Despliegue_Turista.svg) | SRS §3.6.5 | [`despliegue_turista.puml`](./fuentes/despliegue_turista.puml) |
+| [Despliegue — Prestador](./Diagrama_Despliegue_Prestador.svg) | SRS §3.6.5 | [`despliegue_prestador.puml`](./fuentes/despliegue_prestador.puml) |
+| [Despliegue — Entidad de Gestión](./Diagrama_Despliegue_Entidad.svg) | SRS §3.6.5 | [`despliegue_entidad.puml`](./fuentes/despliegue_entidad.puml) |
+| [Despliegue — Administrador](./Diagrama_Despliegue_Administrador.svg) | SRS §3.6.5 | [`despliegue_administrador.puml`](./fuentes/despliegue_administrador.puml) |
 | [Paquetes de un microservicio](./Diagrama_Paquetes_Microservicio.svg) | Plan §2.2 | [`paquetes_microservicio.puml`](./fuentes/paquetes_microservicio.puml) |
 | [Modelo de datos entidad-relación](./Diagrama_Modelo_Datos_ER.svg) | SRS §3.7 | [`modelo_datos_er.mmd`](./fuentes/modelo_datos_er.mmd) |
-| [Trazabilidad global](./Diagrama_Trazabilidad_Global.svg) | SRS Apéndice A | SVG original |
-| [Cronograma (Gantt)](./Diagrama_Cronograma_Gantt.svg) | SRS Apéndice D | SVG original |
-| [Distribución del presupuesto](./Diagrama_Distribucion_Presupuesto.svg) | SRS Apéndice D | SVG original |
+| [Trazabilidad global](./Diagrama_Trazabilidad_Global.svg) | SRS Apéndice A | [`generar_svg_gestion.py`](./fuentes/generar_svg_gestion.py) |
+| [Cronograma (Gantt)](./Diagrama_Cronograma_Gantt.svg) | SRS Apéndice D | [`generar_svg_gestion.py`](./fuentes/generar_svg_gestion.py) |
+| [Distribución del presupuesto (Escenarios A y B)](./Diagrama_Distribucion_Presupuesto.svg) | SRS Apéndice D | [`generar_svg_gestion.py`](./fuentes/generar_svg_gestion.py) |
 
 Para regenerar los diagramas después de editar una fuente, ver [`fuentes/generar_diagramas.sh`](./fuentes/generar_diagramas.sh).

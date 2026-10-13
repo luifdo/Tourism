@@ -1,76 +1,36 @@
 @startuml Diagrama_Despliegue_Kubernetes
-!include _estilo.iuml
-skinparam defaultFontSize 12
-skinparam node {
-  BackgroundColor #F8FAFC
-  BorderColor #475569
-}
-skinparam artifact {
-  BackgroundColor #F0FDF4
-  BorderColor #16A34A
-}
-skinparam database {
-  BackgroundColor #FFFFFF
-  BorderColor #475569
-}
-title Diagrama de despliegue — Prototipo en Kubernetes (k3s)
+!include _estilo_despliegue.iuml
+left to right direction
+title Despliegue — Vista de infraestructura del clúster k3s
 
-node "Dispositivo del usuario\n(navegador móvil o de escritorio)" as Disp {
-  artifact "PWA (Vue 3)\nService Worker + IndexedDB" as PWA
-}
-
-cloud "Servicios externos" as Ext {
-  node "Google Gemini API" as Gem
-  node "Servidor SMTP\n(Postal o institucional)" as Smtp
-  node "OpenStreetMap /\nNominatim" as Osm
-}
-
-node "Clúster k3s — VM Linux (Escenario A: 1 nodo · Escenario B: 3 nodos)" as K3s {
-  node "namespace: ingress" as NsIn {
-    artifact "Traefik\n(Ingress, TLS, ForwardAuth,\nrate limiting)" as Tfk
+node "Clúster k3s · VM Linux\n(Escenario A: 1 nodo · Escenario B: 3 nodos)" as K3s {
+  node "kube-system" {
+    artifact "Traefik\n(Ingress / API Gateway)" as Tfk
   }
-  node "namespace: turismo-app" as NsApp {
-    artifact "frontend\n(archivos estáticos PWA)" as Front
-    artifact "iam-service\nDeployment + HPA" as Iam
-    artifact "catalog-service\nDeployment + HPA" as Cat
-    artifact "booking-service\nDeployment + HPA" as Book
-    artifact "review-service\nDeployment + HPA" as Rev
-    artifact "recommendation-service\nDeployment (mín. 1 réplica)" as Rec
+  node "turismo-app" as NsApp {
+    artifact "frontend (PWA)" as Front
+    artifact "iam-service" as Iam
+    artifact "catalog-service" as Cat
+    artifact "booking-service" as Book
+    artifact "review-service" as Rev
+    artifact "recommendation-service" as Rec
   }
-  node "namespace: turismo-datos" as NsData {
-    database "PostgreSQL 16 + PostGIS\n(CloudNativePG)\niam_db · catalog_db · booking_db\nreview_db · recommendation_db" as Pg
+  node "turismo-datos" as NsData {
+    database "PostgreSQL + PostGIS\n(5 bases lógicas)" as Pg
     database "Valkey" as Vk
-    queue "RabbitMQ\n(turismo.eventos)" as Rmq
-    database "SeaweedFS (S3)\ndocumentos y respaldos" as Sw
+    queue "RabbitMQ" as Rmq
+    database "SeaweedFS (S3)" as Sw
   }
-  node "namespace: observabilidad" as NsObs {
-    artifact "Prometheus · Grafana · Loki\nBlackbox exporter" as Obs
+  node "observabilidad" {
+    artifact "Prometheus · Grafana · Loki" as Obs
   }
 }
 
-PWA --> Tfk : HTTPS 443
-PWA ..> Osm : teselas del mapa
-Tfk --> Front
-Tfk --> Iam : /api/iam
-Tfk --> Cat : /api/catalog
-Tfk --> Book : /api/bookings
-Tfk --> Rev : /api/reviews
-Tfk --> Rec : /api/recommendations
-Iam --> Pg
-Cat --> Pg
-Book --> Pg
-Rev --> Pg
-Rec --> Pg
-Iam --> Sw
-Pg ..> Sw : respaldos (Barman)
-Iam ..> Rmq : AMQP
-Cat ..> Rmq : AMQP
-Book ..> Rmq : AMQP
-Rev ..> Rmq : AMQP
-Cat --> Vk
-Rec --> Vk
-Rec --> Gem : HTTPS
-Cat --> Smtp : SMTP/TLS
-Cat --> Osm : geocodificación
-Obs ..> NsApp : /metrics y /health
+Tfk --> NsApp : HTTP interno
+NsApp --> Pg : SQL (cada servicio a su base)
+NsApp --> Vk
+NsApp --> Rmq : AMQP
+Iam --> Sw : documentos
+Pg --> Sw : respaldos
+Obs --> NsApp : /metrics y /health
 @enduml

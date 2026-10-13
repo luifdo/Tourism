@@ -29,8 +29,8 @@ Cada decisión sigue el formato: **Estado**, **Contexto**, **Decisión**, **Alte
 ## ADR-001: Metodología de desarrollo
 
 * **Estado:** Aceptada.
-* **Contexto:** Equipo de 5 estudiantes con disponibilidad heterogénea (R-05), 14 semanas de ejecución y una arquitectura de microservicios que requiere detectar temprano los problemas de integración (R-01).
-* **Decisión:** Scrum adaptado con 7 sprints de 2 semanas, tablero Kanban en GitHub Projects, revisión de sprint alineada con cada fase del cronograma y propiedad de cada componente por un integrante (SRS, Apéndice C).
+* **Contexto:** Equipo de 5 estudiantes con disponibilidad heterogénea (R-05), 13 semanas de ejecución con sustentación entre el 15 y el 17 de noviembre y una arquitectura de microservicios que requiere detectar temprano los problemas de integración (R-01).
+* **Decisión:** Scrum adaptado con 6 sprints de 2 semanas seguidos de la sustentación, tablero Kanban en GitHub Projects, revisión de sprint alineada con cada fase del cronograma y propiedad de cada componente por un integrante (SRS, Apéndice C).
 * **Alternativas consideradas:**
   * *Cascada:* descartada; difiere la integración al final, cuando los defectos de contratos entre servicios son más costosos.
   * *RUP:* descartada; su carga documental excede el tamaño del equipo y del proyecto.
@@ -101,7 +101,7 @@ Cada decisión sigue el formato: **Estado**, **Contexto**, **Decisión**, **Alte
 ## ADR-006: Lenguaje y framework de los microservicios
 
 * **Estado:** Aceptada. Resuelve la decisión pendiente del monorepo (Spring Boot o NestJS).
-* **Contexto:** El enunciado exige paradigma orientado a objetos. El chatbot se construye en Python. Un equipo de 5 personas con 14 semanas se beneficia de compartir un solo stack (R-01).
+* **Contexto:** El enunciado exige paradigma orientado a objetos. El chatbot se construye en Python. Un equipo de 5 personas con 13 semanas se beneficia de compartir un solo stack (R-01).
 * **Decisión:** **Python 3.12 + FastAPI** en los 5 microservicios, con clases de dominio y arquitectura hexagonal. Cada servicio es una aplicación HTTP estándar (ASGI) empaquetada como contenedor, sin depender de la plataforma de ejecución, de modo que el mismo código podría migrar a otra plataforma de contenedores o *serverless* sin reescribirse.
 * **Alternativas consideradas:**
   * *Java con Spring Boot:* descartada; mayor consumo de memoria por réplica (relevante en un clúster pequeño) y un segundo lenguaje junto al Python del chatbot.

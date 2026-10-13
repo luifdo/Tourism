@@ -10,6 +10,8 @@ MMDC="npx -y @mermaid-js/mermaid-cli@11"
 
 # 1. Arquitectura y responsabilidades por módulo (SVG con estilo propio)
 python3 generar_svg_arquitectura.py "$DEST"
+# Trazabilidad, cronograma y presupuesto
+python3 generar_svg_gestion.py "$DEST"
 
 # 2. Diagramas Mermaid (máquina de estados y modelo de datos)
 render_mermaid() {
@@ -24,6 +26,7 @@ render_mermaid modelo_datos_er.mmd Diagrama_Modelo_Datos_ER.svg
 java -jar "${PLANTUML_JAR:?Defina PLANTUML_JAR}" -charset UTF-8 -tsvg -o "$(cd "$DEST" && pwd)" \
   casos_uso_general.puml casos_uso_turista.puml casos_uso_prestador.puml \
   casos_uso_entidad.puml casos_uso_administrador.puml \
-  despliegue_k3s.puml paquetes_microservicio.puml
+  despliegue_k3s.puml despliegue_turista.puml despliegue_prestador.puml \
+  despliegue_entidad.puml despliegue_administrador.puml paquetes_microservicio.puml
 
 echo "Diagramas regenerados en Documents/Pages"

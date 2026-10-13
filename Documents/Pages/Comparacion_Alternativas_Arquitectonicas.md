@@ -19,7 +19,7 @@ Este documento presenta el proceso de diseño seguido para seleccionar el estilo
 
 * **Estilo arquitectónico:** Monolito modular con arquitectura hexagonal (puertos y adaptadores) por módulo.
 * **Idea general de estructura:** Una única aplicación desplegable que agrupa los cinco contextos del dominio (IAM, Catálogo, GIS & Analítica, Reservas, Reseñas, IA) como módulos internos con fronteras explícitas. Los módulos se comunican mediante llamadas en proceso a través de interfaces; las tareas diferidas (correos, auditoría) se ejecutan con una cola de trabajos interna. Persistencia en una sola instancia de PostgreSQL + PostGIS con un esquema por módulo. Se escala replicando la aplicación completa detrás de Nginx.
-* **Ventaja principal:** Menor tiempo y complejidad de implementación: un solo repositorio, un solo despliegue, transacciones ACID locales entre módulos y sin infraestructura distribuida que operar, lo que se ajusta directamente a las 14 semanas y al equipo de 5 personas.
+* **Ventaja principal:** Menor tiempo y complejidad de implementación: un solo repositorio, un solo despliegue, transacciones ACID locales entre módulos y sin infraestructura distribuida que operar, lo que se ajusta directamente a las 13 semanas y al equipo de 5 personas.
 * **Desventaja principal:** Escala y falla como un bloque: un pico de búsquedas en el catálogo obliga a replicar toda la aplicación, una falla en un módulo (p. ej. Reseñas) puede degradar el sistema completo (contrario a ESC-01) y el chatbot de IA (integración con Gemini y herramientas) no puede ajustarse ni desplegarse sin redesplegar el núcleo (contrario a ESC-05).
 
 ### 1.2 Alternativa B: Microservicios Orientados a Eventos
@@ -53,7 +53,7 @@ Escala de calificación de **1 a 5**, donde **5 es siempre el valor más favorab
 * **Disponibilidad (5):** RNF-01 y ESC-01 exigen aislar componentes degradados sin interrumpir catálogo ni reservas durante la temporada alta.
 * **Mantenibilidad / Evolución (4):** RNF-05 y ESC-05 exigen ajustar el chatbot de IA (herramientas, parámetros o versión del modelo de Gemini) sin alterar el núcleo, y el SRS §1.2 define la IA como un componente desacoplado.
 * **Costo relativo (3):** Ambas alternativas caben holgadamente dentro del techo de USD 20.000 (el Escenario A del SRS, Apéndice D, usa USD 6.900); el costo diferencia, pero no es restrictivo.
-* **Tiempo de implementación (3):** El horizonte es de 14 semanas, pero la meta del prototipo está acotada a $\ge 60\%$ de los casos de uso *Must* (SRS, Apéndice D, Fase 4) y la propiedad de cada servicio por un integrante permite trabajo en paralelo (R-05).
+* **Tiempo de implementación (3):** El horizonte es de 13 semanas, pero la meta del prototipo está acotada a $\ge 60\%$ de los casos de uso *Must* (SRS, Apéndice D, Fase 4) y la propiedad de cada servicio por un integrante permite trabajo en paralelo (R-05).
 * **Complejidad técnica (2):** Se mitiga con decisiones de proceso (un solo lenguaje para todos los servicios, plantilla base, entorno local con Docker Compose, R-01) y no compromete por sí misma un atributo de calidad.
 
 > [!NOTE]
@@ -95,7 +95,7 @@ La diferencia es estrecha (4 puntos) y se reconoce explícitamente: los Microser
 
 1. **Picos de demanda en temporada alta** (problemática 6, RNF-02 y RNF-01): fue la restricción decisiva, ya que escalabilidad y disponibilidad concentran 50 de los 104 puntos de la alternativa seleccionada.
 2. **Desacople del servicio de IA** (SRS §1.2, ESC-05): el chatbot de recomendaciones debe operar de forma independiente del núcleo, de modo que una indisponibilidad de Gemini no afecte catálogo ni reservas.
-3. **Tiempo de 14 semanas con 5 integrantes** (SRS §2.4.2): fue la principal restricción en contra de la alternativa seleccionada y la que motivó acotar el alcance del prototipo y adoptar las mitigaciones de la Sección 4.4.
+3. **Tiempo de 13 semanas con 5 integrantes** (SRS §2.4.2): fue la principal restricción en contra de la alternativa seleccionada y la que motivó acotar el alcance del prototipo y adoptar las mitigaciones de la Sección 4.4.
 
 ### 4.4 Equilibrio entre costo, tiempo y atributos de calidad
 
