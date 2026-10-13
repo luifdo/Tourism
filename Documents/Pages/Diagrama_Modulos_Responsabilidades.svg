@@ -66,10 +66,10 @@
     <rect width="320" height="185" rx="8" fill="#fdf4ff" stroke="#d946ef" stroke-width="1.8" filter="url(#shadow3)"/>
     <rect width="320" height="36" rx="8" fill="#fae8ff"/>
     <text x="16" y="24" class="card-title" fill="#86198f">Módulo 5: IA &amp; Recomendación</text>
-    <text x="18" y="62" class="card-item" fill="#701a75">• Procesamiento asíncrono vía RabbitMQ</text>
-    <text x="18" y="86" class="card-item" fill="#701a75">• Filtrado híbrido (contenido + colaborativo)</text>
+    <text x="18" y="62" class="card-item" fill="#701a75">• Chatbot en español e inglés (Gemini API)</text>
+    <text x="18" y="86" class="card-item" fill="#701a75">• Herramientas de consulta de solo lectura</text>
     <text x="18" y="110" class="card-item" fill="#701a75">• Motor de explicabilidad transparente (RNF-08)</text>
-    <text x="18" y="134" class="card-item" fill="#701a75">• Generación con dataset sintético validado</text>
+    <text x="18" y="134" class="card-item" fill="#701a75">• Respuestas ancladas en datos de la plataforma</text>
     <text x="18" y="158" class="card-item" fill="#701a75">• Dispersión del flujo hacia zonas emergentes</text>
   </g>
 

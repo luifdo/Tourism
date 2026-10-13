@@ -78,8 +78,8 @@
   <g transform="translate(395, 350)">
     <rect width="290" height="80" rx="7" fill="#fdf4ff" stroke="#c026d3" stroke-width="1.6" filter="url(#shadow2)"/>
     <text x="15" y="28" class="node-title" fill="#701a75">Módulo 5: IA &amp; Recomendación</text>
-    <text x="15" y="48" class="node-desc" fill="#a21caf">Worker Asíncrono • Filtrado Híbrido</text>
-    <text x="15" y="65" class="node-desc" fill="#a21caf">Explicabilidad Ética (RNF-08)</text>
+    <text x="15" y="48" class="node-desc" fill="#a21caf">Chatbot • Herramientas de consulta</text>
+    <text x="15" y="65" class="node-desc" fill="#a21caf">Gemini API • Explicabilidad (RNF-08)</text>
   </g>
 
   <!-- MS6: Analítica & Destino -->
@@ -100,12 +100,11 @@
   <!-- ==================== TIER 4: MESSAGE BROKER ==================== -->
   <rect x="180" y="475" width="720" height="60" rx="8" fill="#fffbeb" stroke="#d97706" stroke-width="1.8" filter="url(#shadow2)"/>
   <text x="540" y="500" text-anchor="middle" class="node-title" fill="#78350f">Bus de Mensajería &amp; Eventos Asíncronos (RabbitMQ / Redis Streams)</text>
-  <text x="540" y="520" text-anchor="middle" class="node-desc" fill="#b45309">Patrón Pub/Sub • Desacople de IA • Notificaciones Transaccionales • Eventos de Auditoría</text>
+  <text x="540" y="520" text-anchor="middle" class="node-desc" fill="#b45309">Patrón Pub/Sub • Notificaciones Transaccionales • Eventos de Auditoría</text>
 
   <!-- Event Connections -->
   <path d="M 885 335 L 885 475" class="wire-event" marker-end="url(#arrow-event)"/>
   <path d="M 195 430 L 195 475" class="wire-event" marker-end="url(#arrow-event)"/>
-  <path d="M 450 475 L 450 430" class="wire-event" marker-end="url(#arrow-event)"/>
   <path d="M 800 475 L 800 430" class="wire-event" marker-end="url(#arrow-event)"/>
 
   <!-- ==================== TIER 5: POLYGLOT PERSISTENCE ==================== -->
