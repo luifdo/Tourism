@@ -8,10 +8,8 @@ from valkey.asyncio import Valkey
 from app.application.dto.criterios_busqueda import CriteriosBusqueda
 from app.application.dto.pagina_servicios import PaginaServicios
 from app.domain.value_objects.idioma import Idioma
-from app.infrastructure.cache.consulta_servicios_en_cache import (
-    TTL_SEGUNDOS,
-    ConsultaServiciosEnCache,
-)
+from app.infrastructure.cache.cache_versionada import TTL_SEGUNDOS
+from app.infrastructure.cache.consulta_servicios_en_cache import ConsultaServiciosEnCache
 
 pytestmark = pytest.mark.integration
 

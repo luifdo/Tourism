@@ -7,11 +7,13 @@ from valkey.asyncio import Valkey
 
 from app.api.errores.manejador_errores import registrar_manejadores
 from app.api.middleware.correlacion_middleware import CorrelacionMiddleware
-from app.api.routers import alertas, busqueda, health, servicios, zonas
+from app.api.routers import alertas, busqueda, health, mapa, servicios, zonas
 from app.config import Settings, get_settings
+from app.infrastructure.cache.consulta_mapa_en_cache import ConsultaMapaEnCache
 from app.infrastructure.cache.consulta_servicios_en_cache import ConsultaServiciosEnCache
 from app.infrastructure.observabilidad.configurar_logs import configurar_logs
 from app.infrastructure.persistence.consultas.sql_consulta_alertas import SqlConsultaAlertas
+from app.infrastructure.persistence.consultas.sql_consulta_mapa import SqlConsultaMapa
 from app.infrastructure.persistence.consultas.sql_consulta_servicios import SqlConsultaServicios
 from app.infrastructure.persistence.consultas.sql_consulta_zonas import SqlConsultaZonas
 from app.infrastructure.persistence.database import build_engine, build_session_factory
@@ -39,6 +41,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         )
         app.state.consulta_zonas = SqlConsultaZonas(sesiones)
         app.state.consulta_alertas = SqlConsultaAlertas(sesiones)
+        app.state.consulta_mapa = ConsultaMapaEnCache(SqlConsultaMapa(sesiones), valkey)
         yield
         await valkey.aclose()
         await engine.dispose()
@@ -46,7 +49,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title=settings.service_name, version="0.1.0", lifespan=lifespan)
     app.add_middleware(CorrelacionMiddleware)
     registrar_manejadores(app)
-    for modulo in (health, servicios, busqueda, zonas, alertas):
+    for modulo in (health, servicios, busqueda, zonas, alertas, mapa):
         app.include_router(modulo.router)
     Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
     return app

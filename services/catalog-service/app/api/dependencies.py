@@ -11,6 +11,7 @@ from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.application.ports.consulta_alertas import ConsultaAlertas
+from app.application.ports.consulta_mapa import ConsultaMapa
 from app.application.ports.consulta_servicios import ConsultaServicios
 from app.application.ports.consulta_zonas import ConsultaZonas
 from app.application.use_cases.buscar_servicios import BuscarServicios
@@ -18,6 +19,9 @@ from app.application.use_cases.check_health import CheckHealth
 from app.application.use_cases.listar_alertas import ListarAlertas
 from app.application.use_cases.listar_zonas import ListarZonas
 from app.application.use_cases.obtener_servicio import ObtenerServicio
+from app.application.use_cases.ver_alertas_en_mapa import VerAlertasEnMapa
+from app.application.use_cases.ver_servicios_en_mapa import VerServiciosEnMapa
+from app.application.use_cases.ver_zonas_en_mapa import VerZonasEnMapa
 from app.config import Settings, get_settings
 from app.domain.ports.reloj import Reloj
 from app.infrastructure.persistence.database import SqlAlchemyDatabaseProbe
@@ -41,6 +45,10 @@ def get_consulta_zonas(request: Request) -> ConsultaZonas:
 
 def get_consulta_alertas(request: Request) -> ConsultaAlertas:
     return request.app.state.consulta_alertas
+
+
+def get_consulta_mapa(request: Request) -> ConsultaMapa:
+    return request.app.state.consulta_mapa
 
 
 def get_check_health(
@@ -75,3 +83,22 @@ def get_listar_alertas(
     reloj: Annotated[Reloj, Depends(get_reloj)],
 ) -> ListarAlertas:
     return ListarAlertas(consulta, reloj)
+
+
+def get_ver_servicios_en_mapa(
+    consulta: Annotated[ConsultaMapa, Depends(get_consulta_mapa)],
+) -> VerServiciosEnMapa:
+    return VerServiciosEnMapa(consulta)
+
+
+def get_ver_zonas_en_mapa(
+    consulta: Annotated[ConsultaMapa, Depends(get_consulta_mapa)],
+) -> VerZonasEnMapa:
+    return VerZonasEnMapa(consulta)
+
+
+def get_ver_alertas_en_mapa(
+    consulta: Annotated[ConsultaMapa, Depends(get_consulta_mapa)],
+    reloj: Annotated[Reloj, Depends(get_reloj)],
+) -> VerAlertasEnMapa:
+    return VerAlertasEnMapa(consulta, reloj)

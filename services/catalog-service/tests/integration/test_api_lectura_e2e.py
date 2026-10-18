@@ -40,3 +40,16 @@ def test_busqueda_vacia_y_servicio_inexistente(cliente: TestClient) -> None:
 def test_health_y_metricas(cliente: TestClient) -> None:
     assert cliente.get("/health").json() == {"status": "ok", "checks": {"database": "up"}}
     assert "http_requests_total" in cliente.get("/metrics").text
+
+
+def test_mapa_de_zonas_en_geojson(cliente: TestClient) -> None:
+    r = cliente.get(
+        "/api/catalog/mapa/zonas",
+        params={"zoom": 12, "bbox": "-74.25,11.20,-74.15,11.30"},
+        headers={"Accept-Language": "en"},
+    )
+    assert r.status_code == 200 and r.headers["content-type"] == "application/geo+json"
+    nombres = {f["properties"]["nombre"] for f in r.json()["features"]}
+    assert "Historic Center" in nombres and "Minca" not in nombres
+    r = cliente.get("/api/catalog/mapa/servicios", params={"zoom": 10, "bbox": "-75,11,-73,12"})
+    assert r.json() == {"type": "FeatureCollection", "features": []}

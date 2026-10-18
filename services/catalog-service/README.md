@@ -91,6 +91,9 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | `GET /api/catalog/buscar` | UC8 | Pública; texto, categorías, zona, precio, cercanía en metros; caché de 300 s en Valkey |
 | `GET /api/catalog/zonas` | Filtros | Pública |
 | `GET /api/catalog/alertas` | UC26 | Pública; vigentes, de mayor a menor nivel |
+| `GET /api/catalog/mapa/servicios` | UC16 | Pública; GeoJSON recortado a `bbox`; con zoom < 13 agrupa en el servidor (caché de 300 s) |
+| `GET /api/catalog/mapa/zonas` | UC16 | Pública; polígonos simplificados según el zoom |
+| `GET /api/catalog/mapa/alertas` | UC16, UC26 | Pública; puntos (alertas de servicio) y polígonos (de zona) |
 | `GET /health` | RNF-01 | `200` si PostgreSQL responde, `503` si no. Valkey y RabbitMQ no se revisan: sin caché la búsqueda sigue y los eventos esperan en el outbox (ESC-01) |
 | `GET /metrics` | RNF-12 | Prometheus |
 
@@ -100,6 +103,16 @@ El sistema funciona completo en ambos idiomas según `Accept-Language` (español
 
 * **Textos del sistema** (mensajes de error y etiquetas de categorías y niveles): catálogo en [`app/api/i18n/`](./app/api/i18n/). Una prueba falla si una regla de validación, un error o un valor fijo no tiene texto en los dos idiomas.
 * **Textos de usuarios** (nombres, descripciones, alertas, zonas): se guardan como `{"es": ..., "en": ...}`; si falta el inglés se muestra el español. La búsqueda de texto usa el diccionario del idioma pedido (`spanish` / `english`) sin tildes.
+
+## Mapa (OpenStreetMap)
+
+Las capas salen en GeoJSON (RFC 7946, `application/geo+json`), siempre en `[lon, lat]`, listas para `L.geoJSON` de Leaflet sobre teselas de OSM. El zoom define la escala: un píxel equivale a `360 / (256·2^zoom)` grados ([`escala_mapa.py`](./app/application/dto/escala_mapa.py)).
+
+* **Servicios:** con zoom < 13 se agrupan en celdas de unos 64 px y la vista se amplía al borde de las celdas, para que los grupos no cambien al mover el mapa y vistas cercanas compartan caché. Desde zoom 13 llegan uno a uno (hasta 1000). El recorte usa un índice GIST en `geometry` (migración `0003`), exacto en grados.
+* **Zonas:** se simplifican con tolerancia de un píxel (`ST_SimplifyPreserveTopology`); nunca se cruzan ni desaparecen.
+* **Alertas:** no se cachean. La búsqueda y el mapa comparten la generación de caché (`catalog:gen`): un cambio del catálogo invalida ambos.
+
+## Correlación
 
 Cada respuesta lleva `X-Correlation-ID` (el que envía Traefik o uno nuevo) y los logs salen en JSON con ese mismo identificador.
 

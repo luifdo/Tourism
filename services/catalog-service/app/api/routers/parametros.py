@@ -2,7 +2,23 @@
 
 from app.domain.errors import DatoInvalido
 from app.domain.value_objects.catalogos import Categoria
-from app.domain.value_objects.geo import Coordenada
+from app.domain.value_objects.geo import Bbox, Coordenada
+
+
+def bbox(valor: str) -> Bbox:
+    """Vista del mapa como `minLon,minLat,maxLon,maxLat` (el formato de Leaflet `toBBoxString`)."""
+    partes = valor.split(",")
+    if len(partes) != 4:
+        raise DatoInvalido(campo="bbox", regla="cuatro_valores")
+    try:
+        numeros = [float(p) for p in partes]
+    except ValueError as exc:
+        raise DatoInvalido(campo="bbox", regla="numero") from exc
+    return Bbox.desde_lista(numeros)
+
+
+def bbox_opcional(valor: str | None) -> Bbox | None:
+    return bbox(valor) if valor is not None else None
 
 
 def coordenada_opcional(lat: float | None, lon: float | None) -> Coordenada | None:

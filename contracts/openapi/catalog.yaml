@@ -471,15 +471,25 @@ paths:
       summary: Servicios en la vista del mapa (UC16)
       description: |
         Ruta pública. Devuelve solo lo que cae en `bbox`. Con zoom menor que 13 el servidor
-        agrupa los puntos cercanos y cada grupo trae su conteo; desde 13 devuelve servicios
-        individuales.
+        agrupa los puntos cercanos en celdas de unos 64 px y cada grupo trae su conteo; un
+        grupo de un solo servicio llega como `tipo=servicio`. Al agrupar, la vista se amplía
+        al borde de las celdas (un grupo no cambia de conteo al mover el mapa) y el
+        resultado se cachea 300 s. Desde zoom 13 devuelve servicios individuales, como
+        máximo 1000 (los mejor calificados).
       operationId: mapaServicios
       security: []
       parameters:
         - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/Bbox'
         - $ref: '#/components/parameters/Zoom'
-        - $ref: '#/components/parameters/CategoriaQuery'
+        - name: categoria
+          in: query
+          description: Una o varias categorías.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/Categoria' }
         - $ref: '#/components/parameters/ZonaQuery'
       responses:
         '200':
@@ -495,7 +505,9 @@ paths:
     get:
       tags: [Mapa]
       summary: Polígonos de las zonas (UC16)
-      description: Ruta pública. Polígonos simplificados según `zoom`; sin datos de saturación.
+      description: |
+        Ruta pública. Polígonos simplificados según `zoom` (tolerancia de un píxel, sin que
+        se crucen ni desaparezcan), siempre como `MultiPolygon`; sin datos de saturación.
       operationId: mapaZonas
       security: []
       parameters:
@@ -516,7 +528,9 @@ paths:
     get:
       tags: [Mapa]
       summary: Alertas vigentes en la vista del mapa (UC16, UC26)
-      description: Ruta pública. Las alertas de un servicio son puntos; las de una zona, su polígono.
+      description: |
+        Ruta pública. Las alertas de un servicio son puntos; las de una zona, su polígono.
+        No se cachean. Las de un servicio inactivo o una zona inactiva no se dibujan.
       operationId: mapaAlertas
       security: []
       parameters:
@@ -1448,6 +1462,7 @@ components:
                 required: [codigo, nombre]
                 description: '`indice` y `nivel` solo en `/analitica/mapa-calor`.'
                 properties:
+                  id: { type: string, format: uuid }
                   codigo: { type: string }
                   nombre: { type: string }
                   indice: { type: number }
@@ -1477,3 +1492,9 @@ components:
                   nivel: { $ref: '#/components/schemas/NivelAlerta' }
                   nivel_etiqueta: { type: string }
                   mensaje: { type: string }
+                  servicio_id: { type: string, format: uuid, nullable: true }
+                  zona:
+                    type: string
+                    nullable: true
+                    description: Código de la zona, si la alerta es de zona.
+                  fecha_expiracion: { type: string, format: date-time }

@@ -29,7 +29,7 @@ _FILTRO_SERVICIO = """
     AND (a.servicio_id = :servicio_id
          OR a.zona_id = (SELECT s.zona_id FROM atractivo_servicio s WHERE s.id = :servicio_id))
 """
-_ORDEN = """
+ORDEN_POR_NIVEL = """
     ORDER BY CASE a.nivel WHEN 'CRITICA' THEN 0 WHEN 'PREVENTIVA' THEN 1 ELSE 2 END,
              a.fecha_expiracion
 """
@@ -67,5 +67,5 @@ class SqlConsultaAlertas:
             sql += _FILTRO_SERVICIO
             parametros["servicio_id"] = servicio_id
         async with self._sesiones() as session:
-            filas = (await session.execute(text(sql + _ORDEN), parametros)).all()
+            filas = (await session.execute(text(sql + ORDEN_POR_NIVEL), parametros)).all()
         return [alerta_desde_fila(f) for f in filas]
