@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     service_port: int = 8001
     environment: str = "development"
 
-    database_url: str = "postgresql+asyncpg://iam_user:iam_password@localhost:5432/iam_db"
+    database_url: str = "postgresql+asyncpg://iam_user:iam_password@localhost:5433/iam_db"
     database_health_timeout_seconds: float = 2.0
 
     valkey_url: str = "redis://localhost:6379/0"
