@@ -39,7 +39,14 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "ASYNC"]
 
+[tool.ruff.lint.per-file-ignores]
+# El SQL de las migraciones se lee mejor sin cortar las expresiones.
+"migrations/versions/*" = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 # Solo app/ tiene __init__.py; importlib evita choques entre pruebas con el mismo nombre.
 addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = ["integration: requiere Docker (PostGIS real con testcontainers)"]

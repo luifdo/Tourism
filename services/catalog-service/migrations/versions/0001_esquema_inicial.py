@@ -130,9 +130,7 @@ def upgrade() -> None:
         )
         """
     )
-    op.execute(
-        "CREATE INDEX ix_alerta_vigente ON alerta_oficial (fecha_expiracion) WHERE activa"
-    )
+    op.execute("CREATE INDEX ix_alerta_vigente ON alerta_oficial (fecha_expiracion) WHERE activa")
     op.execute("CREATE INDEX ix_alerta_zona ON alerta_oficial (zona_id) WHERE activa")
     op.execute("CREATE INDEX ix_alerta_servicio ON alerta_oficial (servicio_id) WHERE activa")
 
@@ -197,9 +195,7 @@ def upgrade() -> None:
         )
         """
     )
-    op.execute(
-        "CREATE INDEX ix_outbox_pendientes ON outbox (creado_en) WHERE publicado_en IS NULL"
-    )
+    op.execute("CREATE INDEX ix_outbox_pendientes ON outbox (creado_en) WHERE publicado_en IS NULL")
 
 
 def downgrade() -> None:

@@ -23,7 +23,12 @@ depends_on: str | Sequence[str] | None = None
 
 # codigo, nombre es, nombre en, (min_lon, min_lat, max_lon, max_lat)
 ZONAS = [
-    ("centro-historico", "Centro Histórico", "Historic Center", (-74.2160, 11.2330, -74.1960, 11.2500)),
+    (
+        "centro-historico",
+        "Centro Histórico",
+        "Historic Center",
+        (-74.2160, 11.2330, -74.1960, 11.2500),
+    ),
     ("el-rodadero", "El Rodadero", "El Rodadero", (-74.2400, 11.1950, -74.2200, 11.2150)),
     ("taganga", "Taganga", "Taganga", (-74.2000, 11.2560, -74.1820, 11.2760)),
     ("bahia-concha", "Bahía Concha", "Concha Bay", (-74.1600, 11.2880, -74.1350, 11.3080)),

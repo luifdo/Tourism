@@ -70,12 +70,15 @@ docker compose -f docker-compose.dev.yml up -d   # PostGIS, Valkey y RabbitMQ de
 uv sync                                          # instala dependencias (incluye dev)
 cp .env.example .env
 uv run uvicorn app.main:app --reload --port 8002
-uv run pytest                                    # pruebas
+uv run alembic upgrade head                      # aplicar migraciones (incluye las zonas iniciales)
+uv run pytest                                    # unitarias + integración (PostGIS en testcontainers)
+uv run pytest -m "not integration"               # solo unitarias, sin Docker
 uv run ruff check . && uv run ruff format --check .
-uv run alembic upgrade head                      # aplicar migraciones
 ```
 
-Los puertos de `docker-compose.dev.yml` (5434, 6380, 5673 y 15673) no chocan con los de iam-service, así que ambos entornos pueden correr a la vez.
+Los puertos de `docker-compose.dev.yml` (5434, 6380, 5673 y 15673) no chocan con los de iam-service, así que ambos entornos pueden correr a la vez. Las pruebas de integración levantan su propio PostGIS efímero y no tocan la base de desarrollo; sin Docker se omiten.
+
+Las zonas iniciales (migración `0002`) son rectángulos **aproximados** que no se superponen; la Entidad los corrige desde la API. Si dos zonas cubren un mismo punto, el servicio queda en la de menor área.
 
 Endpoints operativos:
 
