@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     service_name: str = "catalog-service"
     service_port: int = 8002
     environment: str = "development"
+    log_level: str = "INFO"
 
     database_url: str = (
         "postgresql+asyncpg://catalog_user:catalog_password@localhost:5434/catalog_db"
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
     database_health_timeout_seconds: float = 2.0
 
     valkey_url: str = "redis://localhost:6380/0"
+    valkey_timeout_seconds: float = 0.25
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5673/"
     events_exchange: str = "turismo.eventos"

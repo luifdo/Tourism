@@ -80,10 +80,28 @@ Los puertos de `docker-compose.dev.yml` (5434, 6380, 5673 y 15673) no chocan con
 
 Las zonas iniciales (migración `0002`) son rectángulos **aproximados** que no se superponen; la Entidad los corrige desde la API. Si dos zonas cubren un mismo punto, el servicio queda en la de menor área.
 
-Endpoints operativos:
+## Endpoints implementados
 
-* `GET /health`: `200` si PostgreSQL responde a `SELECT 1`, `503` si no. Valkey y RabbitMQ no se revisan: sin caché la búsqueda sigue funcionando y los eventos esperan en el outbox (ESC-01).
-* `GET /metrics`: métricas Prometheus (prometheus-fastapi-instrumentator).
+El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/health` y `/metrics` en la raíz, como define el contrato. Detalle en [`catalog.yaml`](../../contracts/openapi/catalog.yaml); una prueba verifica que toda ruta implementada esté en el contrato.
+
+| Ruta | Caso de uso | Notas |
+|---|---|---|
+| `GET /api/catalog/servicios` | UC7 | Pública, paginada |
+| `GET /api/catalog/servicios/{id}` | UC9 | Pública; incluye alertas vigentes del servicio y de su zona |
+| `GET /api/catalog/buscar` | UC8 | Pública; texto, categorías, zona, precio, cercanía en metros; caché de 300 s en Valkey |
+| `GET /api/catalog/zonas` | Filtros | Pública |
+| `GET /api/catalog/alertas` | UC26 | Pública; vigentes, de mayor a menor nivel |
+| `GET /health` | RNF-01 | `200` si PostgreSQL responde, `503` si no. Valkey y RabbitMQ no se revisan: sin caché la búsqueda sigue y los eventos esperan en el outbox (ESC-01) |
+| `GET /metrics` | RNF-12 | Prometheus |
+
+## Idioma (español e inglés)
+
+El sistema funciona completo en ambos idiomas según `Accept-Language` (español por defecto) y lo informa en `Content-Language`:
+
+* **Textos del sistema** (mensajes de error y etiquetas de categorías y niveles): catálogo en [`app/api/i18n/`](./app/api/i18n/). Una prueba falla si una regla de validación, un error o un valor fijo no tiene texto en los dos idiomas.
+* **Textos de usuarios** (nombres, descripciones, alertas, zonas): se guardan como `{"es": ..., "en": ...}`; si falta el inglés se muestra el español. La búsqueda de texto usa el diccionario del idioma pedido (`spanish` / `english`) sin tildes.
+
+Cada respuesta lleva `X-Correlation-ID` (el que envía Traefik o uno nuevo) y los logs salen en JSON con ese mismo identificador.
 
 Imagen de contenedor (multi-stage):
 

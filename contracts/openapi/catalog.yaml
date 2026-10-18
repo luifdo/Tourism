@@ -10,9 +10,13 @@ info:
     * Las rutas protegidas pasan por ForwardAuth en Traefik, que agrega
       `X-Usuario-Id` y `X-Usuario-Rol`; el servicio verifica el rol. Un rol no
       permitido responde 403 y se publica `auditoria.registrada` (ACCESS_DENIED).
-    * Idioma: `Accept-Language` (`es` o `en`, por defecto `es`). Los textos públicos
-      se devuelven en el idioma pedido y, si no hay traducción, en español; el idioma
-      usado va en `Content-Language`. Las rutas de edición devuelven ambos idiomas.
+    * Idioma: `Accept-Language` (`es` o `en`, por defecto `es`); el idioma de la
+      respuesta va en `Content-Language`. El sistema funciona completo en ambos
+      idiomas: los mensajes de error y las etiquetas de los valores fijos
+      (`*_etiqueta`: categoría, nivel de alerta, nivel de saturación) salen siempre en
+      el idioma pedido. Los textos escritos por usuarios (nombres, descripciones,
+      alertas) salen en el idioma pedido si tienen traducción y, si no, en español. Las
+      rutas de edición devuelven ambos idiomas.
     * Coordenadas en GeoJSON (RFC 7946) siempre en orden `[lon, lat]`, SRID 4326.
     * Fechas de negocio en `America/Bogota`. Tarifas en COP.
     * Errores con el formato común `Error`.
@@ -908,7 +912,7 @@ components:
       description: Versión del recurso, para usar en `If-Match`.
       schema: { type: string, example: '"3"' }
     ContentLanguage:
-      description: Idioma en que se devolvieron los textos.
+      description: Idioma de la respuesta (textos del sistema y etiquetas).
       schema: { type: string, enum: [es, en] }
 
   parameters:
@@ -1121,6 +1125,7 @@ components:
         id: { type: string, format: uuid }
         nombre: { type: string }
         categoria: { $ref: '#/components/schemas/Categoria' }
+        categoria_etiqueta: { type: string, description: Nombre de la categoría en el idioma pedido. }
         zona:
           allOf: [{ $ref: '#/components/schemas/ZonaResumen' }]
           nullable: true
@@ -1264,6 +1269,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         nivel: { $ref: '#/components/schemas/NivelAlerta' }
+        nivel_etiqueta: { type: string, description: Nivel en el idioma pedido. }
         mensaje: { type: string }
         servicio_id: { type: string, format: uuid, nullable: true }
         zona:
@@ -1340,6 +1346,7 @@ components:
         zona: { $ref: '#/components/schemas/ZonaResumen' }
         fecha: { type: string, format: date }
         nivel: { $ref: '#/components/schemas/NivelSaturacion' }
+        nivel_etiqueta: { type: string, description: Nivel en el idioma pedido. }
         personas_activas: { type: integer }
         capacidad: { type: integer }
         indice: { type: number, minimum: 0 }
@@ -1419,6 +1426,7 @@ components:
                   id: { type: string, format: uuid }
                   nombre: { type: string }
                   categoria: { $ref: '#/components/schemas/Categoria' }
+                  categoria_etiqueta: { type: string }
                   calificacion_promedio: { type: number, nullable: true }
                   conteo: { type: integer }
 
@@ -1467,4 +1475,5 @@ components:
                 properties:
                   id: { type: string, format: uuid }
                   nivel: { $ref: '#/components/schemas/NivelAlerta' }
+                  nivel_etiqueta: { type: string }
                   mensaje: { type: string }
