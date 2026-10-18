@@ -134,7 +134,8 @@ services/<servicio>/
 * **Responsabilidad Interna:** Gestión centralizada del ciclo de vida de usuarios, autenticación basada en credenciales robustas, autorización por roles (RBAC), control documental de prestadores y bitácora de auditoría inmutable.
 * **Mecanismos Internos:**
   * **Cifrado de Contraseñas:** Algoritmo **Argon2id** (configuración recomendada RFC 9106: memoria 64 MB, 3 iteraciones, 4 hilos de paralelismo) que previene ataques por fuerza bruta basados en GPU/ASIC.
-  * **Emisión de Tokens:** JWT firmados con **RS256** (clave privada solo en el Módulo 1), con tiempo de vida corto (15 a 60 minutos para el Access Token) y Refresh Tokens revocables. Los identificadores de tokens revocados se guardan en Valkey hasta su expiración.
+  * **Emisión de Tokens:** JWT firmados con **RS256** (clave privada solo en el Módulo 1), con tiempo de vida corto (15 a 60 minutos para el Access Token). El Refresh Token dura 7 días, se rota en cada renovación y se revoca al cerrar sesión o al cambiar el rol del usuario (UC27); su `jti` revocado se guarda en Valkey hasta su expiración.
+  * **Protección contra fuerza bruta:** No hay bloqueo de cuenta por intentos fallidos; la protección es el *rate limiting* por IP de Traefik (ADR-007) y cada `LOGIN_FALLIDO` queda en la bitácora.
   * **Verificación para el Gateway:** Endpoint `GET /api/iam/auth/verificar` usado por el middleware ForwardAuth de Traefik: valida firma, expiración y revocación, y responde con los encabezados `X-Usuario-Id` y `X-Usuario-Rol`. Un token inválido produce HTTP 401 y un registro en la bitácora.
   * **Verificación de Prestadores:** Los documentos RNT y RUT se guardan en SeaweedFS; al aprobar un prestador (UC28) se publica `prestador.aprobado`.
   * **Bitácora de Auditoría:** Sus propios eventos (`LOGIN_FALLIDO`, `ROL_MODIFICADO`, `PRESTADOR_VALIDADO`) se insertan en la misma transacción de la acción; los de los demás módulos llegan por el evento `auditoria.registrada` (Sección 4.4).
@@ -225,11 +226,15 @@ Las peticiones de la PWA interactúan exclusivamente con el **API Gateway (Traef
 | Prefijo | Servicio destino | Autenticación |
 |---|---|---|
 | `/api/iam/auth/login`, `/api/iam/auth/registro`, `/api/iam/auth/recuperar` | `iam-service:8001` | Pública |
+| `POST /api/iam/auth/refresh` *(propuesta, contrato en Fase 4)* | `iam-service:8001` | Pública (requiere refresh token) |
+| `POST /api/iam/auth/logout` *(propuesta, contrato en Fase 4)* | `iam-service:8001` | ForwardAuth |
 | `/api/iam/...` (resto) | `iam-service:8001` | ForwardAuth |
 | `/api/catalog/servicios`, `/api/catalog/buscar`, `/api/catalog/alertas` (GET) | `catalog-service:8002` | Pública (RF-01) |
+| `GET /api/catalog/analitica/capacidad?zona=` *(propuesta, contrato en Fase 4)* | `catalog-service:8002` | ForwardAuth (la usa la tool `presion_capacidad_carga` del Módulo 5) |
 | `/api/catalog/...` (resto, incluye `/api/catalog/analitica`) | `catalog-service:8002` | ForwardAuth |
 | `/api/bookings/disponibilidad` (GET) | `booking-service:8003` | Pública |
 | `/api/bookings/...` (resto) | `booking-service:8003` | ForwardAuth |
+| `GET /api/reviews/servicios/{id}` *(propuesta, contrato en Fase 4)* | `review-service:8004` | Pública (la usa la tool `resenas_servicio`) |
 | `/api/reviews/...` (GET públicos, escritura protegida) | `review-service:8004` | Mixta |
 | `/api/recommendations/chat` | `recommendation-service:8005` | ForwardAuth |
 
@@ -302,6 +307,7 @@ Para prevenir efectos secundarios no deseados causados por la entrega repetida d
 * **Dueño único:** El Módulo 1 es el único que escribe en `bitacora_auditoria` (`iam_db`).
 * **Eventos propios:** El Módulo 1 inserta sus eventos en la misma transacción que la acción (por ejemplo, el cambio de rol y su registro se confirman juntos).
 * **Eventos de otros módulos:** catalog, booking y review publican `auditoria.registrada` (accesos denegados por rol, exportaciones, cambios de estado de reservas, decisiones de moderación). La cola `iam.auditoria` los inserta en la bitácora.
+* **Sin duplicados:** La tabla tiene una restricción `UNIQUE` sobre `event_id`, de modo que un evento reentregado después del TTL de 24 h de Valkey (Sección 4.3) no se inserta dos veces: el consumidor lo reconoce (`ACK`) y lo descarta.
 * **Accesos con token inválido (ESC-04):** Los detecta el endpoint de verificación de ForwardAuth, que pertenece al Módulo 1 y los registra directamente.
 * **Inmutabilidad:** El usuario de base de datos del servicio solo tiene permisos de inserción y consulta sobre la tabla (Sección 5.2).
 * **Evolución:** Si se exige garantía total de entrega, cada productor adoptará el patrón *outbox*: el evento se guarda en una tabla de su propia base en la misma transacción y un proceso lo publica después (ADR-008).

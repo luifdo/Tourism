@@ -71,13 +71,18 @@ docker compose up -d
 | RabbitMQ (consola) | http://localhost:15672 |
 | Prometheus | http://localhost:9090 |
 | Grafana | http://localhost:3000 |
-| PostgreSQL | localhost:5432 (bases `iam_db`, `catalog_db`, `booking_db`) |
+| PostgreSQL | localhost:5432 (bases `iam_db`, `catalog_db`, `booking_db`, `review_db`, `recommendation_db`) |
 | Valkey | localhost:6379 |
 
 ## Flujo de trabajo
 
-* `main`: código estable; solo recibe cambios por PR.
-* `feature/<servicio>-<tarea>`: una rama por historia de usuario, por ejemplo `feature/booking-solicitar-reserva`.
+Se sigue Git Flow:
+
+* `main`: versiones entregadas; solo recibe cambios por PR desde una rama `release/*`.
+* `develop`: rama por defecto y de integración.
+* `feature/<servicio>-<tarea>`: una rama por historia de usuario, creada desde `develop` y fusionada a `develop` por PR, por ejemplo `feature/booking-solicitar-reserva`.
+* `release/*`: una rama por entrega; al fusionarse a `main` se marca con su tag `vX.Y`.
+* `hotfix/*`: correcciones urgentes creadas desde `main`.
 * Sprints de 2 semanas con tablero en GitHub Projects (ver Plan de Desarrollo, §3).
 
 ## Decisiones tomadas

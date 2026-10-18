@@ -25,6 +25,7 @@
 | 1.0 | Agosto 2026 | Versión inicial del SRS bajo ISO/IEC/IEEE 29148:2018. |
 | 1.0.1 | Octubre 2026 | Atención de la retroalimentación del Grupo 2, exclusión justificada de pagos en línea y redefinición del Módulo 5 como chatbot sobre la API de Gemini. |
 | 1.1 | 13 de octubre de 2026 | Revisión de coherencia: despliegue de los 5 microservicios como contenedores en Kubernetes (k3s) con Python y FastAPI; Traefik como API Gateway; RabbitMQ como único broker; persistencia del Módulo 5; auditoría asíncrona; observabilidad; máquina de estados de la reserva; operación con conectividad limitada mediante PWA (RNF-13, ESC-09); reseñas como requerimiento propio (RF-14, UC39); corrección de relaciones UML de casos de uso; diagramas regenerados (despliegue por actor, presupuesto con ambos escenarios); cronograma ajustado a 13 semanas con sustentación del 15 al 17 de noviembre; asignación de componentes por integrante. |
+| 1.1.1 | Octubre 2026 | Ajustes de coherencia: responsable del Módulo 4, equipo de desarrollo como stakeholder, `event_id` único en la bitácora de auditoría. |
 
 ---
 
@@ -288,6 +289,7 @@ Conforme al estándar ISO/IEC/IEEE 29148:2018, los interesados del sistema se cl
 | **Actor Indirecto / Externo** | **Servicios de Cartografía Abierta** *(OpenStreetMap / Nominatim)* | Proveedor de infraestructura geoespacial FOSS. | • Geolocalización, cálculo de distancias y visualización de capas de mapas sin costos de licenciamiento comercial. |
 | **Actor Indirecto / Externo** | **Servicio de IA Generativa** *(API de Google Gemini)* | Proveedor externo del modelo de lenguaje que utiliza el chatbot de recomendaciones. | • Generación de respuestas en lenguaje natural y solicitud de las herramientas que requiere cada consulta.<br>• Operación dentro de las condiciones de uso, los límites de solicitudes y los costos de consumo del proveedor. |
 | **Actor Indirecto / Externo** | **Servicio de Notificaciones** *(SMTP: Postal o servidor institucional)* | Proveedor de entrega de correos transaccionales. | • Entrega confiable de correos de confirmación de reserva y avisos de seguridad. |
+| **Actor Indirecto / Interno** | **Equipo de Desarrollo** *(5 integrantes del proyecto)* | Construye, despliega y mantiene los 5 microservicios, el gateway y la PWA. | • Descomposición clara en módulos y responsables por carpeta.<br>• Contratos REST y de eventos estables.<br>• Despliegue reproducible en k3s.<br>• Documentación de decisiones (ADR) para sustentar el diseño. |
 
 > [!IMPORTANT]
 > **Restricción Normativa de Registro (Habeas Data):** El registro en la plataforma está formalmente restringido a personas **mayores de 18 años**. El tratamiento de datos de menores de edad queda fuera de alcance en esta iteración para simplificar el régimen legal aplicable.
@@ -793,6 +795,7 @@ erDiagram
     BITACORA_AUDITORIA {
         uuid id PK "M1 iam_db, solo INSERT"
         uuid usuario_id FK "Actor (nulo si anónimo)"
+        uuid event_id UK "event_id del sobre del evento; nulo en los eventos propios del Módulo 1; único para evitar duplicados"
         string accion "LOGIN_FAIL, ROLE_CHANGE, ACCESS_DENIED, EXPORT"
         enum resultado "Exito, Denegado, Error"
         string servicio_origen "Servicio que reporta"
@@ -981,9 +984,6 @@ Distribución de responsabilidades acordada por el equipo. La columna de compone
 | 3 | **Andres Felipe Gamero Sanchez** | Reservas | `services/booking-service/` (Módulo 3) | Diseñador de datos |
 | 4 | **Alvaro David Ospino Sanchez** | Inteligencia artificial | `services/recommendation-service/` (Módulo 5), `templates/` | Desarrollador principal |
 | 5 | **Luis Fernando Barraza Sanchez** | Datos | `services/catalog-service/` (Módulo 2), `services/review-service/` (Módulo 4), `contracts/`, `infra/` | Arquitecto |
-
-> [!NOTE]
-> La responsabilidad del Módulo 4 (Reseñas) no estaba asignada explícitamente; se ubica en el área de Datos y se confirmará en la próxima revisión de sprint.
 
 ---
 

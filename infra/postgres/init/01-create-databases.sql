@@ -5,6 +5,8 @@
 CREATE DATABASE iam_db;
 CREATE DATABASE catalog_db;
 CREATE DATABASE booking_db;
+CREATE DATABASE review_db;
+CREATE DATABASE recommendation_db;
 
 \connect catalog_db
 CREATE EXTENSION IF NOT EXISTS postgis;
