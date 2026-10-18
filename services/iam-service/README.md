@@ -30,20 +30,52 @@ Esquemas en [`contracts/events/`](../../contracts/events/).
 ## Estructura (arquitectura hexagonal)
 
 ```
-src/
-├── main.py              # composición: crea la app FastAPI e inyecta los adaptadores
-├── domain/              # entidades y reglas de negocio puras, sin dependencias de frameworks
-├── application/         # casos de uso del servicio (una clase por caso de uso)
-│   └── ports/           # interfaces que el dominio necesita (repositorios, publicador de eventos)
-└── infrastructure/      # adaptadores que implementan los puertos
-    ├── http/            # routers FastAPI (implementan el contrato OpenAPI)
-    ├── persistence/     # repositorios SQLAlchemy sobre la base de datos propia del servicio
-    └── messaging/       # publicación y consumo de eventos en RabbitMQ (aio-pika)
+app/
+├── main.py              # composición: crea la app FastAPI, el engine y /metrics
+├── config.py            # Settings (pydantic-settings) leídos de variables de entorno / .env
+├── domain/              # núcleo puro, sin dependencias de frameworks
+│   ├── entities/
+│   ├── value_objects/
+│   └── ports/           # interfaces (Protocols) que implementa la infraestructura
+├── application/
+│   └── use_cases/       # una clase por caso de uso
+├── infrastructure/      # adaptadores que implementan los puertos
+│   ├── persistence/     # SQLAlchemy async sobre iam_db
+│   ├── security/        # Argon2 (contraseñas) y PyJWT (RS256)
+│   ├── cache/           # Valkey (tokens revocados)
+│   ├── messaging/       # RabbitMQ
+│   └── storage/         # S3 (SeaweedFS)
+└── api/                 # adaptador HTTP
+    ├── routers/
+    ├── schemas/         # modelos Pydantic de request/response
+    └── dependencies.py  # cableado de casos de uso con sus adaptadores
+migrations/              # Alembic (async)
 tests/
-├── unit/
-└── integration/
 ```
 
 ## Ejecución
 
-Servicio en Python 3.12 + FastAPI, empaquetado como contenedor y desplegado en Kubernetes (k3s) según el [Plan de Implementación](../../Documents/Pages/Plan_de_Implementacion.md) §7. El código, el `Dockerfile` y los manifiestos se agregan en la Fase 4.
+Requiere [uv](https://docs.astral.sh/uv/) y Python 3.12.
+
+```bash
+uv sync                                   # instala dependencias (incluye dev)
+cp .env.example .env                      # ajustar DATABASE_URL y demás
+uv run uvicorn app.main:app --reload --port 8001
+uv run pytest                             # pruebas
+uv run ruff check . && uv run ruff format --check .
+uv run alembic upgrade head               # aplicar migraciones
+```
+
+Endpoints operativos:
+
+* `GET /health`: `200` si PostgreSQL responde a `SELECT 1`, `503` si no.
+* `GET /metrics`: métricas Prometheus (prometheus-fastapi-instrumentator).
+
+Imagen de contenedor (multi-stage):
+
+```bash
+docker build -t iam-service:dev .
+docker run --env-file .env -p 8001:8001 iam-service:dev
+```
+
+Las llaves JWT (`keys/private.pem`, `keys/public.pem`) no se versionan ni se copian en la imagen; se montan en tiempo de ejecución.

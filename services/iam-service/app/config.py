@@ -1,0 +1,37 @@
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    """Configuración del servicio, cargada desde variables de entorno o un archivo .env."""
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+
+    service_name: str = "iam-service"
+    service_port: int = 8001
+    environment: str = "development"
+
+    database_url: str = "postgresql+asyncpg://iam_user:iam_password@localhost:5432/iam_db"
+    database_health_timeout_seconds: float = 2.0
+
+    valkey_url: str = "redis://localhost:6379/0"
+
+    rabbitmq_url: str = "amqp://guest:guest@localhost:5672/"
+    events_exchange: str = "turismo.eventos"
+
+    s3_endpoint_url: str = "http://localhost:8333"
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_bucket: str = "documentos-verificacion"
+
+    jwt_algorithm: str = "RS256"
+    jwt_private_key_path: Path = Path("keys/private.pem")
+    jwt_public_key_path: Path = Path("keys/public.pem")
+    jwt_access_token_ttl_minutes: int = 15
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

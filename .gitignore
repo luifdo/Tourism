@@ -222,3 +222,6 @@ node_modules/
 target/
 *.class
 .gradle/
+# Secrets: RS256 keys and local env files
+*.pem
+.env
