@@ -11,6 +11,20 @@ from app.infrastructure.persistence.modelos.prestador_perfil import PrestadorPer
 from app.infrastructure.persistence.repositorios.comun import texto_o_none, upsert
 
 
+def perfil_desde_modelo(fila: PrestadorPerfilModelo) -> PrestadorPerfil:
+    """También lo usan las consultas de lectura, que leen sin bloquear filas."""
+    return PrestadorPerfil(
+        id=fila.id,
+        usuario_id=fila.usuario_id,
+        razon_social=fila.razon_social,
+        telefono=fila.telefono,
+        direccion=fila.direccion,
+        politica_cancelacion=texto_o_none(fila.politica_cancelacion),
+        activo=fila.activo,
+        version=fila.version,
+    )
+
+
 class SqlPrestadorRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -44,15 +58,4 @@ class SqlPrestadorRepository:
         fila = await self._session.scalar(
             select(PrestadorPerfilModelo).where(condicion).with_for_update()
         )
-        if fila is None:
-            return None
-        return PrestadorPerfil(
-            id=fila.id,
-            usuario_id=fila.usuario_id,
-            razon_social=fila.razon_social,
-            telefono=fila.telefono,
-            direccion=fila.direccion,
-            politica_cancelacion=texto_o_none(fila.politica_cancelacion),
-            activo=fila.activo,
-            version=fila.version,
-        )
+        return perfil_desde_modelo(fila) if fila else None

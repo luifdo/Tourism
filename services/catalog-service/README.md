@@ -66,7 +66,7 @@ tests/
 Requiere [uv](https://docs.astral.sh/uv/) y Python 3.12 (`uv python install 3.12`).
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d   # PostGIS, Valkey y RabbitMQ de desarrollo
+docker compose -f docker-compose.dev.yml up -d   # PostGIS, Valkey, RabbitMQ y SeaweedFS
 uv sync                                          # instala dependencias (incluye dev)
 cp .env.example .env
 uv run uvicorn app.main:app --reload --port 8002
@@ -76,7 +76,7 @@ uv run pytest -m "not integration"               # solo unitarias, sin Docker
 uv run ruff check . && uv run ruff format --check .
 ```
 
-Los puertos de `docker-compose.dev.yml` (5434, 6380, 5673 y 15673) no chocan con los de iam-service, así que ambos entornos pueden correr a la vez. Las pruebas de integración levantan su propio PostGIS efímero y no tocan la base de desarrollo; sin Docker se omiten.
+Los puertos de `docker-compose.dev.yml` (5434, 6380, 5673, 15673 y 8333) no chocan con los de iam-service, así que ambos entornos pueden correr a la vez. Las pruebas de integración levantan su propio PostGIS efímero y no tocan la base de desarrollo; sin Docker se omiten.
 
 Las zonas iniciales (migración `0002`) son rectángulos **aproximados** que no se superponen; la Entidad los corrige desde la API. Si dos zonas cubren un mismo punto, el servicio queda en la de menor área.
 
@@ -94,6 +94,13 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | `GET /api/catalog/mapa/servicios` | UC16 | Pública; GeoJSON recortado a `bbox`; con zoom < 13 agrupa en el servidor (caché de 300 s) |
 | `GET /api/catalog/mapa/zonas` | UC16 | Pública; polígonos simplificados según el zoom |
 | `GET /api/catalog/mapa/alertas` | UC16, UC26 | Pública; puntos (alertas de servicio) y polígonos (de zona) |
+| `POST /api/catalog/servicios` | UC17 | Prestador activo; `Idempotency-Key`; publica `servicio.publicado` (outbox) |
+| `PUT /api/catalog/servicios/{id}` | UC18 | Dueño; `If-Match` e `Idempotency-Key` |
+| `POST /api/catalog/servicios/{id}/desactivar`, `/reactivar` | UC18 | Dueño; `If-Match`; repetir no publica nada |
+| `GET /api/catalog/prestador/servicios` | UC18 | Sus servicios, inactivos incluidos, en ambos idiomas |
+| `GET`, `PUT /api/catalog/prestador/perfil` | UC4 | Teléfono, dirección y política de cancelación; `If-Match` |
+| `POST /api/catalog/prestador/imagenes` | UC17 | URL firmada de SeaweedFS (JPEG/PNG/WebP, 5 MB, 10 min) |
+| `GET /api/catalog/geocodificar` | UC17 | Rol Prestador; Nominatim con caché de 7 días y 1 petición/s entre réplicas |
 | `GET /health` | RNF-01 | `200` si PostgreSQL responde, `503` si no. Valkey y RabbitMQ no se revisan: sin caché la búsqueda sigue y los eventos esperan en el outbox (ESC-01) |
 | `GET /metrics` | RNF-12 | Prometheus |
 
@@ -111,6 +118,15 @@ Las capas salen en GeoJSON (RFC 7946, `application/geo+json`), siempre en `[lon,
 * **Servicios:** con zoom < 13 se agrupan en celdas de unos 64 px y la vista se amplía al borde de las celdas, para que los grupos no cambien al mover el mapa y vistas cercanas compartan caché. Desde zoom 13 llegan uno a uno (hasta 1000). El recorte usa un índice GIST en `geometry` (migración `0003`), exacto en grados.
 * **Zonas:** se simplifican con tolerancia de un píxel (`ST_SimplifyPreserveTopology`); nunca se cruzan ni desaparecen.
 * **Alertas:** no se cachean. La búsqueda y el mapa comparten la generación de caché (`catalog:gen`): un cambio del catálogo invalida ambos.
+
+## Escritura del prestador
+
+* **Identidad:** `X-Usuario-Id` y `X-Usuario-Rol`, que pone Traefik tras validar el JWT. Sin ellas, `401 NO_AUTENTICADO`; otro rol, `403 ROL_NO_PERMITIDO`. El perfil existe cuando iam aprueba al prestador (`prestador.aprobado`); antes, o si está suspendido, `403 PERFIL_INACTIVO`. Un suspendido puede leer su perfil y sus servicios, pero no escribir.
+* **Concurrencia:** cada respuesta trae `ETag: "n"` y cada edición exige `If-Match` (sin él, `428`; con una versión vieja, `409` con el `ETag` actual).
+* **Formularios sin conexión:** con `Idempotency-Key` un reenvío devuelve la misma respuesta (`Idempotent-Replayed: true`) sin repetir la operación, durante 48 h. La clave vale por usuario y operación (`idem:catalog:{usuario}:{método}:{ruta}:{clave}` en Valkey).
+* **Eventos:** el cambio y `servicio.publicado` se guardan en la misma transacción (tabla `outbox`); el relay que los publica en RabbitMQ llega con la mensajería. Tras confirmar se invalida la caché de búsqueda y mapa.
+* **Bloqueos:** toda escritura bloquea primero el perfil y luego el servicio (`SELECT ... FOR UPDATE`), siempre en ese orden. El panel lee sin bloquear.
+* **Imágenes:** la PWA sube directo a SeaweedFS con una URL firmada que incluye el tipo y el tamaño; cada imagen queda en `{prestador_id}/{uuid}.{ext}` y un servicio solo acepta imágenes de la carpeta de su prestador. `docker-compose.dev.yml` levanta SeaweedFS en el puerto 8333 y crea el bucket.
 
 ## Correlación
 

@@ -46,6 +46,20 @@ MENSAJES: dict[str, dict[Idioma, str]] = {
         _ES: "Ya existe una zona con ese código.",
         _EN: "A zone with that code already exists.",
     },
+    "NO_AUTENTICADO": {
+        _ES: "Debes iniciar sesión para esta operación.",
+        _EN: "You must sign in to perform this operation.",
+    },
+    "DEPENDENCIA_NO_DISPONIBLE": {
+        _ES: "Un servicio externo no respondió a tiempo. Intenta de nuevo en un momento; "
+        "si buscabas una dirección, puedes marcar el punto en el mapa.",
+        _EN: "An external service did not respond in time. Try again shortly; if you were "
+        "looking up an address, you can mark the point on the map.",
+    },
+    "SOLICITUD_EN_PROCESO": {
+        _ES: "Este envío ya se está procesando. Espera unos segundos y vuelve a intentarlo.",
+        _EN: "This submission is already being processed. Wait a few seconds and try again.",
+    },
     "ERROR_INTERNO": {
         _ES: "Ocurrió un error inesperado. Intenta de nuevo; si persiste, informa el código "
         "de correlación.",

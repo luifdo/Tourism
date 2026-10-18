@@ -15,6 +15,30 @@ from app.infrastructure.persistence.modelos.atractivo_servicio import AtractivoS
 from app.infrastructure.persistence.repositorios.comun import upsert
 
 
+def servicio_desde_modelo(fila: AtractivoServicioModelo) -> AtractivoServicio:
+    """También lo usan las consultas de lectura, que leen sin bloquear filas."""
+    return AtractivoServicio(
+        id=fila.id,
+        prestador_id=fila.prestador_id,
+        prestador_usuario_id=fila.prestador_usuario_id,
+        datos=DatosServicio(
+            nombre=TextoTraducido(**fila.nombre),
+            descripcion=TextoTraducido(**fila.descripcion),
+            categoria=Categoria(fila.categoria),
+            ubicacion=Coordenada(lat=fila.lat, lon=fila.lon),
+            tarifa_base=Tarifa(Decimal(fila.tarifa_base)),
+            capacidad_aforo_diario=fila.capacidad_aforo_diario,
+            imagenes_urls=tuple(fila.imagenes_urls),
+        ),
+        creado_en=fila.creado_en,
+        actualizado_en=fila.actualizado_en,
+        zona_id=fila.zona_id,
+        activo=fila.activo,
+        desactivado_por_suspension=fila.desactivado_por_suspension,
+        version=fila.version,
+    )
+
+
 class SqlServicioRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -25,7 +49,7 @@ class SqlServicioRepository:
             .where(AtractivoServicioModelo.id == servicio_id)
             .with_for_update()
         )
-        return self._a_entidad(fila) if fila else None
+        return servicio_desde_modelo(fila) if fila else None
 
     async def listar_por_prestador(self, prestador_id: UUID) -> list[AtractivoServicio]:
         filas = await self._session.scalars(
@@ -34,7 +58,7 @@ class SqlServicioRepository:
             .order_by(AtractivoServicioModelo.creado_en)
             .with_for_update()
         )
-        return [self._a_entidad(f) for f in filas]
+        return [servicio_desde_modelo(f) for f in filas]
 
     async def guardar(self, servicio: AtractivoServicio) -> None:
         datos = servicio.datos
@@ -60,27 +84,4 @@ class SqlServicioRepository:
                 "creado_en": servicio.creado_en,
                 "actualizado_en": servicio.actualizado_en,
             },
-        )
-
-    @staticmethod
-    def _a_entidad(fila: AtractivoServicioModelo) -> AtractivoServicio:
-        return AtractivoServicio(
-            id=fila.id,
-            prestador_id=fila.prestador_id,
-            prestador_usuario_id=fila.prestador_usuario_id,
-            datos=DatosServicio(
-                nombre=TextoTraducido(**fila.nombre),
-                descripcion=TextoTraducido(**fila.descripcion),
-                categoria=Categoria(fila.categoria),
-                ubicacion=Coordenada(lat=fila.lat, lon=fila.lon),
-                tarifa_base=Tarifa(Decimal(fila.tarifa_base)),
-                capacidad_aforo_diario=fila.capacidad_aforo_diario,
-                imagenes_urls=tuple(fila.imagenes_urls),
-            ),
-            creado_en=fila.creado_en,
-            actualizado_en=fila.actualizado_en,
-            zona_id=fila.zona_id,
-            activo=fila.activo,
-            desactivado_por_suspension=fila.desactivado_por_suspension,
-            version=fila.version,
         )

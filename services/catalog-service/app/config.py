@@ -24,6 +24,21 @@ class Settings(BaseSettings):
     rabbitmq_url: str = "amqp://guest:guest@localhost:5673/"
     events_exchange: str = "turismo.eventos"
 
+    # Imágenes del catálogo en SeaweedFS (API S3). El endpoint es el público: la URL firmada
+    # la usa el navegador y la firma incluye el host.
+    s3_endpoint_publico: str = "http://localhost:8333"
+    s3_region: str = "us-east-1"
+    s3_access_key: str = ""
+    s3_secret_key: str = ""
+    s3_bucket_imagenes: str = "catalogo-imagenes"
+    imagenes_url_publica: str = "http://localhost:8333/catalogo-imagenes"
+
+    # Nominatim (OpenStreetMap): su política exige un User-Agent que identifique la app.
+    nominatim_url: str = "https://nominatim.openstreetmap.org"
+    nominatim_user_agent: str = "turismo-santa-marta-catalog-service/0.1"
+    nominatim_email: str | None = None
+    nominatim_timeout_seconds: float = 3.0
+
 
 @lru_cache
 def get_settings() -> Settings:

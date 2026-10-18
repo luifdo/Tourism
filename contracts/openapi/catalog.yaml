@@ -612,8 +612,10 @@ paths:
       summary: Pedir una URL de subida de imagen
       description: |
         Devuelve una URL firmada (PUT, válida 10 minutos) del bucket `catalogo-imagenes`
-        de SeaweedFS. La PWA sube la imagen directamente y luego envía `url_publica` en
-        `imagenes_urls` del servicio. Solo se aceptan URLs de ese bucket.
+        de SeaweedFS. La PWA sube la imagen directamente, con exactamente el
+        `Content-Type` y el tamaño pedidos (van firmados: otro archivo se rechaza), y luego
+        envía `url_publica` en `imagenes_urls` del servicio. Cada imagen queda en la
+        carpeta del prestador y solo se aceptan URLs de su propia carpeta.
       operationId: solicitarSubidaImagen
       requestBody:
         required: true
@@ -1013,7 +1015,12 @@ components:
       name: Idempotency-Key
       in: header
       required: false
-      description: Clave única por intento de envío; un reintento con la misma clave devuelve la misma respuesta sin repetir la operación (48 h).
+      description: |
+        Clave única por intento de envío; un reintento con la misma clave devuelve la misma
+        respuesta (con `Idempotent-Replayed: true`) sin repetir la operación, durante 48 h.
+        La clave vale por usuario y operación. Solo se guardan las respuestas exitosas: si la
+        operación falló, el reintento se ejecuta de nuevo. Si llega mientras el primer
+        intento sigue en curso, responde 409 `SOLICITUD_EN_PROCESO`.
       schema: { type: string, format: uuid }
     IfMatch:
       name: If-Match
@@ -1029,7 +1036,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     NoAutenticado:
-      description: Token ausente o inválido (lo responde Traefik).
+      description: Token ausente o inválido (lo responde Traefik). Si la petición llega sin `X-Usuario-Id` o `X-Usuario-Rol`, el servicio responde `NO_AUTENTICADO`.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -1039,7 +1046,7 @@ components:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
     ProhibidoPrestador:
-      description: '`ROL_NO_PERMITIDO` (se registra en la bitácora de auditoría) o `PERFIL_INACTIVO` (el prestador no está aprobado o fue suspendido).'
+      description: '`ROL_NO_PERMITIDO` (se registra en la bitácora de auditoría) o `PERFIL_INACTIVO` (el prestador no está aprobado o fue suspendido; un perfil suspendido puede leer su perfil y sus servicios, pero no escribir).'
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -1200,6 +1207,7 @@ components:
           properties:
             id: { type: string, format: uuid }
             prestador_id: { type: string, format: uuid }
+            categoria_etiqueta: { type: string, description: Nombre de la categoría en el idioma pedido. }
             zona:
               allOf: [{ $ref: '#/components/schemas/ZonaResumen' }]
               nullable: true

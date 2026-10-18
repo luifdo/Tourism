@@ -1,6 +1,6 @@
 """Caché de búsqueda contra un Valkey real."""
 
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 
 import pytest
 from valkey.asyncio import Valkey
@@ -12,18 +12,6 @@ from app.infrastructure.cache.cache_versionada import TTL_SEGUNDOS
 from app.infrastructure.cache.consulta_servicios_en_cache import ConsultaServiciosEnCache
 
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture(scope="module")
-def valkey_url() -> Iterator[str]:
-    try:
-        from testcontainers.community.valkey import ValkeyContainer
-
-        contenedor = ValkeyContainer("valkey/valkey:8").start()
-    except Exception as exc:
-        pytest.skip(f"Docker no disponible: {exc}")
-    yield contenedor.get_connection_url()
-    contenedor.stop()
 
 
 @pytest.fixture

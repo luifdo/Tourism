@@ -4,6 +4,7 @@ from typing import Protocol, Self
 from app.domain.ports.alerta_repository import AlertaRepository
 from app.domain.ports.calificacion_repository import CalificacionRepository
 from app.domain.ports.eventos_procesados import EventosProcesados
+from app.domain.ports.outbox import Outbox
 from app.domain.ports.prestador_repository import PrestadorRepository
 from app.domain.ports.reserva_proyeccion_repository import ReservaProyeccionRepository
 from app.domain.ports.servicio_repository import ServicioRepository
@@ -16,8 +17,8 @@ class UnidadDeTrabajo(Protocol):
     Los repositorios solo declaran lo que necesitan las reglas de escritura; las consultas de
     lectura (búsqueda, mapa, analítica) tienen sus propios puertos.
 
-    Al salir del bloque sin `confirmar()` se deshacen los cambios. El outbox se escribe en
-    esta misma transacción (paso de mensajería).
+    Al salir del bloque sin `confirmar()` se deshacen los cambios, incluidos los eventos del
+    outbox: un evento existe solo si su cambio se confirmó.
     """
 
     prestadores: PrestadorRepository
@@ -27,6 +28,7 @@ class UnidadDeTrabajo(Protocol):
     reservas: ReservaProyeccionRepository
     calificaciones: CalificacionRepository
     eventos_procesados: EventosProcesados
+    outbox: Outbox
 
     async def __aenter__(self) -> Self: ...
 

@@ -8,6 +8,7 @@ import pytest
 from app.api.errores.manejador_errores import ESTADO_POR_CODIGO
 from app.api.i18n.etiquetas import ETIQUETAS, etiqueta
 from app.api.i18n.mensajes_error import MENSAJES, VALIDACION, mensaje_error
+from app.application import errores
 from app.domain import errors
 from app.domain.errors import DatoInvalido, ErrorDominio, VersionDistinta, ZonaEnUso
 from app.domain.value_objects.catalogos import Categoria, NivelAlerta
@@ -29,10 +30,11 @@ def test_cada_regla_de_validacion_tiene_mensaje() -> None:
     assert not faltantes, f"Reglas sin mensaje: {faltantes}"
 
 
-def test_cada_error_del_dominio_tiene_mensaje_y_estado() -> None:
+def test_cada_error_del_dominio_y_la_aplicacion_tiene_mensaje_y_estado() -> None:
     codigos = {
         clase.codigo
-        for clase in vars(errors).values()
+        for modulo in (errors, errores)
+        for clase in vars(modulo).values()
         if isinstance(clase, type) and issubclass(clase, ErrorDominio) and clase is not ErrorDominio
     }
     sin_mensaje = codigos - set(MENSAJES) - {"VALIDACION"}

@@ -10,15 +10,30 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncEngine
 
+from app.application.ports.almacen_idempotencia import AlmacenIdempotencia
+from app.application.ports.almacen_imagenes import AlmacenImagenes
 from app.application.ports.consulta_alertas import ConsultaAlertas
 from app.application.ports.consulta_mapa import ConsultaMapa
+from app.application.ports.consulta_prestador import ConsultaPrestador
 from app.application.ports.consulta_servicios import ConsultaServicios
 from app.application.ports.consulta_zonas import ConsultaZonas
+from app.application.ports.geocodificador import Geocodificador
+from app.application.ports.invalidador_cache import InvalidadorCache
+from app.application.use_cases.acceso_prestador import FabricaUnidadDeTrabajo
 from app.application.use_cases.buscar_servicios import BuscarServicios
+from app.application.use_cases.cambiar_estado_servicio import CambiarEstadoServicio
 from app.application.use_cases.check_health import CheckHealth
+from app.application.use_cases.editar_perfil import EditarPerfil
+from app.application.use_cases.editar_servicio import EditarServicio
+from app.application.use_cases.escritura_servicio import EscrituraServicio
+from app.application.use_cases.geocodificar_direccion import GeocodificarDireccion
 from app.application.use_cases.listar_alertas import ListarAlertas
+from app.application.use_cases.listar_servicios_prestador import ListarServiciosPrestador
 from app.application.use_cases.listar_zonas import ListarZonas
+from app.application.use_cases.obtener_perfil import ObtenerPerfil
 from app.application.use_cases.obtener_servicio import ObtenerServicio
+from app.application.use_cases.registrar_servicio import RegistrarServicio
+from app.application.use_cases.solicitar_subida_imagen import SolicitarSubidaImagen
 from app.application.use_cases.ver_alertas_en_mapa import VerAlertasEnMapa
 from app.application.use_cases.ver_servicios_en_mapa import VerServiciosEnMapa
 from app.application.use_cases.ver_zonas_en_mapa import VerZonasEnMapa
@@ -49,6 +64,30 @@ def get_consulta_alertas(request: Request) -> ConsultaAlertas:
 
 def get_consulta_mapa(request: Request) -> ConsultaMapa:
     return request.app.state.consulta_mapa
+
+
+def get_consulta_prestador(request: Request) -> ConsultaPrestador:
+    return request.app.state.consulta_prestador
+
+
+def get_unidad_de_trabajo(request: Request) -> FabricaUnidadDeTrabajo:
+    return request.app.state.unidad_de_trabajo
+
+
+def get_invalidador_cache(request: Request) -> InvalidadorCache:
+    return request.app.state.invalidador_cache
+
+
+def get_almacen_imagenes(request: Request) -> AlmacenImagenes:
+    return request.app.state.almacen_imagenes
+
+
+def get_geocodificador(request: Request) -> Geocodificador:
+    return request.app.state.geocodificador
+
+
+def get_idempotencia(request: Request) -> AlmacenIdempotencia:
+    return request.app.state.idempotencia
 
 
 def get_check_health(
@@ -102,3 +141,59 @@ def get_ver_alertas_en_mapa(
     reloj: Annotated[Reloj, Depends(get_reloj)],
 ) -> VerAlertasEnMapa:
     return VerAlertasEnMapa(consulta, reloj)
+
+
+Uow = Annotated[FabricaUnidadDeTrabajo, Depends(get_unidad_de_trabajo)]
+Prestador = Annotated[ConsultaPrestador, Depends(get_consulta_prestador)]
+Imagenes = Annotated[AlmacenImagenes, Depends(get_almacen_imagenes)]
+RelojDep = Annotated[Reloj, Depends(get_reloj)]
+
+
+def get_escritura_servicio(
+    consulta: Prestador,
+    invalidador: Annotated[InvalidadorCache, Depends(get_invalidador_cache)],
+) -> EscrituraServicio:
+    return EscrituraServicio(consulta, invalidador)
+
+
+Escritura = Annotated[EscrituraServicio, Depends(get_escritura_servicio)]
+
+
+def get_obtener_perfil(consulta: Prestador) -> ObtenerPerfil:
+    return ObtenerPerfil(consulta)
+
+
+def get_editar_perfil(uow: Uow) -> EditarPerfil:
+    return EditarPerfil(uow)
+
+
+def get_registrar_servicio(
+    uow: Uow, escritura: Escritura, imagenes: Imagenes, reloj: RelojDep
+) -> RegistrarServicio:
+    return RegistrarServicio(uow, escritura, imagenes, reloj)
+
+
+def get_editar_servicio(
+    uow: Uow, escritura: Escritura, imagenes: Imagenes, reloj: RelojDep
+) -> EditarServicio:
+    return EditarServicio(uow, escritura, imagenes, reloj)
+
+
+def get_cambiar_estado_servicio(
+    uow: Uow, escritura: Escritura, reloj: RelojDep
+) -> CambiarEstadoServicio:
+    return CambiarEstadoServicio(uow, escritura, reloj)
+
+
+def get_listar_servicios_prestador(consulta: Prestador) -> ListarServiciosPrestador:
+    return ListarServiciosPrestador(consulta)
+
+
+def get_solicitar_subida_imagen(consulta: Prestador, imagenes: Imagenes) -> SolicitarSubidaImagen:
+    return SolicitarSubidaImagen(consulta, imagenes)
+
+
+def get_geocodificar(
+    geocodificador: Annotated[Geocodificador, Depends(get_geocodificador)],
+) -> GeocodificarDireccion:
+    return GeocodificarDireccion(geocodificador)

@@ -1,23 +1,43 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI
 from prometheus_fastapi_instrumentator import Instrumentator
 from valkey.asyncio import Valkey
 
 from app.api.errores.manejador_errores import registrar_manejadores
 from app.api.middleware.correlacion_middleware import CorrelacionMiddleware
-from app.api.routers import alertas, busqueda, health, mapa, servicios, zonas
+from app.api.routers import (
+    alertas,
+    busqueda,
+    geocodificacion,
+    health,
+    imagenes,
+    mapa,
+    perfil_prestador,
+    servicios,
+    servicios_prestador,
+    zonas,
+)
 from app.config import Settings, get_settings
+from app.infrastructure.cache.cache_versionada import CacheVersionada
 from app.infrastructure.cache.consulta_mapa_en_cache import ConsultaMapaEnCache
 from app.infrastructure.cache.consulta_servicios_en_cache import ConsultaServiciosEnCache
+from app.infrastructure.cache.geocodificador_en_cache import GeocodificadorEnCache
+from app.infrastructure.cache.idempotencia_valkey import IdempotenciaValkey
+from app.infrastructure.clients.limitador_por_segundo import LimitadorPorSegundo
+from app.infrastructure.clients.nominatim_geocodificador import NominatimGeocodificador
 from app.infrastructure.observabilidad.configurar_logs import configurar_logs
 from app.infrastructure.persistence.consultas.sql_consulta_alertas import SqlConsultaAlertas
 from app.infrastructure.persistence.consultas.sql_consulta_mapa import SqlConsultaMapa
+from app.infrastructure.persistence.consultas.sql_consulta_prestador import SqlConsultaPrestador
 from app.infrastructure.persistence.consultas.sql_consulta_servicios import SqlConsultaServicios
 from app.infrastructure.persistence.consultas.sql_consulta_zonas import SqlConsultaZonas
 from app.infrastructure.persistence.database import build_engine, build_session_factory
+from app.infrastructure.persistence.unidad_de_trabajo import SqlUnidadDeTrabajo
 from app.infrastructure.reloj import RelojSistema
+from app.infrastructure.storage.almacen_imagenes_s3 import AlmacenImagenesS3
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -34,22 +54,61 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             socket_timeout=settings.valkey_timeout_seconds,
             socket_connect_timeout=settings.valkey_timeout_seconds,
         )
+        nominatim = httpx.AsyncClient(
+            base_url=settings.nominatim_url,
+            headers={"User-Agent": settings.nominatim_user_agent},
+            timeout=settings.nominatim_timeout_seconds,
+        )
+        reloj = RelojSistema()
         app.state.engine = engine
-        app.state.reloj = RelojSistema()
+        app.state.reloj = reloj
         app.state.consulta_servicios = ConsultaServiciosEnCache(
             SqlConsultaServicios(sesiones), valkey
         )
         app.state.consulta_zonas = SqlConsultaZonas(sesiones)
         app.state.consulta_alertas = SqlConsultaAlertas(sesiones)
         app.state.consulta_mapa = ConsultaMapaEnCache(SqlConsultaMapa(sesiones), valkey)
+        app.state.consulta_prestador = SqlConsultaPrestador(sesiones)
+        app.state.unidad_de_trabajo = lambda: SqlUnidadDeTrabajo(sesiones)
+        app.state.invalidador_cache = CacheVersionada(valkey)
+        app.state.idempotencia = IdempotenciaValkey(valkey)
+        app.state.almacen_imagenes = AlmacenImagenesS3(
+            endpoint_publico=settings.s3_endpoint_publico,
+            region=settings.s3_region,
+            access_key=settings.s3_access_key,
+            secret_key=settings.s3_secret_key,
+            bucket=settings.s3_bucket_imagenes,
+            url_publica_base=settings.imagenes_url_publica,
+            reloj=reloj,
+        )
+        app.state.geocodificador = GeocodificadorEnCache(
+            NominatimGeocodificador(
+                nominatim,
+                LimitadorPorSegundo(valkey, "catalog:nominatim:turno"),
+                settings.nominatim_email,
+            ),
+            valkey,
+        )
         yield
+        await nominatim.aclose()
         await valkey.aclose()
         await engine.dispose()
 
     app = FastAPI(title=settings.service_name, version="0.1.0", lifespan=lifespan)
     app.add_middleware(CorrelacionMiddleware)
     registrar_manejadores(app)
-    for modulo in (health, servicios, busqueda, zonas, alertas, mapa):
+    for modulo in (
+        health,
+        servicios,
+        busqueda,
+        zonas,
+        alertas,
+        mapa,
+        servicios_prestador,
+        perfil_prestador,
+        imagenes,
+        geocodificacion,
+    ):
         app.include_router(modulo.router)
     Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
     return app

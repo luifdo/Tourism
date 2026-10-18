@@ -57,6 +57,18 @@ def database_url() -> Iterator[str]:
     get_settings.cache_clear()
 
 
+@pytest.fixture(scope="session")
+def valkey_url() -> Iterator[str]:
+    try:
+        from testcontainers.community.valkey import ValkeyContainer
+
+        contenedor = ValkeyContainer("valkey/valkey:8").start()
+    except Exception as exc:
+        pytest.skip(f"Docker no disponible: {exc}")
+    yield contenedor.get_connection_url()
+    contenedor.stop()
+
+
 @pytest.fixture
 def alembic_cfg(database_url: str) -> Config:
     return alembic_config()
