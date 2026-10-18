@@ -1,0 +1,56 @@
+# Infraestructura de desarrollo de catalog-service
+# Uso: docker compose -f docker-compose.dev.yml up -d
+# Puertos distintos a los de iam-service (5433, 6379, 5672) para poder levantar ambos a la vez.
+
+services:
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: catalog-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-catalog_db}
+      POSTGRES_USER: ${POSTGRES_USER:-catalog_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-catalog_password}
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-catalog_user} -d ${POSTGRES_DB:-catalog_db}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  valkey:
+    image: valkey/valkey:8
+    container_name: catalog-valkey
+    ports:
+      - "6380:6379"
+    volumes:
+      - valkey_data:/data
+    healthcheck:
+      test: [ "CMD", "valkey-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:4-management
+    container_name: catalog-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "-q", "ping" ]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  postgres_data:
+  valkey_data:
+  rabbitmq_data:

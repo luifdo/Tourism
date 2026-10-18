@@ -20,32 +20,71 @@ Catálogo de atractivos, actividades y perfiles de prestador; búsqueda multicri
 ## Eventos
 
 **Publica:**
+* `servicio.publicado.v1` (dueño y aforo para booking-service)
 * `auditoria.registrada.v1`
 
 **Consume:**
-* `prestador.aprobado.v1` (crea el perfil del prestador)
-* `reserva.solicitada.v1`, `reserva.confirmada.v1`, `reserva.rechazada.v1`, `reserva.cancelada.v1`, `reserva.finalizada.v1` (correos y demanda)
+* `prestador.aprobado.v1` (crea o reactiva el perfil del prestador)
+* `prestador.suspendido.v1` (desactiva el perfil y sus servicios)
+* `reserva.solicitada.v1`, `reserva.modificada.v1`, `reserva.confirmada.v1`, `reserva.rechazada.v1`, `reserva.cancelada.v1`, `reserva.finalizada.v1` (correos y demanda)
 * `resena.publicada.v1` (calificación promedio y métricas)
 
 Esquemas en [`contracts/events/`](../../contracts/events/).
 
 ## Estructura (arquitectura hexagonal)
 
+Solo `app/` tiene `__init__.py`; las subcarpetas son paquetes de espacio de nombres (PEP 420). Cada carpeta se crea en el paso que la implementa, así que algunas de este árbol todavía no existen.
+
 ```
-src/
-├── main.py              # composición: crea la app FastAPI e inyecta los adaptadores
-├── domain/              # entidades y reglas de negocio puras, sin dependencias de frameworks
-├── application/         # casos de uso del servicio (una clase por caso de uso)
-│   └── ports/           # interfaces que el dominio necesita (repositorios, publicador de eventos)
-└── infrastructure/      # adaptadores que implementan los puertos
-    ├── http/            # routers FastAPI (implementan el contrato OpenAPI)
-    ├── persistence/     # repositorios SQLAlchemy sobre la base de datos propia del servicio
-    └── messaging/       # publicación y consumo de eventos en RabbitMQ (aio-pika)
+app/
+├── __init__.py
+├── main.py              # composición: crea la app FastAPI, el engine y /metrics
+├── config.py            # Settings (pydantic-settings) leídos de variables de entorno / .env
+├── domain/              # núcleo puro, sin dependencias de frameworks
+│   ├── entities/
+│   ├── value_objects/
+│   └── ports/           # interfaces (Protocols) que implementa la infraestructura
+├── application/
+│   └── use_cases/       # una clase por caso de uso
+├── infrastructure/      # adaptadores que implementan los puertos
+│   ├── persistence/     # SQLAlchemy async + GeoAlchemy2 sobre catalog_db (PostGIS)
+│   ├── cache/           # Valkey (búsquedas, idempotencia de formularios)
+│   ├── messaging/       # RabbitMQ (outbox, publicador y consumidores)
+│   ├── notifications/   # correo SMTP
+│   ├── storage/         # S3 (SeaweedFS, imágenes del catálogo)
+│   └── clients/         # HTTP hacia booking, iam y Nominatim
+└── api/                 # adaptador HTTP
+    ├── routers/
+    ├── schemas/         # modelos Pydantic de request/response
+    └── dependencies.py  # cableado de casos de uso con sus adaptadores
+migrations/              # Alembic (async)
 tests/
-├── unit/
-└── integration/
 ```
 
 ## Ejecución
 
-Servicio en Python 3.12 + FastAPI, empaquetado como contenedor y desplegado en Kubernetes (k3s) según el [Plan de Implementación](../../Documents/Pages/Plan_de_Implementacion.md) §7. El código, el `Dockerfile` y los manifiestos se agregan en la Fase 4.
+Requiere [uv](https://docs.astral.sh/uv/) y Python 3.12 (`uv python install 3.12`).
+
+```bash
+docker compose -f docker-compose.dev.yml up -d   # PostGIS, Valkey y RabbitMQ de desarrollo
+uv sync                                          # instala dependencias (incluye dev)
+cp .env.example .env
+uv run uvicorn app.main:app --reload --port 8002
+uv run pytest                                    # pruebas
+uv run ruff check . && uv run ruff format --check .
+uv run alembic upgrade head                      # aplicar migraciones
+```
+
+Los puertos de `docker-compose.dev.yml` (5434, 6380, 5673 y 15673) no chocan con los de iam-service, así que ambos entornos pueden correr a la vez.
+
+Endpoints operativos:
+
+* `GET /health`: `200` si PostgreSQL responde a `SELECT 1`, `503` si no. Valkey y RabbitMQ no se revisan: sin caché la búsqueda sigue funcionando y los eventos esperan en el outbox (ESC-01).
+* `GET /metrics`: métricas Prometheus (prometheus-fastapi-instrumentator).
+
+Imagen de contenedor (multi-stage):
+
+```bash
+docker build -t catalog-service:dev .
+docker run --env-file .env -p 8002:8002 catalog-service:dev
+```
