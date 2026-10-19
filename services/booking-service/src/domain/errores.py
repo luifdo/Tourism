@@ -35,3 +35,9 @@ class CuposComprometidos(ErrorDominio):
 
 class SuperaAforo(ErrorDominio):
     codigo = "SUPERA_AFORO"
+
+
+class NoDisponible(ErrorDominio):
+    """El día no está abierto o el servicio está inactivo."""
+
+    codigo = "DIA_NO_DISPONIBLE"

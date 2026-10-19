@@ -1,4 +1,4 @@
-"""Cupos de un servicio en un día (Guía §4.4)."""
+"""Cupos de un servicio en un día (Guía §4.4). El dueño sale de `ServicioRef`."""
 
 from dataclasses import dataclass
 from datetime import date
@@ -10,8 +10,10 @@ from domain.errores import CuposComprometidos, CuposInsuficientes, SuperaAforo, 
 
 @dataclass
 class DisponibilidadCupo:
+    """`version` solo sube con los cambios del prestador (totales y tarifa): así una reserva
+    ajena no genera un conflicto falso cuando la PWA sincroniza una edición hecha sin conexión."""
+
     servicio_id: UUID
-    prestador_id: UUID
     fecha: date
     cupos_totales: int
     cupos_disponibles: int
@@ -22,14 +24,13 @@ class DisponibilidadCupo:
     def abrir(
         cls,
         servicio_id: UUID,
-        prestador_id: UUID,
         fecha: date,
         cupos_totales: int,
         tarifa_dia: Decimal | None = None,
         aforo: int | None = None,
     ) -> "DisponibilidadCupo":
         _validar_totales(cupos_totales, tarifa_dia, aforo)
-        return cls(servicio_id, prestador_id, fecha, cupos_totales, cupos_totales, tarifa_dia)
+        return cls(servicio_id, fecha, cupos_totales, cupos_totales, tarifa_dia)
 
     @property
     def cupos_reservados(self) -> int:
@@ -43,13 +44,11 @@ class DisponibilidadCupo:
                 f"Solo quedan {self.cupos_disponibles} cupos para el {self.fecha.isoformat()}."
             )
         self.cupos_disponibles -= personas
-        self.version += 1
 
     def liberar(self, personas: int) -> None:
         if personas < 1 or personas > self.cupos_reservados:
             raise ValueError("No se pueden liberar más cupos de los reservados.")
         self.cupos_disponibles += personas
-        self.version += 1
 
     def ajustar(
         self, cupos_totales: int, tarifa_dia: Decimal | None, aforo: int | None = None

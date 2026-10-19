@@ -1,0 +1,55 @@
+"""Tareas programadas (CronJobs `expirar-solicitudes` y `finalizar-reservas`, Guía §6.4)."""
+
+from application.base import Contexto, eventos_de
+from domain.reglas import hoy_local
+from domain.reserva import EventoDominio
+
+LOTE = 100
+
+
+class ExpirarSolicitudes:
+    def __init__(self, ctx: Contexto):
+        self.ctx = ctx
+
+    async def __call__(self) -> int:
+        ahora = self.ctx.reloj.ahora()
+        total = 0
+        while True:
+            eventos: list[EventoDominio] = []
+            async with self.ctx.uow() as uow:
+                lote = await uow.reservas.solicitudes_vencidas(ahora, LOTE)
+                for reserva in lote:
+                    reserva.expirar(ahora)
+                    dia = await uow.disponibilidad.obtener(reserva.servicio_id, reserva.fecha_reserva)
+                    if dia is not None:
+                        dia.liberar(reserva.numero_personas)
+                        await uow.disponibilidad.guardar(dia)
+                    await uow.reservas.guardar(reserva)
+                    eventos += eventos_de(reserva, None)
+                await uow.commit()
+            await self.ctx.publicador.publicar(eventos, None)
+            total += len(lote)
+            if len(lote) < LOTE:
+                return total
+
+
+class FinalizarReservas:
+    def __init__(self, ctx: Contexto):
+        self.ctx = ctx
+
+    async def __call__(self) -> int:
+        ahora = self.ctx.reloj.ahora()
+        total = 0
+        while True:
+            eventos: list[EventoDominio] = []
+            async with self.ctx.uow() as uow:
+                lote = await uow.reservas.por_finalizar(hoy_local(ahora), LOTE)
+                for reserva in lote:
+                    reserva.finalizar(ahora)
+                    await uow.reservas.guardar(reserva)
+                    eventos += eventos_de(reserva, None)
+                await uow.commit()
+            await self.ctx.publicador.publicar(eventos, None)
+            total += len(lote)
+            if len(lote) < LOTE:
+                return total

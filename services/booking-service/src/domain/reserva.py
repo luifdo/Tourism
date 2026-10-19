@@ -8,11 +8,14 @@ los publica después del COMMIT. Los cupos los mueve el caso de uso sobre
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID, uuid4
 
 from domain import reglas
 from domain.errores import FueraDePlazo, PlazoVencido, TransicionInvalida, Validacion
+
+if TYPE_CHECKING:
+    from domain.servicio import ServicioRef
 
 MOTIVO_PLAZO_VENCIDO = "Plazo de respuesta vencido"
 MOTIVO_MAX = 500
@@ -45,7 +48,8 @@ class Reserva:
     id: UUID
     servicio_id: UUID
     turista_id: UUID
-    prestador_id: UUID
+    prestador_id: UUID  # perfil del prestador; es el que viaja en los eventos
+    prestador_usuario_id: UUID  # usuario del prestador en iam; sirve para autorizar
     fecha_reserva: date
     numero_personas: int
     estado: EstadoReserva
@@ -62,21 +66,22 @@ class Reserva:
     @classmethod
     def solicitar(
         cls,
-        servicio_id: UUID,
+        servicio: "ServicioRef",
         turista_id: UUID,
-        prestador_id: UUID,
         fecha_reserva: date,
         numero_personas: int,
         ahora: datetime,
         plazo_horas: int = reglas.PLAZO_RESPUESTA_HORAS,
     ) -> "Reserva":
+        servicio.exigir_activo()
         _validar_personas(numero_personas)
         reglas.validar_fecha_solicitud(fecha_reserva, ahora)
         reserva = cls(
             id=uuid4(),
-            servicio_id=servicio_id,
+            servicio_id=servicio.servicio_id,
             turista_id=turista_id,
-            prestador_id=prestador_id,
+            prestador_id=servicio.prestador_id,
+            prestador_usuario_id=servicio.prestador_usuario_id,
             fecha_reserva=fecha_reserva,
             numero_personas=numero_personas,
             estado=EstadoReserva.SOLICITADA,

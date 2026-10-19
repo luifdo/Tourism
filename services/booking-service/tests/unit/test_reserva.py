@@ -1,18 +1,24 @@
 from datetime import date, datetime, timedelta
+from decimal import Decimal
 from uuid import uuid4
 
 import pytest
 
-from domain.errores import FueraDePlazo, PlazoVencido, TransicionInvalida, Validacion
+from domain.errores import FueraDePlazo, NoDisponible, PlazoVencido, TransicionInvalida, Validacion
 from domain.reglas import ZONA
 from domain.reserva import MOTIVO_PLAZO_VENCIDO, Actor, EstadoReserva, Reserva
+from domain.servicio import ServicioRef
 
 AHORA = datetime(2026, 11, 1, 10, 0, tzinfo=ZONA)
 FECHA = date(2026, 11, 10)
 
 
+def servicio(activo: bool = True) -> ServicioRef:
+    return ServicioRef(uuid4(), uuid4(), uuid4(), 20, Decimal("50000"), activo, 1)
+
+
 def solicitada(personas: int = 2, fecha: date = FECHA) -> Reserva:
-    r = Reserva.solicitar(uuid4(), uuid4(), uuid4(), fecha, personas, AHORA)
+    r = Reserva.solicitar(servicio(), uuid4(), fecha, personas, AHORA)
     r.extraer_eventos()
     return r
 
@@ -30,8 +36,10 @@ def tipos(r: Reserva) -> list[str]:
 
 class TestSolicitar:
     def test_crea_en_solicitada_con_plazo_y_evento(self):
-        r = Reserva.solicitar(uuid4(), uuid4(), uuid4(), FECHA, 2, AHORA)
+        s = servicio()
+        r = Reserva.solicitar(s, uuid4(), FECHA, 2, AHORA)
         assert r.estado is EstadoReserva.SOLICITADA
+        assert (r.prestador_id, r.prestador_usuario_id) == (s.prestador_id, s.prestador_usuario_id)
         assert r.expira_en == AHORA + timedelta(hours=48)
         [evento] = r.extraer_eventos()
         assert evento.tipo == "reserva.solicitada"
@@ -43,6 +51,16 @@ class TestSolicitar:
             "fecha_reserva": "2026-11-10",
             "numero_personas": 2,
         }
+
+    def test_el_evento_lleva_el_perfil_no_el_usuario_del_prestador(self):
+        r = Reserva.solicitar(servicio(), uuid4(), FECHA, 2, AHORA)
+        [evento] = r.extraer_eventos()
+        assert evento.payload["prestador_id"] == str(r.prestador_id)
+        assert str(r.prestador_usuario_id) not in evento.payload.values()
+
+    def test_servicio_inactivo_no_acepta_solicitudes(self):
+        with pytest.raises(NoDisponible):
+            Reserva.solicitar(servicio(activo=False), uuid4(), FECHA, 2, AHORA)
 
     def test_exige_al_menos_una_persona(self):
         with pytest.raises(Validacion):

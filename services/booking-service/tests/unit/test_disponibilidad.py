@@ -9,7 +9,7 @@ from domain.errores import CuposComprometidos, CuposInsuficientes, SuperaAforo, 
 
 
 def dia(totales: int = 10, aforo: int | None = None) -> DisponibilidadCupo:
-    return DisponibilidadCupo.abrir(uuid4(), uuid4(), date(2026, 11, 5), totales, aforo=aforo)
+    return DisponibilidadCupo.abrir(uuid4(), date(2026, 11, 5), totales, aforo=aforo)
 
 
 def test_abrir_deja_todos_los_cupos_disponibles():
@@ -50,11 +50,13 @@ def test_liberar_mas_de_lo_reservado_es_un_error_de_programacion():
         d.liberar(3)
 
 
-def test_cada_cambio_sube_la_version():
+def test_solo_los_cambios_del_prestador_suben_la_version():
     d = dia(10)
     d.descontar(1)
+    d.liberar(1)
+    assert d.version == 1
     d.ajustar(12, None)
-    assert d.version == 3
+    assert d.version == 2
 
 
 class TestAjustar:

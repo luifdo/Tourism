@@ -112,8 +112,10 @@ SELECT cupos_disponibles FROM disponibilidad_cupo
 WHERE servicio_id = $1 AND fecha = $2
 FOR UPDATE;
 -- validar en dominio y luego:
-UPDATE disponibilidad_cupo SET cupos_disponibles = cupos_disponibles - $3, version = version + 1 ...;
+UPDATE disponibilidad_cupo SET cupos_disponibles = cupos_disponibles - $3 ...;
 ```
+
+* Mover cupos no sube la `version` del día. La `version` solo cambia cuando el prestador edita los cupos totales o la tarifa (UC19); así una reserva no provoca un conflicto falso cuando la PWA sincroniza una edición hecha sin conexión (ESC-09).
 
 * Cuando se bloquean dos filas (modificación con cambio de fecha), se bloquean **siempre en orden ascendente de fecha** para evitar interbloqueos (*deadlocks*).
 * Restricción en la base: `CHECK (cupos_disponibles BETWEEN 0 AND cupos_totales)`, como segunda barrera si el código fallara.
