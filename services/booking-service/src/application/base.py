@@ -17,14 +17,16 @@ class Contexto:
     plazo_horas: int = PLAZO_RESPUESTA_HORAS
 
 
-def evento_auditoria(usuario_id: UUID | None, accion: str, **detalles: Any) -> EventoDominio:
+def evento_auditoria(
+    usuario_id: UUID | None, accion: str, resultado: str = "EXITO", **detalles: Any
+) -> EventoDominio:
     """auditoria.registrada: el Módulo 1 lo guarda en la bitácora (Plan §4.4)."""
     return EventoDominio(
         "auditoria.registrada",
         {
             "usuario_id": str(usuario_id) if usuario_id else None,
             "accion": accion,
-            "resultado": "EXITO",
+            "resultado": resultado,
             "detalles": {k: str(v) for k, v in detalles.items()},
         },
     )

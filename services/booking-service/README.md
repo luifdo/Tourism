@@ -52,4 +52,18 @@ tests/
 
 ## Ejecución
 
-Servicio en Python 3.12 + FastAPI, empaquetado como contenedor y desplegado en Kubernetes (k3s) según el [Plan de Implementación](../../Documents/Pages/Plan_de_Implementacion.md) §7. El código, el `Dockerfile` y los manifiestos se agregan en la Fase 4.
+Servicio en Python 3.12 + FastAPI. En el clúster corre como contenedor en Kubernetes (k3s) según el [Plan de Implementación](../../Documents/Pages/Plan_de_Implementacion.md) §7; el `Dockerfile` y los manifiestos llegan en el Sprint 5.
+
+### Local, en modo memoria (sin Postgres ni RabbitMQ)
+
+```bash
+# Desde services/booking-service/
+python -m venv .venv
+.venv/Scripts/activate            # Linux/macOS: source .venv/bin/activate
+pip install -e ".[dev]"
+
+pytest                            # pruebas unitarias, de casos de uso y de la API
+uvicorn main:app --app-dir src --port 8003 --reload
+```
+
+Swagger queda en <http://localhost:8003/docs>. En modo memoria se carga un servicio de ejemplo con 30 días abiertos y aparecen las rutas `/dev` (simular `servicio.publicado`, ejecutar los CronJobs, adelantar el reloj y ver los eventos publicados). Los ids de ejemplo están en la portada de Swagger. Como no hay Traefik, `X-Usuario-Id` y `X-Usuario-Rol` se escriben a mano.
