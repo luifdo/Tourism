@@ -29,7 +29,7 @@ Disponibilidad de cupos en tiempo real con bloqueo transaccional, máquina de es
 * `auditoria.registrada.v1`
 
 **Consume:**
-* —
+* `servicio.publicado.v1` (proyección `servicio_ref`: dueño, aforo, tarifa base y estado del servicio)
 
 Esquemas en [`contracts/events/`](../../contracts/events/).
 
