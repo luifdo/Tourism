@@ -441,7 +441,10 @@ paths:
     post:
       tags: [Entidad]
       summary: Publicar una alerta oficial (UC26)
-      description: Roles `Entidad` y `Admin`. Publica `auditoria.registrada`.
+      description: |
+        Roles `Entidad` y `Admin`. El servicio o la zona deben existir y estar activos (si no,
+        404). No depende de la saturación: también hay alertas por clima, cierres o seguridad.
+        Publica `auditoria.registrada` (`ALERTA_PUBLICADA`).
       operationId: publicarAlerta
       requestBody:
         required: true
@@ -451,6 +454,8 @@ paths:
       responses:
         '201':
           description: Alerta publicada.
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AlertaEditable' }
@@ -468,17 +473,89 @@ paths:
     post:
       tags: [Entidad]
       summary: Retirar una alerta oficial (UC26)
-      description: Roles `Entidad` y `Admin`. Publica `auditoria.registrada`.
+      description: |
+        Roles `Entidad` y `Admin`. La alerta deja de mostrarse; no se borra. Retirar una ya
+        retirada no cambia nada ni se audita. Publica `auditoria.registrada` (`ALERTA_RETIRADA`).
       operationId: desactivarAlerta
       responses:
         '200':
           description: Alerta inactiva.
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AlertaEditable' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/Prohibido' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
+
+  /alertas/{alerta_id}:
+    parameters:
+      - name: alerta_id
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      tags: [Entidad]
+      summary: Editar una alerta oficial vigente (UC26)
+      description: |
+        Roles `Entidad` y `Admin`. Corrige el nivel o el mensaje, o cambia la vigencia (p. ej.
+        "el sendero sigue cerrado una semana más"). El destino no cambia. Exige `If-Match`:
+        varias personas de la Entidad pueden administrar las mismas alertas. Una alerta
+        retirada no se edita (`ALERTA_RETIRADA`). Publica `auditoria.registrada` (`ALERTA_EDITADA`).
+      operationId: editarAlerta
+      parameters:
+        - $ref: '#/components/parameters/IfMatch'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AlertaEditar' }
+      responses:
+        '200':
+          description: Alerta editada.
+          headers:
+            ETag: { $ref: '#/components/headers/ETag' }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AlertaEditable' }
+        '400': { $ref: '#/components/responses/Validacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
+        '409':
+          description: '`VERSION_DISTINTA` (la versión actual va en `ETag`) o `ALERTA_RETIRADA`.'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '428': { $ref: '#/components/responses/FaltaIfMatch' }
+
+  /entidad/alertas:
+    get:
+      tags: [Entidad]
+      summary: Panel de alertas de la Entidad (UC26)
+      description: |
+        Roles `Entidad` y `Admin`. Todas las alertas (o las de un `estado`), de la más
+        reciente a la más antigua, con el mensaje en ambos idiomas y su versión para editarlas.
+      operationId: alertasDeLaEntidad
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguage'
+        - name: estado
+          in: query
+          schema: { $ref: '#/components/schemas/EstadoAlerta' }
+        - $ref: '#/components/parameters/Pagina'
+        - name: tamano
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: Página de alertas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginaAlertasEntidad' }
+        '400': { $ref: '#/components/responses/Validacion' }
+        '401': { $ref: '#/components/responses/NoAutenticado' }
+        '403': { $ref: '#/components/responses/Prohibido' }
 
   # ---------- Mapa (GeoJSON) ----------
   /mapa/servicios:
@@ -1642,7 +1719,10 @@ components:
 
     AlertaCrear:
       type: object
-      description: Debe indicar exactamente uno de `servicio_id` o `zona`.
+      description: |
+        Debe indicar exactamente uno de `servicio_id` o `zona`. `fecha_expiracion` lleva zona
+        horaria, es futura y como máximo a 365 días: una alerta olvidada no queda vigente
+        para siempre.
       required: [nivel, mensaje, fecha_expiracion]
       properties:
         nivel: { $ref: '#/components/schemas/NivelAlerta' }
@@ -1651,18 +1731,49 @@ components:
         zona: { type: string, description: Código de la zona. }
         fecha_expiracion: { type: string, format: date-time }
 
+    AlertaEditar:
+      type: object
+      description: Lo que se puede cambiar de una alerta vigente; el destino no cambia. Mismas reglas de fecha que `AlertaCrear`.
+      required: [nivel, mensaje, fecha_expiracion]
+      additionalProperties: false
+      properties:
+        nivel: { $ref: '#/components/schemas/NivelAlerta' }
+        mensaje: { $ref: '#/components/schemas/TextoTraducido' }
+        fecha_expiracion: { type: string, format: date-time }
+
+    EstadoAlerta:
+      type: string
+      description: Se calcula con la hora actual.
+      enum: [VIGENTE, VENCIDA, RETIRADA]
+
     AlertaEditable:
       type: object
-      required: [id, nivel, mensaje, activa, fecha_expiracion, entidad_usuario_id]
+      required: [id, nivel, mensaje, activa, estado, fecha_expiracion, creada_en, entidad_usuario_id, version]
       properties:
         id: { type: string, format: uuid }
         nivel: { $ref: '#/components/schemas/NivelAlerta' }
+        nivel_etiqueta: { type: string }
         mensaje: { $ref: '#/components/schemas/TextoTraducido' }
         servicio_id: { type: string, format: uuid, nullable: true }
-        zona: { type: string, nullable: true }
+        zona: { type: string, nullable: true, description: Código de la zona. }
         activa: { type: boolean }
+        estado: { $ref: '#/components/schemas/EstadoAlerta' }
+        estado_etiqueta: { type: string }
         fecha_expiracion: { type: string, format: date-time }
+        creada_en: { type: string, format: date-time }
         entidad_usuario_id: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+
+    PaginaAlertasEntidad:
+      type: object
+      required: [items, pagina, tamano, total]
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/AlertaEditable' }
+        pagina: { type: integer, minimum: 1 }
+        tamano: { type: integer, minimum: 1 }
+        total: { type: integer, minimum: 0 }
 
     MetricasServicio:
       type: object

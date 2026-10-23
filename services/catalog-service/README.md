@@ -93,6 +93,10 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | `GET /api/catalog/buscar` | UC8 | Pública; texto, categorías, tipos, zona, precio y su unidad, cercanía en metros y filtros de atributos (ver abajo); caché de 300 s en Valkey |
 | `GET /api/catalog/zonas` | Filtros | Pública |
 | `GET /api/catalog/alertas` | UC26 | Pública; vigentes, de mayor a menor nivel |
+| `POST /api/catalog/alertas` | UC26 | Entidad o Admin; sobre un servicio **o** una zona (activos, si no 404); expiración futura y como máximo a 365 días, con zona horaria; audita `ALERTA_PUBLICADA` |
+| `PUT /api/catalog/alertas/{id}` | UC26 | Entidad o Admin; cambia nivel, mensaje o vigencia (el destino no); `If-Match`; una retirada no se edita (`ALERTA_RETIRADA` 409); audita `ALERTA_EDITADA` |
+| `POST /api/catalog/alertas/{id}/desactivar` | UC26 | Entidad o Admin; la retira (no se borra); repetir no cambia nada ni se audita; audita `ALERTA_RETIRADA` |
+| `GET /api/catalog/entidad/alertas` | UC26 | Entidad o Admin; panel con todas las alertas o las de un `estado` (`VIGENTE`, `VENCIDA`, `RETIRADA`), recientes primero, con mensaje en ambos idiomas y versión |
 | `GET /api/catalog/mapa/servicios` | UC16 | Pública; GeoJSON recortado a `bbox`; mismos filtros de tipo y atributos que `/buscar`; con zoom < 13 agrupa en el servidor (caché de 300 s) |
 | `GET /api/catalog/mapa/zonas` | UC16 | Pública; polígonos simplificados según el zoom |
 | `GET /api/catalog/mapa/alertas` | UC16, UC26 | Pública; puntos (alertas de servicio) y polígonos (de zona) |

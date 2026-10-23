@@ -10,6 +10,7 @@ from app.api.errores.manejador_errores import registrar_manejadores
 from app.api.middleware.correlacion_middleware import CorrelacionMiddleware
 from app.api.routers import (
     alertas,
+    alertas_entidad,
     busqueda,
     geocodificacion,
     health,
@@ -107,6 +108,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         zonas,
         zonas_entidad,
         alertas,
+        alertas_entidad,
         mapa,
         servicios_prestador,
         perfil_prestador,

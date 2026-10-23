@@ -5,9 +5,7 @@ from app.application.ports.invalidador_cache import InvalidadorCache
 from app.domain.entities.zona import Zona
 from app.domain.events.auditoria_registrada import AuditoriaRegistrada
 from app.domain.ports.unidad_de_trabajo import UnidadDeTrabajo
-from app.domain.value_objects.identidad import Identidad, Rol
-
-ROLES_ADMINISTRAN_ZONAS = (Rol.ENTIDAD, Rol.ADMIN)
+from app.domain.value_objects.identidad import Identidad
 
 
 class EscrituraZona:

@@ -6,6 +6,7 @@ la PWA, el chatbot y cualquier otro cliente muestren el mismo texto.
 
 from enum import StrEnum
 
+from app.application.dto.estado_alerta import EstadoAlerta
 from app.domain.value_objects.atributos.valores import (
     Amenidad,
     MedioPago,
@@ -67,6 +68,9 @@ ETIQUETAS: dict[StrEnum, dict[Idioma, str]] = {
     NivelSaturacion.BAJO: {Idioma.ES: "Bajo", Idioma.EN: "Low"},
     NivelSaturacion.MEDIO: {Idioma.ES: "Medio", Idioma.EN: "Medium"},
     NivelSaturacion.ALTO: {Idioma.ES: "Alto", Idioma.EN: "High"},
+    EstadoAlerta.VIGENTE: {_ES: "Vigente", _EN: "Active"},
+    EstadoAlerta.VENCIDA: {_ES: "Vencida", _EN: "Expired"},
+    EstadoAlerta.RETIRADA: {_ES: "Retirada", _EN: "Withdrawn"},
     # Valores de los atributos. Un mismo código en dos enumeraciones (BAJO en NivelFisico y
     # NivelSaturacion, EFECTIVO, VEGETARIANA, PARQUEADERO) es la misma clave y la misma etiqueta.
     TipoHabitacion.PRIVADA: {_ES: "Privada", _EN: "Private room"},

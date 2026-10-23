@@ -56,6 +56,12 @@ class ZonaEnUso(ErrorDominio):
     codigo = "ZONA_EN_USO"
 
 
+class AlertaRetirada(ErrorDominio):
+    """Una alerta retirada ya no se edita; se publica otra (HTTP 409)."""
+
+    codigo = "ALERTA_RETIRADA"
+
+
 class CodigoExistente(ErrorDominio):
     """Ya existe una zona con ese código (HTTP 409)."""
 

@@ -1,10 +1,10 @@
 from app.application.use_cases.acceso_prestador import FabricaUnidadDeTrabajo
-from app.application.use_cases.escritura_zona import ROLES_ADMINISTRAN_ZONAS, EscrituraZona
+from app.application.use_cases.escritura_zona import EscrituraZona
 from app.domain.entities.zona import Zona
 from app.domain.ports.reloj import Reloj
 from app.domain.value_objects.codigo_zona import CodigoZona
 from app.domain.value_objects.geo import PoligonoGeoJSON
-from app.domain.value_objects.identidad import Identidad
+from app.domain.value_objects.identidad import ROLES_ENTIDAD, Identidad
 from app.domain.value_objects.texto_traducido import TextoTraducido
 
 
@@ -25,7 +25,7 @@ class CrearZona:
         nombre: TextoTraducido,
         poligono: PoligonoGeoJSON,
     ) -> Zona:
-        identidad.exigir_rol(*ROLES_ADMINISTRAN_ZONAS)
+        identidad.exigir_rol(*ROLES_ENTIDAD)
         zona = Zona.crear(codigo, nombre, poligono)
         async with self._uow() as uow:
             await self._escritura.guardar_y_auditar(

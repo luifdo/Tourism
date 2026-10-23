@@ -10,6 +10,7 @@ from app.api.i18n.etiquetas import ETIQUETAS, etiqueta
 from app.api.i18n.mensajes_error import MENSAJES, VALIDACION, mensaje_error
 from app.api.i18n.textos_plataforma import REGLA_BASE_CANCELACION
 from app.application import errores
+from app.application.dto.estado_alerta import EstadoAlerta
 from app.domain import errors
 from app.domain.errors import DatoInvalido, ErrorDominio, VersionDistinta, ZonaEnUso
 from app.domain.value_objects.atributos import valores
@@ -74,6 +75,7 @@ def test_todos_los_textos_estan_en_ambos_idiomas(catalogo: dict) -> None:
         valores.SenalInternet,
         valores.MedioPago,
         valores.RecomendacionDinero,
+        EstadoAlerta,
     ],
 )
 def test_cada_valor_fijo_tiene_etiqueta_en_ambos_idiomas(enum: type) -> None:

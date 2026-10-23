@@ -5,7 +5,7 @@ import pytest
 
 from app.domain.entities.alerta_oficial import AlertaOficial
 from app.domain.entities.zona import Zona
-from app.domain.errors import DatoInvalido, VersionDistinta, ZonaEnUso
+from app.domain.errors import AlertaRetirada, DatoInvalido, VersionDistinta, ZonaEnUso
 from app.domain.value_objects.catalogos import NivelAlerta
 from app.domain.value_objects.codigo_zona import CodigoZona
 from app.domain.value_objects.geo import PoligonoGeoJSON
@@ -91,3 +91,45 @@ class TestAlertaOficial:
         assert not alerta.vigente(AHORA + timedelta(days=3))
         alerta.desactivar()
         assert not alerta.vigente(AHORA)
+
+
+class TestEdicionDeAlerta:
+    def alerta(self) -> AlertaOficial:
+        return AlertaOficial.publicar(
+            nivel=NivelAlerta.PREVENTIVA,
+            mensaje=TextoTraducido(es="Sendero cerrado"),
+            entidad_usuario_id=uuid4(),
+            fecha_expiracion=AHORA + timedelta(days=2),
+            ahora=AHORA,
+            zona_id=uuid4(),
+        )
+
+    def test_extender_y_cambiar_nivel(self) -> None:
+        alerta = self.alerta()
+        alerta.editar(1, NivelAlerta.CRITICA, alerta.mensaje, AHORA + timedelta(days=9), AHORA)
+        assert (alerta.nivel, alerta.version) == (NivelAlerta.CRITICA, 2)
+        assert alerta.vigente(AHORA + timedelta(days=8))
+
+    def test_editar_con_version_vieja(self) -> None:
+        alerta = self.alerta()
+        alerta.editar(1, alerta.nivel, alerta.mensaje, alerta.fecha_expiracion, AHORA)
+        with pytest.raises(VersionDistinta):
+            alerta.editar(1, alerta.nivel, alerta.mensaje, alerta.fecha_expiracion, AHORA)
+
+    def test_una_retirada_no_se_edita(self) -> None:
+        alerta = self.alerta()
+        assert alerta.desactivar() is True and alerta.desactivar() is False
+        with pytest.raises(AlertaRetirada):
+            alerta.editar(2, alerta.nivel, alerta.mensaje, alerta.fecha_expiracion, AHORA)
+
+    @pytest.mark.parametrize("dias", [366, 1000])
+    def test_vigencia_maxima_de_un_anio(self, dias: int) -> None:
+        with pytest.raises(DatoInvalido, match="plazo_maximo"):
+            AlertaOficial.publicar(
+                nivel=NivelAlerta.INFORMATIVA,
+                mensaje=TextoTraducido(es="Aviso"),
+                entidad_usuario_id=uuid4(),
+                fecha_expiracion=AHORA + timedelta(days=dias),
+                ahora=AHORA,
+                zona_id=uuid4(),
+            )

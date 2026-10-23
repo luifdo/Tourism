@@ -14,6 +14,10 @@ class Rol(StrEnum):
     ADMIN = "Admin"
 
 
+# Administran zonas y alertas oficiales (la Entidad de gestión del destino y el Admin).
+ROLES_ENTIDAD = (Rol.ENTIDAD, Rol.ADMIN)
+
+
 @dataclass(frozen=True, slots=True)
 class Identidad:
     """Usuario autenticado de la petición; nunca la decide el cliente ni el chatbot."""

@@ -46,6 +46,10 @@ MENSAJES: dict[str, dict[Idioma, str]] = {
         _ES: "Ya existe una zona con ese código.",
         _EN: "A zone with that code already exists.",
     },
+    "ALERTA_RETIRADA": {
+        _ES: "La alerta ya fue retirada y no se puede editar; publica una nueva.",
+        _EN: "The alert has been withdrawn and cannot be edited; publish a new one.",
+    },
     "NO_AUTENTICADO": {
         _ES: "Debes iniciar sesión para esta operación.",
         _EN: "You must sign in to perform this operation.",
@@ -168,6 +172,10 @@ VALIDACION: dict[str, dict[Idioma, str]] = {
     "exactamente_uno": {
         _ES: "Indica un servicio o una zona, pero no ambos.",
         _EN: "Specify either a service or a zone, but not both.",
+    },
+    "plazo_maximo": {
+        _ES: "La fecha de «{campo}» no puede estar a más de {dias} días.",
+        _EN: "The '{campo}' date cannot be more than {dias} days away.",
     },
     "futura": {
         _ES: "La fecha de «{campo}» debe ser futura.",

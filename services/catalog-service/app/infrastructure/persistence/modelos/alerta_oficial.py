@@ -22,3 +22,4 @@ class AlertaOficialModelo(Base):
     fecha_expiracion: Mapped[datetime]
     creada_en: Mapped[datetime]
     activa: Mapped[bool]
+    version: Mapped[int]

@@ -1,13 +1,13 @@
 from uuid import UUID
 
 from app.application.use_cases.acceso_prestador import FabricaUnidadDeTrabajo
-from app.application.use_cases.escritura_zona import ROLES_ADMINISTRAN_ZONAS, EscrituraZona
+from app.application.use_cases.escritura_zona import EscrituraZona
 from app.domain.entities.zona import Zona
 from app.domain.errors import NoEncontrado
 from app.domain.ports.reloj import Reloj
 from app.domain.value_objects.codigo_zona import CodigoZona
 from app.domain.value_objects.geo import PoligonoGeoJSON
-from app.domain.value_objects.identidad import Identidad
+from app.domain.value_objects.identidad import ROLES_ENTIDAD, Identidad
 from app.domain.value_objects.texto_traducido import TextoTraducido
 
 
@@ -33,7 +33,7 @@ class EditarZona:
         nombre: TextoTraducido,
         poligono: PoligonoGeoJSON,
     ) -> Zona:
-        identidad.exigir_rol(*ROLES_ADMINISTRAN_ZONAS)
+        identidad.exigir_rol(*ROLES_ENTIDAD)
         async with self._uow() as uow:
             zona = await uow.zonas.obtener(zona_id)
             if zona is None:

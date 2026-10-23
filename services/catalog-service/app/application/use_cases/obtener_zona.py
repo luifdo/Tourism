@@ -1,10 +1,9 @@
 from uuid import UUID
 
 from app.application.ports.consulta_zonas import ConsultaZonas
-from app.application.use_cases.escritura_zona import ROLES_ADMINISTRAN_ZONAS
 from app.domain.entities.zona import Zona
 from app.domain.errors import NoEncontrado
-from app.domain.value_objects.identidad import Identidad
+from app.domain.value_objects.identidad import ROLES_ENTIDAD, Identidad
 
 
 class ObtenerZona:
@@ -14,7 +13,7 @@ class ObtenerZona:
         self._consulta = consulta
 
     async def execute(self, identidad: Identidad, zona_id: UUID) -> Zona:
-        identidad.exigir_rol(*ROLES_ADMINISTRAN_ZONAS)
+        identidad.exigir_rol(*ROLES_ENTIDAD)
         zona = await self._consulta.zona(zona_id)
         if zona is None:
             raise NoEncontrado(recurso="zona", id=str(zona_id))

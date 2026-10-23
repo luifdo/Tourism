@@ -1,16 +1,22 @@
-"""Lectura de alertas vigentes (implementa ConsultaAlertas)."""
+"""Lectura de alertas: vigentes (público) y panel de la Entidad (implementa ConsultaAlertas)."""
 
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import ColumnElement, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from app.application.dto.alerta_editable import AlertaEditable
 from app.application.dto.alerta_vista import AlertaVista
+from app.application.dto.estado_alerta import EstadoAlerta
+from app.application.dto.pagina_alertas_entidad import PaginaAlertasEntidad
 from app.application.dto.zona_resumen import ZonaResumen
 from app.domain.value_objects.catalogos import NivelAlerta
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.infrastructure.persistence.modelos.alerta_oficial import AlertaOficialModelo
+from app.infrastructure.persistence.modelos.zona import ZonaModelo
+from app.infrastructure.persistence.repositorios.alerta_repository import alerta_desde_modelo
 
 _BASE = """
     SELECT a.id, a.nivel, a.mensaje, a.servicio_id, a.fecha_expiracion,
@@ -69,3 +75,31 @@ class SqlConsultaAlertas:
         async with self._sesiones() as session:
             filas = (await session.execute(text(sql + ORDEN_POR_NIVEL), parametros)).all()
         return [alerta_desde_fila(f) for f in filas]
+
+    async def de_entidad(
+        self, ahora: datetime, estado: EstadoAlerta | None, pagina: int, tamano: int
+    ) -> PaginaAlertasEntidad:
+        a = AlertaOficialModelo
+        condicion: ColumnElement[bool] | None = {
+            EstadoAlerta.VIGENTE: a.activa & (a.fecha_expiracion > ahora),
+            EstadoAlerta.VENCIDA: a.activa & (a.fecha_expiracion <= ahora),
+            EstadoAlerta.RETIRADA: ~a.activa,
+            None: None,
+        }[estado]
+        consulta = select(a, ZonaModelo.codigo).outerjoin(ZonaModelo, ZonaModelo.id == a.zona_id)
+        conteo = select(func.count()).select_from(a)
+        if condicion is not None:
+            consulta, conteo = consulta.where(condicion), conteo.where(condicion)
+        async with self._sesiones() as session:
+            total = await session.scalar(conteo) or 0
+            filas = (
+                await session.execute(
+                    consulta.order_by(a.creada_en.desc(), a.id)
+                    .limit(tamano)
+                    .offset((pagina - 1) * tamano)
+                )
+            ).all()
+        items = tuple(AlertaEditable(alerta_desde_modelo(f[0]), f[1]) for f in filas)
+        return PaginaAlertasEntidad(
+            items=items, pagina=pagina, tamano=tamano, total=total, ahora=ahora
+        )

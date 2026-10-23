@@ -13,6 +13,22 @@ from app.infrastructure.persistence.modelos.alerta_oficial import AlertaOficialM
 from app.infrastructure.persistence.repositorios.comun import upsert
 
 
+def alerta_desde_modelo(fila: AlertaOficialModelo) -> AlertaOficial:
+    """También lo usa el panel de la Entidad, que lee sin bloquear filas."""
+    return AlertaOficial(
+        id=fila.id,
+        nivel=NivelAlerta(fila.nivel),
+        mensaje=TextoTraducido(**fila.mensaje),
+        entidad_usuario_id=fila.entidad_usuario_id,
+        fecha_expiracion=fila.fecha_expiracion,
+        creada_en=fila.creada_en,
+        servicio_id=fila.servicio_id,
+        zona_id=fila.zona_id,
+        activa=fila.activa,
+        version=fila.version,
+    )
+
+
 class SqlAlertaRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
@@ -21,19 +37,7 @@ class SqlAlertaRepository:
         fila = await self._session.scalar(
             select(AlertaOficialModelo).where(AlertaOficialModelo.id == alerta_id).with_for_update()
         )
-        if fila is None:
-            return None
-        return AlertaOficial(
-            id=fila.id,
-            nivel=NivelAlerta(fila.nivel),
-            mensaje=TextoTraducido(**fila.mensaje),
-            entidad_usuario_id=fila.entidad_usuario_id,
-            fecha_expiracion=fila.fecha_expiracion,
-            creada_en=fila.creada_en,
-            servicio_id=fila.servicio_id,
-            zona_id=fila.zona_id,
-            activa=fila.activa,
-        )
+        return alerta_desde_modelo(fila) if fila else None
 
     async def contar_vigentes_de_zona(self, zona_id: UUID, ahora: datetime) -> int:
         return (
@@ -63,5 +67,6 @@ class SqlAlertaRepository:
                 "fecha_expiracion": alerta.fecha_expiracion,
                 "creada_en": alerta.creada_en,
                 "activa": alerta.activa,
+                "version": alerta.version,
             },
         )
