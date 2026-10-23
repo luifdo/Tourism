@@ -28,6 +28,7 @@ Catálogo de atractivos, actividades y perfiles de prestador; búsqueda multicri
 * `prestador.suspendido.v1` (desactiva el perfil y sus servicios)
 * `reserva.solicitada.v1`, `reserva.modificada.v1`, `reserva.confirmada.v1`, `reserva.rechazada.v1`, `reserva.cancelada.v1`, `reserva.finalizada.v1` (correos y demanda)
 * `resena.publicada.v1` (calificación promedio y métricas)
+* `resena.ocultada.v1` (quita del promedio la reseña ocultada por moderación)
 
 Esquemas en [`contracts/events/`](../../contracts/events/).
 
@@ -187,6 +188,7 @@ Base común (`ConsumidorRabbitMQ`), la misma para todas las colas de catalog:
 |---|---|---|
 | `catalog.prestadores` | `prestador.aprobado`, `prestador.suspendido` | **Aprobado:** crea el perfil (habilita UC17) o lo reactiva y actualiza la razón social; al reactivar vuelven solo los servicios apagados por la suspensión. **Suspendido:** apaga el perfil y sus servicios activos (marcados como apagados por suspensión). Cada servicio que cambia publica `servicio.publicado` y se invalida la caché. Un suspendido de un prestador desconocido se registra y se ignora. **Orden:** `prestador_perfil.estado_iam_en` (migración 0005) guarda el `occurred_at` del último evento de iam aplicado; uno más viejo (p. ej. un reintento que llega tarde) se ignora y no reactiva a un suspendido. |
 | `catalog.demanda` | `reserva.solicitada`, `.modificada`, `.confirmada`, `.rechazada`, `.cancelada`, `.finalizada` | Guarda en `reserva_proyeccion` el **estado actual de cada reserva** (servicio, fecha, personas, estado), no contadores: un evento solo se aplica si ocurrió después del último aplicado, así los repetidos o desordenados no descuadran nada. La demanda de un día = personas de las reservas activas (Solicitada y Confirmada) de esa fecha. `modificada` mueve fecha y personas. No invalida la caché (la demanda no sale en búsqueda ni mapa). catalog nunca consulta `booking_db`. |
+| `catalog.calificaciones` | `resena.publicada`, `resena.ocultada` | Una fila por reseña en `calificacion_resena` con su puntuación y si está `visible`; el promedio (búsqueda, mapa, ficha) cuenta solo las visibles. Ocultar (moderación, UC29) la saca del promedio; volver a publicarla la devuelve, sin contar doble. Un evento más viejo que el último aplicado (`ultimo_evento_en`, migración 0006) se ignora. **No invalida la caché:** el promedio nuevo se ve cuando expira (300 s), para que una ola de reseñas en temporada alta no borre la caché del catálogo (ESC-02). |
 
 ## Correlación
 

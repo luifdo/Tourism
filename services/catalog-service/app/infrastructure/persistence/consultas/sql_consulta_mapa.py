@@ -39,7 +39,7 @@ _VISTA = "ST_MakeEnvelope(:min_lon, :min_lat, :max_lon, :max_lat, 4326)"
 _PROMEDIO = """
     LEFT JOIN LATERAL (
         SELECT avg(r.puntuacion)::float AS promedio
-        FROM calificacion_resena r WHERE r.servicio_id = {id}
+        FROM calificacion_resena r WHERE r.servicio_id = {id} AND r.visible
     ) c ON true
 """
 

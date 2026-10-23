@@ -263,6 +263,7 @@ Para que las tareas secundarias (correos, métricas, habilitación de reseñas, 
 | `reserva.cancelada` | booking-service | `catalog.notificaciones`, `catalog.demanda` | catalog-service | Correo a la otra parte; resta de la demanda. |
 | `reserva.finalizada` | booking-service | `review.elegibilidad`, `catalog.demanda` | review-service, catalog-service | Habilita la reseña del turista; registra ocupación efectiva. |
 | `resena.publicada` | review-service | `catalog.calificaciones` | catalog-service | Actualiza calificación promedio y métricas del prestador (UC22). |
+| `resena.ocultada` | review-service | `catalog.calificaciones` | catalog-service | Quita del promedio la reseña que el Administrador ocultó al moderarla (UC29); si se vuelve a publicar, vuelve a contar. |
 | `prestador.aprobado` | iam-service | `catalog.prestadores` | catalog-service | Crea el perfil del prestador y habilita UC17. |
 | `auditoria.registrada` | catalog, booking y review | `iam.auditoria` | iam-service | Inserta el evento en la bitácora (Sección 4.4). |
 

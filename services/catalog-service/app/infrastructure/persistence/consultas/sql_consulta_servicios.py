@@ -45,7 +45,7 @@ _ORIGEN = """
     LEFT JOIN zona z ON z.id = s.zona_id AND z.activa
     LEFT JOIN LATERAL (
         SELECT avg(r.puntuacion)::float AS promedio, count(*) AS total
-        FROM calificacion_resena r WHERE r.servicio_id = s.id
+        FROM calificacion_resena r WHERE r.servicio_id = s.id AND r.visible
     ) c ON true
 """
 _PUNTO = "ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography"

@@ -7,6 +7,7 @@ turistas, y los reinicios o el escalado de la API no los interrumpen.
 * Relay del outbox → `turismo.eventos`.
 * Consumidor `catalog.prestadores` (`prestador.aprobado`, `prestador.suspendido`).
 * Consumidor `catalog.demanda` (`reserva.*` → proyección de reservas).
+* Consumidor `catalog.calificaciones` (`resena.publicada`, `resena.ocultada` → promedio).
 
 Expone sus métricas en `WORKER_METRICS_PORT` (/metrics), que también sirve de sonda de vida.
 """
@@ -22,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from valkey.asyncio import Valkey
 
 from app.application.ports.invalidador_cache import InvalidadorCache
+from app.application.use_cases.aplicar_evento_resena import AplicarEventoResena
 from app.application.use_cases.aplicar_evento_reserva import AplicarEventoReserva
 from app.application.use_cases.aplicar_prestador_aprobado import AplicarPrestadorAprobado
 from app.application.use_cases.aplicar_prestador_suspendido import (
@@ -30,8 +32,13 @@ from app.application.use_cases.aplicar_prestador_suspendido import (
 from app.application.use_cases.publicar_eventos_pendientes import PublicarEventosPendientes
 from app.config import Settings, get_settings
 from app.infrastructure.cache.cache_versionada import CacheVersionada
-from app.infrastructure.messaging import manejador_demanda, manejador_prestadores
+from app.infrastructure.messaging import (
+    manejador_calificaciones,
+    manejador_demanda,
+    manejador_prestadores,
+)
 from app.infrastructure.messaging.consumidor_rabbitmq import ConsumidorRabbitMQ
+from app.infrastructure.messaging.manejador_calificaciones import ManejadorCalificaciones
 from app.infrastructure.messaging.manejador_demanda import ManejadorDemanda
 from app.infrastructure.messaging.manejador_prestadores import ManejadorPrestadores
 from app.infrastructure.messaging.publicador_rabbitmq import PublicadorRabbitMQ
@@ -83,6 +90,11 @@ def construir_consumidores(
             manejador_demanda.COLA,
             manejador_demanda.CLAVES,
             ManejadorDemanda(AplicarEventoReserva(uow)),
+        ),
+        (
+            manejador_calificaciones.COLA,
+            manejador_calificaciones.CLAVES,
+            ManejadorCalificaciones(AplicarEventoResena(uow)),
         ),
     ]
     return [
