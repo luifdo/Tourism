@@ -1,6 +1,7 @@
 """Traduce errores a respuestas HTTP con el formato común y en el idioma de la petición."""
 
 import logging
+from uuid import UUID
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -8,7 +9,8 @@ from fastapi.responses import JSONResponse
 
 from app.api.i18n.mensajes_error import mensaje_codigo, mensaje_error, mensaje_validacion
 from app.api.schemas.error_respuesta import ErrorRespuesta
-from app.domain.errors import ErrorDominio, VersionDistinta
+from app.application.use_cases.registrar_acceso_denegado import RegistrarAccesoDenegado
+from app.domain.errors import ErrorDominio, RolNoPermitido, VersionDistinta
 from app.domain.value_objects.idioma import Idioma
 from app.infrastructure.observabilidad.contexto_correlacion import correlation_id_actual
 
@@ -49,10 +51,45 @@ def _idioma(request: Request) -> Idioma:
 
 async def manejar_error_dominio(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, ErrorDominio)
+    if isinstance(exc, RolNoPermitido):
+        await _auditar_acceso_denegado(request, exc)
     idioma = _idioma(request)
     cabeceras = {"ETag": f'"{exc.version_actual}"'} if isinstance(exc, VersionDistinta) else None
     estado = ESTADO_POR_CODIGO.get(exc.codigo, status.HTTP_400_BAD_REQUEST)
     return _respuesta(estado, exc.codigo, mensaje_error(exc, idioma), idioma, cabeceras)
+
+
+async def _auditar_acceso_denegado(request: Request, exc: RolNoPermitido) -> None:
+    """ESC-04. Si no se puede guardar, se registra en el log y la respuesta 403 sale igual."""
+    auditor: RegistrarAccesoDenegado | None = getattr(request.app.state, "auditor_accesos", None)
+    if auditor is None:
+        return
+    try:
+        await auditor.execute(
+            usuario_id=_uuid_o_none(request.headers.get("x-usuario-id")),
+            rol=exc.detalle.get("rol"),
+            permitidos=list(exc.detalle.get("permitidos", [])),
+            metodo=request.method,
+            ruta=request.url.path,
+            ip_origen=_ip_origen(request),
+        )
+    except Exception:
+        logger.exception("No se pudo auditar el acceso denegado a %s", request.url.path)
+
+
+def _uuid_o_none(valor: str | None) -> UUID | None:
+    try:
+        return UUID(valor) if valor else None
+    except ValueError:
+        return None
+
+
+def _ip_origen(request: Request) -> str | None:
+    """La IP del cliente según Traefik (`X-Forwarded-For`, la primera), o la de la conexión."""
+    reenviada = request.headers.get("x-forwarded-for")
+    if reenviada:
+        return reenviada.split(",")[0].strip()
+    return request.client.host if request.client else None
 
 
 async def manejar_validacion(request: Request, exc: Exception) -> JSONResponse:

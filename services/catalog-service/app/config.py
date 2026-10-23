@@ -22,7 +22,16 @@ class Settings(BaseSettings):
     valkey_timeout_seconds: float = 0.25
 
     rabbitmq_url: str = "amqp://guest:guest@localhost:5673/"
+    rabbitmq_timeout_seconds: float = 5.0
     events_exchange: str = "turismo.eventos"
+
+    # Relay del outbox (worker): lote por vuelta, pausa entre vueltas, espera máxima tras
+    # fallos (crece al doble desde la pausa) y días que se guardan los eventos ya publicados.
+    outbox_lote: int = 100
+    outbox_intervalo_segundos: float = 1.0
+    outbox_espera_maxima_segundos: float = 30.0
+    outbox_retencion_dias: int = 7
+    worker_metrics_port: int = 9102
 
     # Imágenes del catálogo en SeaweedFS (API S3). El endpoint es el público: la URL firmada
     # la usa el navegador y la firma incluye el host.

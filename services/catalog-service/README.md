@@ -70,6 +70,7 @@ docker compose -f docker-compose.dev.yml up -d   # PostGIS, Valkey, RabbitMQ y S
 uv sync                                          # instala dependencias (incluye dev)
 cp .env.example .env
 uv run uvicorn app.main:app --reload --port 8002
+uv run python -m app.worker                      # worker: publica el outbox en RabbitMQ (métricas en :9102)
 uv run alembic upgrade head                      # aplicar migraciones (incluye las zonas iniciales)
 uv run pytest                                    # unitarias + integración (PostGIS en testcontainers)
 uv run pytest -m "not integration"               # solo unitarias, sin Docker
@@ -127,7 +128,7 @@ Las capas salen en GeoJSON (RFC 7946, `application/geo+json`), siempre en `[lon,
 * **Identidad:** `X-Usuario-Id` y `X-Usuario-Rol`, que pone Traefik tras validar el JWT. Sin ellas, `401 NO_AUTENTICADO`; otro rol, `403 ROL_NO_PERMITIDO`. El perfil existe cuando iam aprueba al prestador (`prestador.aprobado`); antes, o si está suspendido, `403 PERFIL_INACTIVO`. Un suspendido puede leer su perfil y sus servicios, pero no escribir.
 * **Concurrencia:** cada respuesta trae `ETag: "n"` y cada edición exige `If-Match` (sin él, `428`; con una versión vieja, `409` con el `ETag` actual).
 * **Formularios sin conexión:** con `Idempotency-Key` un reenvío devuelve la misma respuesta (`Idempotent-Replayed: true`) sin repetir la operación, durante 48 h. La clave vale por usuario y operación (`idem:catalog:{usuario}:{método}:{ruta}:{clave}` en Valkey).
-* **Eventos:** el cambio y `servicio.publicado` se guardan en la misma transacción (tabla `outbox`); el relay que los publica en RabbitMQ llega con la mensajería. Tras confirmar se invalida la caché de búsqueda y mapa.
+* **Eventos:** el cambio y `servicio.publicado` se guardan en la misma transacción (tabla `outbox`); el worker los publica en RabbitMQ (ver Mensajería). Tras confirmar se invalida la caché de búsqueda y mapa.
 * **Bloqueos:** toda escritura bloquea primero el perfil y luego el servicio (`SELECT ... FOR UPDATE`), siempre en ese orden. El panel lee sin bloquear.
 * **Imágenes:** la PWA sube directo a SeaweedFS con una URL firmada que incluye el tipo y el tamaño; cada imagen queda en `{prestador_id}/{uuid}.{ext}` y un servicio solo acepta imágenes de la carpeta de su prestador. `docker-compose.dev.yml` levanta SeaweedFS en el puerto 8333 y crea el bucket.
 
@@ -159,6 +160,18 @@ Textos en `{"es", "en"}`, horas `"HH:MM"` e idiomas en ISO 639-1.
 * **Resultados y listados** traen `tipo` y `unidad_tarifa` con sus etiquetas.
 * **Ficha** (`GET /servicios/{id}`): `atributos` con los mismos bloques, pero con los textos ya en el idioma pedido; los códigos fijos (`DE_MAR`, `SIN_SENAL`...) se mantienen y su texto va en `etiquetas`. Si el servicio informó `pagos`, `aviso_pagos` trae una frase lista para mostrar o para el chatbot, por ejemplo: *«Lleva efectivo: no hay señal de internet y no hay cajeros cerca (el más cercano: Parque de Minca, a 8 km). El prestador ofrece crédito…»*. `importante=true` (sin señal o intermitente, solo efectivo o sin cajeros) indica que la PWA debe destacarlo.
 * **Filtros de `/buscar`:** `tipo` (uno o varios), `unidad_tarifa`, `idioma_atencion`, `accesible`, `mascotas`, `apto_ninos`, `opcion_dietaria`, `nivel_fisico`, `acepta_pago_digital` y `ofrece_credito`. Los de atributos se combinan en una sola contención `atributos @> {...}` sobre el índice GIN. Un sí/no filtra por lo informado: `accesible=false` trae los que dijeron que no, no los que no lo informaron. Todos forman parte de la clave de la caché.
+
+## Mensajería (RabbitMQ)
+
+La API no publica en RabbitMQ: guarda cada evento en la tabla `outbox` en la misma transacción que el cambio, y un **worker** aparte lo publica (ADR-008, actualizado en este módulo).
+
+* **Worker:** misma imagen, otro comando (`python -m app.worker`) y otro Deployment. Así la publicación (y, desde el paso 10, los consumidores) no compite con las peticiones de los turistas, y los reinicios o el escalado de la API no la interrumpen. Expone sus métricas en `WORKER_METRICS_PORT` (9102).
+* **Topología** (declarada al conectar; declararla otra vez no cambia nada): exchange `turismo.eventos` (*topic*, clave = `event_type`), exchange `turismo.dlx` y cola `turismo.dead-letter`. Las colas de los consumidores las declaran ellos.
+* **Relay:** cada segundo toma hasta 100 eventos pendientes en orden de creación con `FOR UPDATE SKIP LOCKED` (dos workers nunca toman el mismo), los publica persistentes con *publisher confirms* (`message_id` = `event_id`, `type`, `correlation_id`) y solo entonces marca `publicado_en`. Si RabbitMQ falla, el evento queda pendiente y la espera se duplica hasta 30 s; nada se descarta. Una vez al día borra los publicados con más de 7 días.
+* **Entrega "al menos una vez":** si el worker cae entre la confirmación y la marca, el evento sale otra vez; los consumidores descartan duplicados por `event_id` (tabla `evento_procesado`).
+* **Sin cola enlazada, el broker descarta el mensaje:** cada consumidor (iam, booking...) debe declarar su cola durable antes de necesitar los eventos.
+* **Auditoría (ESC-04):** cada `403 ROL_NO_PERMITIDO` guarda un `auditoria.registrada` con acción `ACCESS_DENIED`, el usuario, su rol, los roles permitidos, el método, la ruta y la IP de origen (`X-Forwarded-For`). Si no se puede guardar, queda en el log y el 403 sale igual. `PERFIL_INACTIVO` no se audita: es una regla del negocio, no un acceso indebido. Crear, editar y desactivar zonas también se auditan.
+* **Métricas del worker:** `catalog_outbox_pendientes`, `catalog_outbox_antiguedad_segundos` (alertar si crece), `catalog_eventos_publicados_total{event_type}` y `catalog_eventos_fallos_publicacion_total`.
 
 ## Correlación
 

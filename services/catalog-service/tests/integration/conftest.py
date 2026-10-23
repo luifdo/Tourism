@@ -69,6 +69,19 @@ def valkey_url() -> Iterator[str]:
     contenedor.stop()
 
 
+@pytest.fixture(scope="session")
+def rabbitmq_url() -> Iterator[str]:
+    try:
+        from testcontainers.community.rabbitmq import RabbitMqContainer
+
+        contenedor = RabbitMqContainer("rabbitmq:4-management").start()
+    except Exception as exc:
+        pytest.skip(f"Docker no disponible: {exc}")
+    host = contenedor.get_container_host_ip()
+    yield f"amqp://guest:guest@{host}:{contenedor.get_exposed_port(5672)}/"
+    contenedor.stop()
+
+
 @pytest.fixture
 def alembic_cfg(database_url: str) -> Config:
     return alembic_config()

@@ -17,6 +17,8 @@ dependencies = [
     "valkey>=6.0",
     "httpx>=0.28",
     "boto3>=1.35",
+    "aio-pika>=9.4",
+    "prometheus-client>=0.21",
 ]
 
 [dependency-groups]
@@ -24,7 +26,7 @@ dev = [
     "ruff>=0.8",
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
-    "testcontainers[postgres,redis]>=4.8",
+    "testcontainers[postgres,redis,rabbitmq]>=4.8",
 ]
 
 [build-system]

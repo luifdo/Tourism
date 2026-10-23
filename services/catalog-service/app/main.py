@@ -21,6 +21,7 @@ from app.api.routers import (
     zonas,
     zonas_entidad,
 )
+from app.application.use_cases.registrar_acceso_denegado import RegistrarAccesoDenegado
 from app.config import Settings, get_settings
 from app.infrastructure.cache.cache_versionada import CacheVersionada
 from app.infrastructure.cache.consulta_mapa_en_cache import ConsultaMapaEnCache
@@ -71,6 +72,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.consulta_mapa = ConsultaMapaEnCache(SqlConsultaMapa(sesiones), valkey)
         app.state.consulta_prestador = SqlConsultaPrestador(sesiones)
         app.state.unidad_de_trabajo = lambda: SqlUnidadDeTrabajo(sesiones)
+        app.state.auditor_accesos = RegistrarAccesoDenegado(app.state.unidad_de_trabajo, reloj)
         app.state.invalidador_cache = CacheVersionada(valkey)
         app.state.idempotencia = IdempotenciaValkey(valkey)
         app.state.almacen_imagenes = AlmacenImagenesS3(

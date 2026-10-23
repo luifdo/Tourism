@@ -19,11 +19,13 @@ class AuditoriaRegistrada(EventoDominio):
     accion: str
     resultado: ResultadoAuditoria = ResultadoAuditoria.EXITO
     detalles: dict[str, Any] = field(default_factory=dict)
+    ip_origen: str | None = None
 
     def payload(self) -> dict[str, Any]:
-        return {
+        datos = {
             "usuario_id": str(self.usuario_id) if self.usuario_id else None,
             "accion": self.accion,
             "resultado": self.resultado.value,
             "detalles": self.detalles,
         }
+        return datos | ({"ip_origen": self.ip_origen} if self.ip_origen else {})

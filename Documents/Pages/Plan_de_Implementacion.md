@@ -296,8 +296,8 @@ Los eventos solo llevan identificadores; el consumidor que necesita datos de con
 
 Para prevenir efectos secundarios no deseados causados por la entrega repetida de mensajes en el bus:
 
-1. **Confirmación de publicación:** Los productores publican con *publisher confirms* y mensajes persistentes; si el broker no confirma, el publicador reintenta y deja un registro de error.
-2. **Identificador de Idempotencia:** Cada consumidor guarda en Valkey el `event_id` procesado con un TTL de 24 horas. Si llega un mensaje con un `event_id` ya existente, se reconoce (`ACK`) y se descarta su reejecución.
+1. **Confirmación de publicación (patrón outbox):** El evento se guarda en la tabla `outbox` del servicio en la misma transacción que el cambio. Un *worker* aparte lo publica con *publisher confirms* y mensajes persistentes y solo lo marca como publicado cuando el broker confirma; si no confirma, el evento sigue en la tabla y se reintenta con espera creciente (ADR-008).
+2. **Identificador de Idempotencia:** Cada consumidor guarda el `event_id` procesado en la tabla `evento_procesado` de su propia base, en la misma transacción que aplica el efecto. Si llega un mensaje con un `event_id` ya existente, se reconoce (`ACK`) y se descarta su reejecución. *Al programar el Módulo 2 nos dimos cuenta de que era más sencillo y más seguro guardarlo en la tabla que en Valkey con TTL de 24 h: efecto y registro se confirman juntos y no vencen.*
 3. **Dead Letter Queue (DLQ):** Los mensajes que fallan tras 3 intentos con retroceso exponencial (1s, 5s, 25s) se enrutan al exchange `turismo.dlx` y quedan en la cola `turismo.dead-letter` para análisis del equipo.
 
 ---
@@ -307,10 +307,10 @@ Para prevenir efectos secundarios no deseados causados por la entrega repetida d
 * **Dueño único:** El Módulo 1 es el único que escribe en `bitacora_auditoria` (`iam_db`).
 * **Eventos propios:** El Módulo 1 inserta sus eventos en la misma transacción que la acción (por ejemplo, el cambio de rol y su registro se confirman juntos).
 * **Eventos de otros módulos:** catalog, booking y review publican `auditoria.registrada` (accesos denegados por rol, exportaciones, cambios de estado de reservas, decisiones de moderación). La cola `iam.auditoria` los inserta en la bitácora.
-* **Sin duplicados:** La tabla tiene una restricción `UNIQUE` sobre `event_id`, de modo que un evento reentregado después del TTL de 24 h de Valkey (Sección 4.3) no se inserta dos veces: el consumidor lo reconoce (`ACK`) y lo descarta.
+* **Sin duplicados:** La tabla tiene una restricción `UNIQUE` sobre `event_id`, de modo que un evento reentregado (la entrega es "al menos una vez", Sección 4.3) no se inserta dos veces: el consumidor lo reconoce (`ACK`) y lo descarta.
 * **Accesos con token inválido (ESC-04):** Los detecta el endpoint de verificación de ForwardAuth, que pertenece al Módulo 1 y los registra directamente.
 * **Inmutabilidad:** El usuario de base de datos del servicio solo tiene permisos de inserción y consulta sobre la tabla (Sección 5.2).
-* **Evolución:** Si se exige garantía total de entrega, cada productor adoptará el patrón *outbox*: el evento se guarda en una tabla de su propia base en la misma transacción y un proceso lo publica después (ADR-008).
+* **Garantía de entrega:** Los productores usan el patrón *outbox* (Sección 4.3): el evento se guarda en una tabla de su propia base en la misma transacción y un *worker* lo publica después. catalog-service lo adoptó al implementarse, porque un fallo entre el commit y la publicación perdía el evento; se recomienda lo mismo a booking y review (ADR-008).
 
 ---
 

@@ -224,10 +224,56 @@ class TestCrear:
         assert r.status_code == 400 and r.json()["error"] == "VALIDACION"
 
     @pytest.mark.parametrize("rol", ["Turista", "Prestador"])
-    def test_otros_roles_403(self, cliente: TestClient, rol: str) -> None:
-        cabeceras = {"X-Usuario-Id": str(uuid4()), "X-Usuario-Rol": rol}
+    def test_otros_roles_403_y_se_audita(
+        self, cliente: TestClient, rol: str, database_url: str
+    ) -> None:
+        usuario = str(uuid4())
+        cabeceras = {
+            "X-Usuario-Id": usuario,
+            "X-Usuario-Rol": rol,
+            "X-Forwarded-For": "190.24.1.7, 10.42.0.3",
+            "X-Correlation-ID": "corr-denegado",
+        }
         r = cliente.post("/api/catalog/zonas", json=zona(), headers=cabeceras)
         assert r.status_code == 403 and r.json()["error"] == "ROL_NO_PERMITIDO"
+
+        async def leer(sesiones: async_sessionmaker[AsyncSession]) -> list[dict]:
+            async with sesiones() as session:
+                filas = await session.scalars(
+                    text(
+                        "SELECT sobre FROM outbox WHERE event_type = 'auditoria.registrada' "
+                        "AND sobre->'payload'->>'accion' = 'ACCESS_DENIED'"
+                    )
+                )
+                return list(filas)
+
+        [evento] = en_la_base(database_url, leer)
+        assert evento["correlation_id"] == "corr-denegado"
+        assert evento["payload"] == {
+            "usuario_id": usuario,
+            "accion": "ACCESS_DENIED",
+            "resultado": "DENEGADO",
+            "detalles": {
+                "rol": rol,
+                "roles_permitidos": ["Entidad", "Admin"],
+                "metodo": "POST",
+                "ruta": "/api/catalog/zonas",
+            },
+            "ip_origen": "190.24.1.7",
+        }
+
+    def test_perfil_inactivo_no_se_audita(self, cliente: TestClient, database_url: str) -> None:
+        # Un prestador sin perfil aprobado recibe 403 PERFIL_INACTIVO: regla del negocio, no
+        # acceso indebido.
+        cabeceras = {"X-Usuario-Id": str(uuid4()), "X-Usuario-Rol": "Prestador"}
+        r = cliente.get("/api/catalog/prestador/perfil", headers=cabeceras)
+        assert r.json()["error"] == "PERFIL_INACTIVO"
+
+        async def contar(sesiones: async_sessionmaker[AsyncSession]) -> int:
+            async with sesiones() as session:
+                return await session.scalar(text("SELECT count(*) FROM outbox")) or 0
+
+        assert en_la_base(database_url, contar) == 0
 
     def test_admin_tambien_puede(self, cliente: TestClient) -> None:
         cabeceras = {"X-Usuario-Id": str(uuid4()), "X-Usuario-Rol": "Admin"}
