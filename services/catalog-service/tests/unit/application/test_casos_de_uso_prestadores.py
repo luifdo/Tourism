@@ -193,14 +193,22 @@ async def test_un_aprobado_viejo_no_reactiva_a_un_suspendido(
     assert not uow.prestadores.datos[PRESTADOR].activo
 
 
-async def test_suspendido_de_un_prestador_desconocido_se_ignora(
+async def test_suspendido_antes_de_su_aprobacion_no_deja_activo_al_prestador(
     uow: Unidad, invalidador: Invalidador
 ) -> None:
-    _, suspender = casos(uow, invalidador)
-    evento = suspendido()
-    assert await suspender.execute(evento) is ResultadoConsumo.IGNORADO
-    assert uow.prestadores.datos == {} and evento.event_id in uow.eventos_procesados.ids
-    assert uow.confirmaciones == 1  # queda registrado: no se vuelve a evaluar
+    aprobar, suspender = casos(uow, invalidador)
+    # iam lo aprobó (minuto 0) y lo suspendió (minuto 5); por un reintento llega primero la
+    # suspensión.
+    assert await suspender.execute(suspendido(5)) is ResultadoConsumo.APLICADO
+    perfil = uow.prestadores.datos[PRESTADOR]
+    assert not perfil.activo and perfil.estado_iam_en == AHORA + timedelta(minutes=5)
+    assert await aprobar.execute(aprobado(0)) is ResultadoConsumo.IGNORADO
+    assert not uow.prestadores.datos[PRESTADOR].activo
+
+    # Una aprobación nueva (iam lo vuelve a habilitar) sí lo activa, con su razón social.
+    assert await aprobar.execute(aprobado(10)) is ResultadoConsumo.APLICADO
+    perfil = uow.prestadores.datos[PRESTADOR]
+    assert perfil.activo and perfil.razon_social == "Minca Viva"
 
 
 async def test_aprobado_repetido_actualiza_la_razon_social(

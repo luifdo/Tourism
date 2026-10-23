@@ -5,6 +5,7 @@ from app.application.dto.resultado_consumo import ResultadoConsumo
 from app.application.ports.invalidador_cache import InvalidadorCache
 from app.application.use_cases.acceso_prestador import FabricaUnidadDeTrabajo
 from app.application.use_cases.aplicar_prestador_aprobado import CONSUMIDOR
+from app.domain.entities.prestador_perfil import PrestadorPerfil
 from app.domain.events.servicio_publicado import ServicioPublicado
 from app.domain.ports.reloj import Reloj
 
@@ -16,7 +17,11 @@ class AplicarPrestadorSuspendido:
 
     Los servicios quedan marcados como desactivados por la suspensión, para restaurar solo
     esos si iam lo vuelve a aprobar. Cada uno publica `servicio.publicado` (activo=false).
-    Un prestador que catalog no conoce no tiene nada que apagar: se registra y se ignora.
+
+    Si catalog aún no conoce al prestador (su `prestador.aprobado` llegará después por un
+    reintento), se guarda un perfil mínimo ya suspendido con el momento del evento: así esa
+    aprobación vieja se ignora y no queda activo un prestador que iam suspendió. Una
+    aprobación más nueva sí lo activa.
     """
 
     def __init__(
@@ -33,14 +38,18 @@ class AplicarPrestadorSuspendido:
             if not await uow.eventos_procesados.registrar(evento.event_id, CONSUMIDOR):
                 return ResultadoConsumo.DUPLICADO
             perfil = await uow.prestadores.obtener(evento.prestador_id)
-            if perfil is None or perfil.es_evento_iam_viejo(evento.ocurrido_en):
-                motivo = "desconocido" if perfil is None else "viejo"
+            if perfil is None:
                 logger.info(
-                    "prestador.suspendido %s para %s: se ignora", motivo, evento.prestador_id
+                    "prestador.suspendido antes de su aprobación para %s: perfil suspendido",
+                    evento.prestador_id,
                 )
+                perfil = PrestadorPerfil.aprobar(evento.prestador_id, evento.usuario_id, None)
+                perfil.suspender()
+            elif perfil.es_evento_iam_viejo(evento.ocurrido_en):
+                logger.info("prestador.suspendido viejo para %s: se ignora", evento.prestador_id)
                 await uow.confirmar()
                 return ResultadoConsumo.IGNORADO
-            if perfil.suspender():
+            elif perfil.suspender():
                 for servicio in await uow.servicios.listar_por_prestador(perfil.id):
                     if servicio.desactivar_por_suspension(ahora):
                         await uow.servicios.guardar(servicio)
