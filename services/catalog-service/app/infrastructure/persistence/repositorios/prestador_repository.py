@@ -54,6 +54,7 @@ class SqlPrestadorRepository:
                 "estado_iam_en": perfil.estado_iam_en,
                 "actualizado_en": func.now(),
             },
+            salvo_si_es_mas_nueva="estado_iam_en",
         )
 
     async def _uno(self, condicion: Any) -> PrestadorPerfil | None:

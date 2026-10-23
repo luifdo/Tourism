@@ -299,6 +299,81 @@ class TestProyecciones:
             ).all()
         assert filas == [(5,)]
 
+    async def test_si_el_evento_viejo_confirma_ultimo_gana_el_nuevo(
+        self, sesiones: Sesiones
+    ) -> None:
+        # Dos eventos de una reserva que aún no existe, procesados a la vez: ninguno tiene
+        # fila que bloquear. Si el viejo (solicitada) confirma después del nuevo
+        # (cancelada), la base no debe dejar que lo pise.
+        reserva_id = uuid4()
+
+        def evento(tipo: TipoEventoReserva, minutos: int) -> EventoReserva:
+            return EventoReserva(
+                tipo=tipo,
+                reserva_id=reserva_id,
+                servicio_id=uuid4(),
+                prestador_id=uuid4(),
+                turista_id=uuid4(),
+                fecha_reserva=date(2026, 11, 5),
+                numero_personas=2,
+                ocurrido_en=AHORA + timedelta(minutes=minutos),
+            )
+
+        for e in (evento(TipoEventoReserva.CANCELADA, 5), evento(TipoEventoReserva.SOLICITADA, 0)):
+            async with SqlUnidadDeTrabajo(sesiones) as uow:
+                await uow.reservas.guardar(ReservaProyeccion.desde_evento(e))
+                await uow.confirmar()
+        async with SqlUnidadDeTrabajo(sesiones) as uow:
+            leida = await uow.reservas.obtener(reserva_id)
+        assert leida is not None and leida.estado is EstadoReserva.CANCELADA
+
+    async def test_lo_mismo_con_una_resena_ocultada_y_su_publicacion_vieja(
+        self, sesiones: Sesiones
+    ) -> None:
+        resena = uuid4()
+        for visible, minutos in ((False, 5), (True, 0)):
+            async with SqlUnidadDeTrabajo(sesiones) as uow:
+                await uow.calificaciones.guardar(
+                    CalificacionResena.desde_evento(
+                        resena, uuid4(), 1, visible, AHORA + timedelta(minutes=minutos)
+                    )
+                )
+                await uow.confirmar()
+        async with SqlUnidadDeTrabajo(sesiones) as uow:
+            leida = await uow.calificaciones.obtener(resena)
+        assert leida is not None and leida.visible is False
+
+    async def test_perfil_suspendido_no_lo_pisa_una_aprobacion_vieja_concurrente(
+        self, sesiones: Sesiones
+    ) -> None:
+        prestador, usuario = uuid4(), uuid4()
+        suspendido = PrestadorPerfil.aprobar(prestador, usuario, None)
+        suspendido.suspender()
+        suspendido.registrar_evento_iam(AHORA + timedelta(minutes=5))
+        aprobado_viejo = PrestadorPerfil.aprobar(prestador, usuario, "Minca Viva")
+        aprobado_viejo.registrar_evento_iam(AHORA)
+        for perfil in (suspendido, aprobado_viejo):  # el viejo confirma último
+            async with SqlUnidadDeTrabajo(sesiones) as uow:
+                await uow.prestadores.guardar(perfil)
+                await uow.confirmar()
+        async with SqlUnidadDeTrabajo(sesiones) as uow:
+            leido = await uow.prestadores.obtener(prestador)
+        assert leido is not None and not leido.activo
+
+    async def test_editar_el_perfil_sigue_funcionando(self, sesiones: Sesiones) -> None:
+        perfil = PrestadorPerfil.aprobar(uuid4(), uuid4(), "Minca Viva")
+        perfil.registrar_evento_iam(AHORA)
+        async with SqlUnidadDeTrabajo(sesiones) as uow:
+            await uow.prestadores.guardar(perfil)
+            await uow.confirmar()
+        perfil.editar(1, "3001234567", None, None)
+        async with SqlUnidadDeTrabajo(sesiones) as uow:
+            await uow.prestadores.guardar(perfil)
+            await uow.confirmar()
+        async with SqlUnidadDeTrabajo(sesiones) as uow:
+            leido = await uow.prestadores.obtener(perfil.id)
+        assert leido is not None and leido.telefono == "3001234567"
+
 
 class TestTransacciones:
     async def test_eventos_procesados_detecta_duplicados(self, sesiones: Sesiones) -> None:

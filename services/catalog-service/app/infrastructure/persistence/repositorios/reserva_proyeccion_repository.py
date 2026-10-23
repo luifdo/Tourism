@@ -48,4 +48,5 @@ class SqlReservaProyeccionRepository:
                 "estado": reserva.estado.value,
                 "ultimo_evento_en": reserva.ultimo_evento_en,
             },
+            salvo_si_es_mas_nueva="ultimo_evento_en",
         )

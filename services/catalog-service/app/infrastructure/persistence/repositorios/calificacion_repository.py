@@ -42,4 +42,5 @@ class SqlCalificacionRepository:
                 "ultimo_evento_en": calificacion.ultimo_evento_en,
                 "actualizado_en": func.now(),
             },
+            salvo_si_es_mas_nueva="ultimo_evento_en",
         )
