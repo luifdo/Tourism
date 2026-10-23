@@ -60,16 +60,63 @@ Requiere [uv](https://docs.astral.sh/uv/) y Python 3.12.
 ```bash
 uv sync                                   # instala dependencias (incluye dev)
 cp .env.example .env                      # ajustar DATABASE_URL y demás
-uv run uvicorn app.main:app --reload --port 8001
-uv run pytest                             # pruebas
+uv run python -m uvicorn app.main:app --reload --port 8001
+uv run pytest                             # pruebas (las marcadas db se omiten si PostgreSQL no responde)
 uv run ruff check . && uv run ruff format --check .
 uv run alembic upgrade head               # aplicar migraciones
 ```
 
-Endpoints operativos:
+> En Windows, Smart App Control puede bloquear `uvicorn.exe` del `.venv`; `python -m uvicorn` evita el problema.
+
+## Endpoints
+
+Operativos:
 
 * `GET /health`: `200` si PostgreSQL responde a `SELECT 1`, `503` si no.
 * `GET /metrics`: métricas Prometheus (prometheus-fastapi-instrumentator).
+
+### `POST /api/iam/register` (UC1 + UC6)
+
+Registro de Turistas y Prestadores. Otros roles no se autorregistran.
+
+Cuerpo:
+
+```json
+{
+  "email": "maria.perez@example.com",
+  "password": "Tayrona2026",
+  "nombre_completo": "María Pérez",
+  "rol": "Turista",
+  "habeas_data_aceptado": true,
+  "es_mayor_de_edad": true
+}
+```
+
+`201 Created`: nunca incluye la contraseña ni su hash.
+
+```json
+{
+  "id": "8fa88503-29e2-4ff7-b47e-bc22f8856bce",
+  "email": "maria.perez@example.com",
+  "nombre_completo": "María Pérez",
+  "rol": "Turista",
+  "email_verificado": false,
+  "creado_en": "2026-10-23T07:17:49.145181Z"
+}
+```
+
+Errores, con cuerpo `{"detail": "<mensaje>", "code": "<code>"}`:
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 409 | `EMAIL_EN_USO` | Ya existe una cuenta con ese correo |
+| 422 | `VALIDACION` | La petición no cumple el esquema (email mal formado, rol no permitido, campo faltante…). Incluye `"errores": [{"campo": "...", "mensaje": "..."}]` |
+| 422 | `HABEAS_DATA_REQUERIDO` | No aceptó el tratamiento de datos personales (Ley 1581) |
+| 422 | `MAYORIA_DE_EDAD_REQUERIDA` | No declaró ser mayor de edad |
+| 422 | `PASSWORD_INVALIDA` | La contraseña no tiene entre 8 y 128 caracteres con al menos una letra y un número |
+| 422 | `NOMBRE_INVALIDO` | El nombre no tiene entre 2 y 150 caracteres |
+
+Los 422 de `VALIDACION` nunca devuelven el valor enviado, para no repetir la contraseña.
 
 Imagen de contenedor (multi-stage):
 
@@ -79,3 +126,9 @@ docker run --env-file .env -p 8001:8001 iam-service:dev
 ```
 
 Las llaves JWT (`keys/private.pem`, `keys/public.pem`) no se versionan ni se copian en la imagen; se montan en tiempo de ejecución.
+
+## Decisiones y riesgos conocidos
+
+* **Enumeración de cuentas.** El `409` de `POST /register` permite saber si un correo ya está registrado. Se acepta en el prototipo por usabilidad y se mitiga con rate limiting en Traefik (UC32). Alternativa futura: responder siempre `202` y avisar por correo.
+* **IP de origen.** La IP que se guarda en la bitácora solo se toma de `X-Forwarded-For` cuando la petición viene de un proxy listado en `FORWARDED_ALLOW_IPS` (uvicorn con `--proxy-headers`). De cualquier otro cliente se ignora el encabezado y se usa la IP de la conexión.
+* **Bitácora inmutable y sin borrado de usuarios.** `bitacora_auditoria` es de solo inserción (trigger + `REVOKE`, RNF-10). Los usuarios se desactivan (`activo = false`), no se borran: la FK con `RESTRICT` desde la bitácora lo impide.

@@ -14,6 +14,7 @@ dependencies = [
     "argon2-cffi>=23.1",
     "pyjwt[crypto]>=2.10",
     "prometheus-fastapi-instrumentator>=7.0",
+    "email-validator>=2.3.0",
 ]
 
 [dependency-groups]
@@ -21,6 +22,7 @@ dev = [
     "ruff>=0.8",
     "pytest>=8.3",
     "httpx>=0.28",
+    "pytest-asyncio>=1.4.0",
 ]
 
 [build-system]
@@ -39,3 +41,8 @@ select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "ASYNC"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+markers = [
+    "db: pruebas de integración contra PostgreSQL (se omiten si la base no responde)",
+]
