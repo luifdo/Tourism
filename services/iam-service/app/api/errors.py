@@ -6,20 +6,32 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.schemas.errors import ErrorCampo, ErrorResponse
-from app.domain.exceptions import DominioError, DominioValidationError, UsuarioYaExisteError
+from app.domain.exceptions import (
+    CredencialesInvalidasError,
+    CuentaInactivaError,
+    DominioError,
+    DominioValidationError,
+    ServicioNoDisponibleError,
+    TokenInvalidoError,
+    UsuarioYaExisteError,
+)
 
 Handler = Callable[[Request, Exception], Awaitable[JSONResponse]]
 
 
-def _json(status_code: int, body: ErrorResponse) -> JSONResponse:
-    return JSONResponse(status_code=status_code, content=body.model_dump(exclude_none=True))
+def _json(
+    status_code: int, body: ErrorResponse, headers: dict[str, str] | None = None
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code, content=body.model_dump(exclude_none=True), headers=headers
+    )
 
 
-def _responder_con(status_code: int) -> Handler:
+def _responder_con(status_code: int, headers: dict[str, str] | None = None) -> Handler:
     async def handler(_: Request, exc: Exception) -> JSONResponse:
         if not isinstance(exc, DominioError):
             raise exc
-        return _json(status_code, ErrorResponse(detail=exc.message, code=exc.code))
+        return _json(status_code, ErrorResponse(detail=exc.message, code=exc.code), headers)
 
     return handler
 
@@ -42,7 +54,16 @@ async def _validacion(_: Request, exc: Exception) -> JSONResponse:
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    no_autenticado = _responder_con(
+        status.HTTP_401_UNAUTHORIZED, headers={"WWW-Authenticate": "Bearer"}
+    )
     app.add_exception_handler(RequestValidationError, _validacion)
+    app.add_exception_handler(CredencialesInvalidasError, no_autenticado)
+    app.add_exception_handler(TokenInvalidoError, no_autenticado)
+    app.add_exception_handler(CuentaInactivaError, _responder_con(status.HTTP_403_FORBIDDEN))
+    app.add_exception_handler(
+        ServicioNoDisponibleError, _responder_con(status.HTTP_503_SERVICE_UNAVAILABLE)
+    )
     app.add_exception_handler(UsuarioYaExisteError, _responder_con(status.HTTP_409_CONFLICT))
     app.add_exception_handler(
         DominioValidationError, _responder_con(status.HTTP_422_UNPROCESSABLE_CONTENT)

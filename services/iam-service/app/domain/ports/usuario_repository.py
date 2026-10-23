@@ -1,3 +1,4 @@
+import uuid
 from typing import Protocol
 
 from app.domain.entities.usuario import Usuario
@@ -13,3 +14,5 @@ class UsuarioRepository(Protocol):
         ...
 
     async def find_by_email(self, email: Email) -> Usuario | None: ...
+
+    async def actualizar_password_hash(self, usuario_id: uuid.UUID, password_hash: str) -> None: ...

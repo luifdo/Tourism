@@ -7,7 +7,7 @@ from types import TracebackType
 from typing import Any, Self
 
 from app.domain.entities.usuario import Usuario
-from app.domain.exceptions import UsuarioYaExisteError
+from app.domain.exceptions import ServicioNoDisponibleError, UsuarioYaExisteError
 from app.domain.value_objects.email import Email
 from app.domain.value_objects.enums import ResultadoAuditoria
 
@@ -31,6 +31,59 @@ class FakeUsuarioRepository:
 
     async def find_by_email(self, email: Email) -> Usuario | None:
         return self.por_email.get(email.value)
+
+    async def actualizar_password_hash(self, usuario_id: uuid.UUID, password_hash: str) -> None:
+        for email, usuario in self.por_email.items():
+            if usuario.id == usuario_id:
+                self.por_email[email] = replace(usuario, password_hash=password_hash)
+
+    def sembrar(self, usuario: Usuario) -> Usuario:
+        """Guarda un usuario ya existente (sin pasar por el caso de uso de registro)."""
+        guardado = replace(usuario, id=uuid.uuid4(), creado_en=AHORA, actualizado_en=AHORA)
+        self.por_email[guardado.email] = guardado
+        return guardado
+
+
+class FakePasswordHasher:
+    """Hasher trivial que registra cada verify (para comprobar el verify de relleno).
+
+    Como Argon2, el hash lleva sus "parámetros" (version): un hash de otra versión
+    sigue verificando, pero needs_rehash() devuelve True.
+    """
+
+    def __init__(self, version: int = 1) -> None:
+        self.version = version
+        self.verificados: list[str] = []
+
+    def hash(self, plain: str) -> str:
+        return f"fake-hash:v{self.version}:{plain[::-1]}"
+
+    def verify(self, plain: str, hashed: str) -> bool:
+        self.verificados.append(hashed)
+        prefijo, _, resto = hashed.partition(":")
+        _, _, invertida = resto.partition(":")
+        return prefijo == "fake-hash" and invertida == plain[::-1]
+
+    def needs_rehash(self, hashed: str) -> bool:
+        return not hashed.startswith(f"fake-hash:v{self.version}:")
+
+
+class FakeRevocacion:
+    """Lista de revocación en memoria. caida=True simula Valkey sin responder."""
+
+    def __init__(self, caida: bool = False) -> None:
+        self.revocados: dict[str, datetime] = {}
+        self.caida = caida
+
+    async def revocar(self, jti: str, expira_en: datetime) -> None:
+        if self.caida:
+            raise ServicioNoDisponibleError()
+        self.revocados[jti] = expira_en
+
+    async def esta_revocado(self, jti: str) -> bool:
+        if self.caida:
+            raise ServicioNoDisponibleError()
+        return jti in self.revocados
 
 
 @dataclass

@@ -6,14 +6,20 @@ from typing import Annotated
 from fastapi import Depends, Request
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.application.use_cases.cerrar_sesion import CerrarSesion
 from app.application.use_cases.check_health import CheckHealth
+from app.application.use_cases.iniciar_sesion import IniciarSesion
 from app.application.use_cases.registrar_usuario import RegistrarUsuario
 from app.config import Settings, get_settings
 from app.domain.ports.password_hasher import PasswordHasher
+from app.domain.ports.revocacion_tokens import RevocacionTokens
+from app.domain.ports.token_service import TokenService
 from app.domain.ports.unit_of_work import UnitOfWork
+from app.infrastructure.cache.valkey_revocacion import ValkeyRevocacionTokens
 from app.infrastructure.persistence.database import SqlAlchemyDatabaseProbe
 from app.infrastructure.persistence.unit_of_work import SqlAlchemyUnitOfWork
 from app.infrastructure.security.argon2_password_hasher import Argon2PasswordHasher
+from app.infrastructure.security.jwt_token_service import JwtTokenService
 
 
 def get_engine(request: Request) -> AsyncEngine:
@@ -45,6 +51,32 @@ def get_password_hasher() -> PasswordHasher:
 
 def get_reloj() -> Callable[[], datetime]:
     return lambda: datetime.now(UTC)
+
+
+def get_token_service(request: Request) -> JwtTokenService:
+    return request.app.state.token_service
+
+
+def get_revocacion(
+    request: Request, reloj: Annotated[Callable[[], datetime], Depends(get_reloj)]
+) -> RevocacionTokens:
+    return ValkeyRevocacionTokens(request.app.state.valkey, reloj)
+
+
+def get_iniciar_sesion(
+    uow: Annotated[UnitOfWork, Depends(get_unit_of_work)],
+    hasher: Annotated[PasswordHasher, Depends(get_password_hasher)],
+    tokens: Annotated[TokenService, Depends(get_token_service)],
+) -> IniciarSesion:
+    return IniciarSesion(uow=uow, hasher=hasher, tokens=tokens)
+
+
+def get_cerrar_sesion(
+    uow: Annotated[UnitOfWork, Depends(get_unit_of_work)],
+    tokens: Annotated[TokenService, Depends(get_token_service)],
+    revocacion: Annotated[RevocacionTokens, Depends(get_revocacion)],
+) -> CerrarSesion:
+    return CerrarSesion(uow=uow, tokens=tokens, revocacion=revocacion)
 
 
 def get_registrar_usuario(

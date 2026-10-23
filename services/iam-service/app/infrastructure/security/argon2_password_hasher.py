@@ -16,3 +16,6 @@ class Argon2PasswordHasher:
             return self._argon2.verify(hashed, plain)
         except (VerificationError, InvalidHashError):
             return False
+
+    def needs_rehash(self, hashed: str) -> bool:
+        return self._argon2.check_needs_rehash(hashed)

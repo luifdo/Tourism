@@ -1,4 +1,6 @@
-from sqlalchemy import select
+import uuid
+
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -37,6 +39,13 @@ class SqlAlchemyUsuarioRepository:
             select(UsuarioModel).where(UsuarioModel.email == email.value)
         )
         return _to_entity(model) if model is not None else None
+
+    async def actualizar_password_hash(self, usuario_id: uuid.UUID, password_hash: str) -> None:
+        await self._session.execute(
+            update(UsuarioModel)
+            .where(UsuarioModel.id == usuario_id)
+            .values(password_hash=password_hash)
+        )
 
 
 def _to_model(usuario: Usuario) -> UsuarioModel:

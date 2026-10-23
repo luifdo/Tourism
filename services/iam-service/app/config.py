@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     s3_bucket: str = "documentos-verificacion"
 
     jwt_algorithm: str = "RS256"
+    jwt_issuer: str = "iam-service"
     jwt_private_key_path: Path = Path("keys/private.pem")
     jwt_public_key_path: Path = Path("keys/public.pem")
     jwt_access_token_ttl_minutes: int = 15

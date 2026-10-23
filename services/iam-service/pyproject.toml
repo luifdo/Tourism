@@ -15,6 +15,7 @@ dependencies = [
     "pyjwt[crypto]>=2.10",
     "prometheus-fastapi-instrumentator>=7.0",
     "email-validator>=2.3.0",
+    "redis>=8.1.0",
 ]
 
 [dependency-groups]
@@ -45,4 +46,5 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 markers = [
     "db: pruebas de integración contra PostgreSQL (se omiten si la base no responde)",
+    "valkey: pruebas de integración contra Valkey (se omiten si no responde)",
 ]

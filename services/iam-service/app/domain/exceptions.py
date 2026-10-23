@@ -14,6 +14,28 @@ class UsuarioYaExisteError(DominioError):
     default_message = "Ya existe una cuenta registrada con ese correo electrónico."
 
 
+class CredencialesInvalidasError(DominioError):
+    """Mismo mensaje si el correo no existe o la contraseña no coincide (no revela cuentas)."""
+
+    code = "CREDENCIALES_INVALIDAS"
+    default_message = "Correo o contraseña incorrectos."
+
+
+class CuentaInactivaError(DominioError):
+    code = "CUENTA_INACTIVA"
+    default_message = "La cuenta está desactivada. Contacte al administrador."
+
+
+class TokenInvalidoError(DominioError):
+    code = "TOKEN_INVALIDO"
+    default_message = "El token no es válido, expiró o fue revocado."
+
+
+class ServicioNoDisponibleError(DominioError):
+    code = "SERVICIO_NO_DISPONIBLE"
+    default_message = "El servicio no está disponible temporalmente. Intente de nuevo."
+
+
 class DominioValidationError(DominioError):
     code = "VALIDACION_FALLIDA"
     default_message = "Los datos no cumplen las reglas del dominio."

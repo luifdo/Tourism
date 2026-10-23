@@ -31,6 +31,19 @@ class RegistroRequest(BaseModel):
     es_mayor_de_edad: bool
 
 
+class LoginRequest(BaseModel):
+    # email es str, no EmailStr: un formato inválido debe responder 401 como cualquier
+    # credencial incorrecta, no 422.
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [{"email": "maria.perez@example.com", "password": "Tayrona2026"}]
+        }
+    )
+
+    email: str
+    password: str
+
+
 class UsuarioPublicoResponse(BaseModel):
     """Datos públicos de una cuenta. Nunca incluye la contraseña ni su hash."""
 
@@ -42,3 +55,23 @@ class UsuarioPublicoResponse(BaseModel):
     rol: Rol
     email_verificado: bool
     creado_en: datetime
+
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+    expires_in: int
+    usuario: UsuarioPublicoResponse
+
+
+class Jwk(BaseModel):
+    kty: str
+    n: str
+    e: str
+    kid: str
+    use: str
+    alg: str
+
+
+class JwksResponse(BaseModel):
+    keys: list[Jwk]

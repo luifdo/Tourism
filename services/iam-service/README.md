@@ -118,6 +118,47 @@ Errores, con cuerpo `{"detail": "<mensaje>", "code": "<code>"}`:
 
 Los 422 de `VALIDACION` nunca devuelven el valor enviado, para no repetir la contraseña.
 
+### `POST /api/iam/login` (UC2)
+
+Cuerpo JSON (no formulario OAuth2):
+
+```json
+{ "email": "maria.perez@example.com", "password": "Tayrona2026" }
+```
+
+`200 OK`:
+
+```json
+{
+  "access_token": "<JWT RS256>",
+  "token_type": "bearer",
+  "expires_in": 900,
+  "usuario": { "id": "…", "email": "…", "nombre_completo": "…", "rol": "Turista", "email_verificado": false, "creado_en": "…" }
+}
+```
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 401 | `CREDENCIALES_INVALIDAS` | Correo inexistente o mal formado, o contraseña incorrecta: siempre el mismo cuerpo, con `WWW-Authenticate: Bearer` |
+| 403 | `CUENTA_INACTIVA` | Credenciales correctas pero la cuenta está desactivada |
+| 422 | `VALIDACION` | Falta `email` o `password` |
+
+El token lleva `sub` (id del usuario), `rol`, `jti`, `iat`, `exp`, `iss` (`iam-service`) y `typ` (`access`), y en el encabezado `kid` (huella RFC 7638 de la llave pública). Cada intento queda en la bitácora: `LOGIN_SUCCESS` o `LOGIN_FAIL` con el motivo.
+
+### `POST /api/iam/logout` (UC2)
+
+Requiere `Authorization: Bearer <token>`. Revoca el token (por su `jti`) hasta que expire.
+
+| HTTP | `code` | Causa |
+|---|---|---|
+| 204 | — | Sesión cerrada, sin cuerpo |
+| 401 | `TOKEN_INVALIDO` | Sin token, token inválido, expirado o ya revocado (con `WWW-Authenticate: Bearer`) |
+| 503 | `SERVICIO_NO_DISPONIBLE` | Valkey no responde |
+
+### `GET /api/iam/.well-known/jwks.json`
+
+Público. Devuelve las llaves públicas (`{"keys": [{"kty", "n", "e", "kid", "use": "sig", "alg": "RS256"}]}`) para que el Gateway y los demás servicios verifiquen los tokens. Responde `200` con `Cache-Control: public, max-age=300`.
+
 Imagen de contenedor (multi-stage):
 
 ```bash
@@ -131,4 +172,7 @@ Las llaves JWT (`keys/private.pem`, `keys/public.pem`) no se versionan ni se cop
 
 * **Enumeración de cuentas.** El `409` de `POST /register` permite saber si un correo ya está registrado. Se acepta en el prototipo por usabilidad y se mitiga con rate limiting en Traefik (UC32). Alternativa futura: responder siempre `202` y avisar por correo.
 * **IP de origen.** La IP que se guarda en la bitácora solo se toma de `X-Forwarded-For` cuando la petición viene de un proxy listado en `FORWARDED_ALLOW_IPS` (uvicorn con `--proxy-headers`). De cualquier otro cliente se ignora el encabezado y se usa la IP de la conexión.
+* **Tokens de acceso cortos, sin refresh token.** Los tokens RS256 duran 15 minutos y por ahora no hay refresh token: al vencer, el usuario vuelve a iniciar sesión.
+* **Revocación por `jti` en Valkey, falla cerrado.** El logout guarda `iam:revoked:<jti>` con TTL igual al tiempo restante del token. Si Valkey no responde, se devuelve `503`: nunca se asume que un token "no está revocado" sin poder comprobarlo.
+* **El login no revela si un correo existe.** Correo inexistente y contraseña incorrecta devuelven el mismo `401` con el mismo cuerpo, y el primero verifica igual contra un hash Argon2 de relleno para que el tiempo de respuesta sea similar.
 * **Bitácora inmutable y sin borrado de usuarios.** `bitacora_auditoria` es de solo inserción (trigger + `REVOKE`, RNF-10). Los usuarios se desactivan (`activo = false`), no se borran: la FK con `RESTRICT` desde la bitácora lo impide.
