@@ -3,6 +3,7 @@
 from app.domain.errors import DatoInvalido
 from app.domain.value_objects.catalogos import Categoria
 from app.domain.value_objects.geo import Bbox, Coordenada
+from app.domain.value_objects.tipo_servicio import TipoServicio
 
 
 def bbox(valor: str) -> Bbox:
@@ -39,3 +40,13 @@ def categorias(valor: str | None) -> tuple[Categoria, ...]:
         return tuple(Categoria(c.strip().upper()) for c in valor.split(",") if c.strip())
     except ValueError as exc:
         raise DatoInvalido(campo="categoria", regla="formato") from exc
+
+
+def tipos(valor: str | None) -> tuple[TipoServicio, ...]:
+    """Lista separada por comas (`HOSTAL,HOTEL`), igual que `categoria`."""
+    if not valor:
+        return ()
+    try:
+        return tuple(TipoServicio(t.strip().upper()) for t in valor.split(",") if t.strip())
+    except ValueError as exc:
+        raise DatoInvalido(campo="tipo", regla="formato") from exc

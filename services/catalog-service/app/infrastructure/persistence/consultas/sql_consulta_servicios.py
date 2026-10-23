@@ -3,10 +3,13 @@
 * Distancia con `geography`: ST_DWithin y ST_Distance trabajan en metros y usan el índice GIST.
 * Texto con la columna `tsvector` del idioma pedido y `websearch_to_tsquery` (admite frases
   entre comillas y `-palabra`), sin tildes.
+* Los filtros de atributos son una sola contención `atributos @> filtro` (índice GIN
+  `jsonb_path_ops` de la migración 0004).
 * Las condiciones se agregan solo si el filtro viene: así PostgreSQL elige el mejor índice y
   asyncpg no tiene que adivinar el tipo de parámetros nulos.
 """
 
+import json
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -21,17 +24,20 @@ from app.application.dto.prestador_publico import PrestadorPublico
 from app.application.dto.servicio_detalle import ServicioDetalle
 from app.application.dto.servicio_resumen import ServicioResumen
 from app.application.dto.zona_resumen import ZonaResumen
-from app.domain.value_objects.catalogos import Categoria
+from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
+from app.domain.value_objects.catalogos import Categoria, UnidadTarifa
 from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.idioma import Idioma
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 from app.infrastructure.persistence.consultas.sql_consulta_alertas import SqlConsultaAlertas
 from app.infrastructure.persistence.repositorios.comun import texto_o_none
 
 _TEXTO_POR_IDIOMA = {Idioma.ES: ("busqueda_es", "spanish"), Idioma.EN: ("busqueda_en", "english")}
 
 _COLUMNAS = """
-    s.id, s.nombre, s.categoria, s.lat, s.lon, s.tarifa_base, s.imagenes_urls[1] AS imagen,
+    s.id, s.nombre, s.tipo, s.categoria, s.lat, s.lon, s.tarifa_base, s.unidad_tarifa,
+    s.imagenes_urls[1] AS imagen,
     z.codigo AS zona_codigo, z.nombre AS zona_nombre,
     c.promedio, coalesce(c.total, 0) AS total_resenas
 """
@@ -55,9 +61,11 @@ def _resumen(fila: Any, distancia: float | None = None) -> ServicioResumen:
     return ServicioResumen(
         id=fila.id,
         nombre=TextoTraducido(**fila.nombre),
+        tipo=TipoServicio(fila.tipo),
         categoria=Categoria(fila.categoria),
         ubicacion=Coordenada(lat=fila.lat, lon=fila.lon),
         tarifa_base=Decimal(fila.tarifa_base),
+        unidad_tarifa=UnidadTarifa(fila.unidad_tarifa),
         zona=zona,
         calificacion_promedio=round(fila.promedio, 2) if fila.promedio is not None else None,
         total_resenas=fila.total_resenas,
@@ -82,6 +90,15 @@ class SqlConsultaServicios:
         if criterios.categorias:
             condiciones.append("s.categoria = ANY(:categorias)")
             parametros["categorias"] = [c.value for c in criterios.categorias]
+        if criterios.tipos:
+            condiciones.append("s.tipo = ANY(:tipos)")
+            parametros["tipos"] = [t.value for t in criterios.tipos]
+        if criterios.unidad_tarifa:
+            condiciones.append("s.unidad_tarifa = :unidad_tarifa")
+            parametros["unidad_tarifa"] = criterios.unidad_tarifa.value
+        if (filtro := criterios.filtro_atributos()) is not None:
+            condiciones.append("s.atributos @> CAST(:atributos AS jsonb)")
+            parametros["atributos"] = json.dumps(filtro)
         if criterios.zona:
             condiciones.append("z.codigo = :zona")
             parametros["zona"] = criterios.zona
@@ -139,6 +156,7 @@ class SqlConsultaServicios:
     async def detalle(self, servicio_id: UUID, ahora: datetime) -> ServicioDetalle | None:
         sql = f"""
             SELECT {_COLUMNAS}, s.descripcion, s.capacidad_aforo_diario, s.imagenes_urls,
+                   s.atributos,
                    p.id AS prestador_id, p.razon_social, p.telefono, p.politica_cancelacion
             {_ORIGEN}
             JOIN prestador_perfil p ON p.id = s.prestador_id
@@ -161,4 +179,5 @@ class SqlConsultaServicios:
                 politica_cancelacion=texto_o_none(fila.politica_cancelacion),
             ),
             alertas=tuple(alertas),
+            atributos=AtributosServicio.desde_json(fila.atributos),
         )

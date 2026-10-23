@@ -87,8 +87,8 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | Ruta | Caso de uso | Notas |
 |---|---|---|
 | `GET /api/catalog/servicios` | UC7 | Pública, paginada |
-| `GET /api/catalog/servicios/{id}` | UC9 | Pública; incluye alertas vigentes del servicio y de su zona |
-| `GET /api/catalog/buscar` | UC8 | Pública; texto, categorías, zona, precio, cercanía en metros; caché de 300 s en Valkey |
+| `GET /api/catalog/servicios/{id}` | UC9 | Pública; incluye alertas vigentes del servicio y de su zona, `atributos` en el idioma pedido con sus `etiquetas` y `aviso_pagos` |
+| `GET /api/catalog/buscar` | UC8 | Pública; texto, categorías, tipos, zona, precio y su unidad, cercanía en metros y filtros de atributos (ver abajo); caché de 300 s en Valkey |
 | `GET /api/catalog/zonas` | Filtros | Pública |
 | `GET /api/catalog/alertas` | UC26 | Pública; vigentes, de mayor a menor nivel |
 | `GET /api/catalog/mapa/servicios` | UC16 | Pública; GeoJSON recortado a `bbox`; con zoom < 13 agrupa en el servidor (caché de 300 s) |
@@ -152,7 +152,13 @@ Cada oferta tiene un **`tipo`** (21 tipos, ver `TipoServicio` en el [contrato](.
 
 **Dinero y pagos en el lugar (`pagos`):** en sitios alejados puede no haber señal para pagar ni cajeros. El prestador informa la señal de internet (`CON_SENAL`, `INTERMITENTE`, `SIN_SENAL`), los medios que acepta (efectivo, tarjeta, transferencia como Nequi, Daviplata o Bre-B), qué recomienda llevar (`EFECTIVO`, `DIGITAL` o `CUALQUIERA`, que debe coincidir con los medios aceptados), si ofrece **crédito** (cubre el gasto y el turista le paga después, al recuperar señal o pasar por un cajero, con plazo y condiciones) y si hay **cajeros** cerca o dónde está el más cercano. El crédito es un acuerdo entre turista y prestador: la plataforma lo informa, no lo cobra ni lo garantiza.
 
-Textos en `{"es", "en"}`, horas `"HH:MM"` e idiomas en ISO 639-1. Por ahora los atributos se escriben y se leen en el panel del prestador. La ficha pública (con el aviso de efectivo) y los filtros de búsqueda llegan en el paso siguiente. Los filtros previstos son `tipo`, `unidad_tarifa`, `idioma_atencion`, `accesible`, `mascotas`, `apto_ninos`, `opcion_dietaria`, `nivel_fisico`, `acepta_pago_digital` y `ofrece_credito`, sobre el índice GIN de `atributos`.
+Textos en `{"es", "en"}`, horas `"HH:MM"` e idiomas en ISO 639-1.
+
+**Lectura pública:**
+
+* **Resultados y listados** traen `tipo` y `unidad_tarifa` con sus etiquetas.
+* **Ficha** (`GET /servicios/{id}`): `atributos` con los mismos bloques, pero con los textos ya en el idioma pedido; los códigos fijos (`DE_MAR`, `SIN_SENAL`...) se mantienen y su texto va en `etiquetas`. Si el servicio informó `pagos`, `aviso_pagos` trae una frase lista para mostrar o para el chatbot, por ejemplo: *«Lleva efectivo: no hay señal de internet y no hay cajeros cerca (el más cercano: Parque de Minca, a 8 km). El prestador ofrece crédito…»*. `importante=true` (sin señal o intermitente, solo efectivo o sin cajeros) indica que la PWA debe destacarlo.
+* **Filtros de `/buscar`:** `tipo` (uno o varios), `unidad_tarifa`, `idioma_atencion`, `accesible`, `mascotas`, `apto_ninos`, `opcion_dietaria`, `nivel_fisico`, `acepta_pago_digital` y `ofrece_credito`. Los de atributos se combinan en una sola contención `atributos @> {...}` sobre el índice GIN. Un sí/no filtra por lo informado: `accesible=false` trae los que dijeron que no, no los que no lo informaron. Todos forman parte de la clave de la caché.
 
 ## Correlación
 

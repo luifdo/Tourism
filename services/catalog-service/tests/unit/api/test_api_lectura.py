@@ -17,9 +17,22 @@ from app.application.dto.servicio_detalle import ServicioDetalle
 from app.application.dto.servicio_resumen import ServicioResumen
 from app.application.dto.zona_resumen import ZonaResumen
 from app.application.dto.zona_vista import ZonaVista
-from app.domain.value_objects.catalogos import Categoria, NivelAlerta
+from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
+from app.domain.value_objects.atributos.bloque_experiencia import BloqueExperiencia
+from app.domain.value_objects.atributos.bloque_pagos import BloquePagos
+from app.domain.value_objects.atributos.cajeros_cercanos import CajerosCercanos
+from app.domain.value_objects.atributos.credito_prestador import CreditoPrestador
+from app.domain.value_objects.atributos.valores import (
+    MedioPago,
+    NivelFisico,
+    OpcionDietaria,
+    RecomendacionDinero,
+    SenalInternet,
+)
+from app.domain.value_objects.catalogos import Categoria, NivelAlerta, UnidadTarifa
 from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 from app.main import create_app
 
 SERVICIO_ID = uuid4()
@@ -31,9 +44,11 @@ TAYRONA = ZonaResumen(
 SERVICIO = ServicioResumen(
     id=SERVICIO_ID,
     nombre=TextoTraducido(es="Tour del café", en="Coffee tour"),
+    tipo=TipoServicio.EXPERIENCIA_GASTRONOMICA,
     categoria=Categoria.GASTRONOMIA,
     ubicacion=Coordenada(lat=11.1426, lon=-74.1178),
     tarifa_base=Decimal("85000.50"),
+    unidad_tarifa=UnidadTarifa.POR_PERSONA,
     zona=MINCA,
     calificacion_promedio=4.5,
     total_resenas=2,
@@ -46,6 +61,26 @@ ALERTA = AlertaVista(
     servicio_id=None,
     zona=MINCA,
     fecha_expiracion=datetime(2026, 10, 20, tzinfo=UTC),
+)
+
+
+ATRIBUTOS = AtributosServicio(
+    experiencia=BloqueExperiencia(
+        duracion_minutos=180,
+        nivel_fisico=NivelFisico.MEDIO,
+        punto_encuentro=TextoTraducido(es="Parque de Minca", en="Minca park"),
+    ),
+    pagos=BloquePagos(
+        senal_internet=SenalInternet.SIN_SENAL,
+        medios_pago=(MedioPago.EFECTIVO,),
+        recomendacion_dinero=RecomendacionDinero.EFECTIVO,
+        credito=CreditoPrestador(ofrece=True, plazo_dias=3),
+        cajeros=CajerosCercanos(
+            hay_cerca=False,
+            referencia=TextoTraducido(es="Parque de Minca", en="Minca park"),
+            distancia_km=8,
+        ),
+    ),
 )
 
 
@@ -77,6 +112,7 @@ class ConsultasFalsas:
                 politica_cancelacion=TextoTraducido(es="Gratis 24 h antes", en="Free 24 h before"),
             ),
             alertas=(ALERTA,),
+            atributos=ATRIBUTOS,
         )
 
     async def activas(self) -> list[ZonaVista]:
@@ -142,7 +178,86 @@ class TestIdioma:
         assert en == ["Minca", "Tayrona National Natural Park"]
 
 
+class TestFichaConAtributos:
+    def test_resumen_con_tipo_y_unidad(self, cliente: TestClient) -> None:
+        item = cliente.get("/api/catalog/buscar", headers={"Accept-Language": "en"}).json()[
+            "items"
+        ][0]
+        assert (item["tipo"], item["tipo_etiqueta"]) == (
+            "EXPERIENCIA_GASTRONOMICA",
+            "Food experience",
+        )
+        assert (item["unidad_tarifa"], item["unidad_tarifa_etiqueta"]) == (
+            "POR_PERSONA",
+            "per person",
+        )
+
+    def test_atributos_en_el_idioma_pedido_con_etiquetas(self, cliente: TestClient) -> None:
+        cuerpo = cliente.get(
+            f"/api/catalog/servicios/{SERVICIO_ID}", headers={"Accept-Language": "en"}
+        ).json()
+        atributos = cuerpo["atributos"]
+        assert atributos["experiencia"]["punto_encuentro"] == "Minca park"
+        assert atributos["pagos"]["cajeros"]["referencia"] == "Minca park"
+        assert atributos["pagos"]["medios_pago"] == ["EFECTIVO"]
+        assert cuerpo["etiquetas"]["SIN_SENAL"] == "No signal"
+        assert cuerpo["etiquetas"]["MEDIO"] == "Medium"
+
+    def test_aviso_de_pagos_en_espanol(self, cliente: TestClient) -> None:
+        aviso = cliente.get(f"/api/catalog/servicios/{SERVICIO_ID}").json()["aviso_pagos"]
+        assert aviso["importante"] is True and aviso["recomendacion_dinero"] == "EFECTIVO"
+        assert aviso["mensaje"] == (
+            "Lleva efectivo: no hay señal de internet, solo se acepta efectivo y no hay "
+            "cajeros cerca (el más cercano: Parque de Minca, a 8 km). El prestador ofrece "
+            "crédito: si no tienes cómo pagar, le pagas después (plazo: 3 días). Es un acuerdo "
+            "con el prestador; la plataforma no lo cobra ni lo garantiza."
+        )
+
+    def test_aviso_de_pagos_en_ingles(self, cliente: TestClient) -> None:
+        aviso = cliente.get(
+            f"/api/catalog/servicios/{SERVICIO_ID}", headers={"Accept-Language": "en"}
+        ).json()["aviso_pagos"]
+        assert aviso["mensaje"].startswith(
+            "Bring cash: there is no internet signal, only cash is accepted and there are no "
+            "ATMs nearby (nearest one: Minca park, 8 km away)."
+        )
+
+
 class TestParametros:
+    def test_filtros_de_tipo_y_atributos(
+        self, cliente: TestClient, consultas: ConsultasFalsas
+    ) -> None:
+        r = cliente.get(
+            "/api/catalog/buscar",
+            params={
+                "tipo": "hostal,HOTEL",
+                "unidad_tarifa": "POR_NOCHE",
+                "idioma_atencion": "en",
+                "accesible": "true",
+                "mascotas": "false",
+                "opcion_dietaria": "VEGANA",
+                "nivel_fisico": "BAJO",
+                "acepta_pago_digital": "true",
+                "ofrece_credito": "true",
+            },
+        )
+        assert r.status_code == 200
+        c = consultas.criterios
+        assert c is not None
+        assert c.tipos == (TipoServicio.HOSTAL, TipoServicio.HOTEL)
+        assert c.unidad_tarifa is UnidadTarifa.POR_NOCHE
+        assert c.opcion_dietaria is OpcionDietaria.VEGANA
+        assert c.filtro_atributos() == {
+            "comunes": {"accesible": True, "mascotas": False, "idiomas_atencion": ["en"]},
+            "gastronomia": {"opciones_dietarias": ["VEGANA"]},
+            "experiencia": {"nivel_fisico": "BAJO"},
+            "pagos": {"acepta_pago_digital": True, "credito": {"ofrece": True}},
+        }
+
+    def test_tipo_desconocido(self, cliente: TestClient) -> None:
+        r = cliente.get("/api/catalog/buscar", params={"tipo": "HOSTAL,CASTILLO"})
+        assert r.status_code == 400
+
     def test_filtros_llegan_validados(
         self, cliente: TestClient, consultas: ConsultasFalsas
     ) -> None:

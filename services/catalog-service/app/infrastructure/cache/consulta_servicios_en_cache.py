@@ -1,14 +1,17 @@
 """Caché de búsqueda en Valkey como decorador de ConsultaServicios.
 
 * Clave: `catalog:buscar:{generación}:{idioma}:{hash de los criterios}` (ver CacheVersionada).
+* Una entrada que ya no se puede leer (p. ej. guardada antes de un despliegue que cambió
+  el resumen) cuenta como fallo de caché.
 * El detalle de un servicio no se cachea: lleva alertas vigentes que deben verse al instante.
 """
 
 import hashlib
+import logging
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import TypeAdapter
+from pydantic import TypeAdapter, ValidationError
 from valkey.asyncio import Valkey
 
 from app.application.dto.criterios_busqueda import CriteriosBusqueda
@@ -16,6 +19,8 @@ from app.application.dto.pagina_servicios import PaginaServicios
 from app.application.dto.servicio_detalle import ServicioDetalle
 from app.application.ports.consulta_servicios import ConsultaServicios
 from app.infrastructure.cache.cache_versionada import CacheVersionada
+
+logger = logging.getLogger(__name__)
 
 _criterios_json = TypeAdapter(CriteriosBusqueda)
 _pagina_json = TypeAdapter(PaginaServicios)
@@ -32,7 +37,10 @@ class ConsultaServiciosEnCache:
         if clave is not None:
             guardado = await self._cache.leer(clave)
             if guardado is not None:
-                return _pagina_json.validate_json(guardado)
+                try:
+                    return _pagina_json.validate_json(guardado)
+                except ValidationError:
+                    logger.warning("Entrada de caché ilegible; se consulta PostGIS")
         pagina = await self._origen.buscar(criterios)
         if clave is not None:
             await self._cache.escribir(clave, _pagina_json.dump_json(pagina))

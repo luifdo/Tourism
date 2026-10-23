@@ -92,3 +92,23 @@ async def test_el_detalle_no_se_cachea() -> None:
     await cache.detalle(UUID(int=1), datetime.now())
     await cache.detalle(UUID(int=1), datetime.now())
     assert origen.llamadas == 2
+
+
+async def test_filtros_de_atributos_son_otra_clave() -> None:
+    origen = OrigenContador()
+    cache = ConsultaServiciosEnCache(origen, ValkeyEnMemoria())  # type: ignore[arg-type]
+    await cache.buscar(ES)
+    await cache.buscar(CriteriosBusqueda(idioma=Idioma.ES, ofrece_credito=True))
+    assert origen.llamadas == 2
+
+
+async def test_entrada_ilegible_cuenta_como_fallo_y_se_reescribe() -> None:
+    # Por ejemplo, guardada antes de un despliegue que cambió el resumen.
+    origen, valkey = OrigenContador(), ValkeyEnMemoria()
+    cache = ConsultaServiciosEnCache(origen, valkey)  # type: ignore[arg-type]
+    await cache.buscar(ES)
+    [clave] = [k for k in valkey.datos if k.startswith("catalog:buscar:")]
+    valkey.datos[clave] = b'{"items": [{"forma": "vieja"}]}'
+    pagina = await cache.buscar(ES)
+    assert pagina.total == 7 and origen.llamadas == 2
+    assert b"vieja" not in valkey.datos[clave]

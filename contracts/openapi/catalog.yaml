@@ -210,6 +210,8 @@ paths:
       summary: Buscar y filtrar servicios (UC8)
       description: |
         Ruta pública. La usa la tool `buscar_servicios` del Módulo 5.
+        Los filtros de atributos (`idioma_atencion` a `ofrece_credito`) se combinan en una
+        sola contención sobre la columna JSONB `atributos`, con índice GIN.
         Los filtros de catálogo se cachean 300 s. Con `fecha`, el servicio consulta la
         disponibilidad en booking-service para los resultados de la página; si booking no
         responde a tiempo, se devuelven sin ese filtro y `disponibilidad_verificada=false`.
@@ -248,6 +250,49 @@ paths:
           in: query
           description: Radio en metros alrededor de (`lat`, `lon`).
           schema: { type: integer, minimum: 100, maximum: 50000, default: 5000 }
+        - name: tipo
+          in: query
+          description: Uno o varios tipos de servicio.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items: { $ref: '#/components/schemas/TipoServicio' }
+        - name: unidad_tarifa
+          in: query
+          schema: { $ref: '#/components/schemas/UnidadTarifa' }
+        - name: idioma_atencion
+          in: query
+          description: Idioma en que se atiende (ISO 639-1), sobre `atributos.comunes.idiomas_atencion`.
+          schema: { type: string, pattern: '^[a-z]{2}$', examples: [en] }
+        - name: accesible
+          in: query
+          description: 'Sobre `atributos.comunes.accesible`. Filtra por lo informado: `false` trae los que dijeron que no, no los que no lo informaron (igual en los demás sí/no).'
+          schema: { type: boolean }
+        - name: mascotas
+          in: query
+          description: Sobre `atributos.comunes.mascotas`.
+          schema: { type: boolean }
+        - name: apto_ninos
+          in: query
+          description: Sobre `atributos.comunes.apto_ninos`.
+          schema: { type: boolean }
+        - name: opcion_dietaria
+          in: query
+          description: Sobre `atributos.gastronomia.opciones_dietarias`.
+          schema: { type: string, enum: [VEGETARIANA, VEGANA, SIN_GLUTEN, SIN_LACTOSA] }
+        - name: nivel_fisico
+          in: query
+          description: Sobre `atributos.experiencia.nivel_fisico`.
+          schema: { type: string, enum: [BAJO, MEDIO, ALTO] }
+        - name: acepta_pago_digital
+          in: query
+          description: Acepta tarjeta o transferencia en el lugar (`atributos.pagos.medios_pago`).
+          schema: { type: boolean }
+        - name: ofrece_credito
+          in: query
+          description: El prestador ofrece crédito (`atributos.pagos.credito.ofrece`).
+          schema: { type: boolean }
         - name: fecha
           in: query
           description: Filtra por disponibilidad en booking para esa fecha.
@@ -1168,10 +1213,12 @@ components:
 
     ServicioResumen:
       type: object
-      required: [id, nombre, categoria, ubicacion, tarifa_base]
+      required: [id, nombre, tipo, categoria, ubicacion, tarifa_base, unidad_tarifa]
       properties:
         id: { type: string, format: uuid }
         nombre: { type: string }
+        tipo: { $ref: '#/components/schemas/TipoServicio' }
+        tipo_etiqueta: { type: string, description: Nombre del tipo en el idioma pedido. }
         categoria: { $ref: '#/components/schemas/Categoria' }
         categoria_etiqueta: { type: string, description: Nombre de la categoría en el idioma pedido. }
         zona:
@@ -1180,6 +1227,8 @@ components:
           description: Nula si la ubicación no cae en ninguna zona activa.
         ubicacion: { $ref: '#/components/schemas/Coordenada' }
         tarifa_base: { type: number, minimum: 0 }
+        unidad_tarifa: { $ref: '#/components/schemas/UnidadTarifa' }
+        unidad_tarifa_etiqueta: { type: string, examples: [por persona] }
         calificacion_promedio: { type: number, minimum: 1, maximum: 5, nullable: true }
         total_resenas: { type: integer, minimum: 0 }
         imagen_principal: { type: string, format: uri, nullable: true }
@@ -1188,7 +1237,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/ServicioResumen'
         - type: object
-          required: [descripcion, capacidad_aforo_diario, prestador, alertas]
+          required: [descripcion, capacidad_aforo_diario, prestador, alertas, atributos, etiquetas]
           properties:
             descripcion: { type: string }
             capacidad_aforo_diario: { type: integer, minimum: 1 }
@@ -1210,6 +1259,34 @@ components:
               type: array
               description: Alertas vigentes del servicio y de su zona.
               items: { $ref: '#/components/schemas/Alerta' }
+            atributos:
+              type: object
+              description: |
+                Mismos bloques que `AtributosServicio`, con los textos ya en el idioma pedido
+                (cadenas en lugar de `{es, en}`). Los códigos fijos se mantienen; su texto va en `etiquetas`.
+            etiquetas:
+              type: object
+              description: Etiqueta en el idioma pedido de cada código fijo que aparece en `atributos`.
+              additionalProperties: { type: string }
+              examples: [{ SIN_SENAL: Sin señal, EFECTIVO: Efectivo }]
+            aviso_pagos:
+              allOf: [{ $ref: '#/components/schemas/AvisoPagos' }]
+              nullable: true
+              description: Nulo si el servicio no informó el bloque `pagos`.
+
+    AvisoPagos:
+      type: object
+      description: Qué dinero llevar, en una frase lista para mostrar en la ficha o para el chatbot.
+      required: [importante, recomendacion_dinero, mensaje]
+      properties:
+        importante:
+          type: boolean
+          description: La ficha lo destaca si no hay señal o es intermitente, si solo se acepta efectivo o si no hay cajeros cerca.
+        recomendacion_dinero: { type: string, enum: [EFECTIVO, DIGITAL, CUALQUIERA] }
+        mensaje:
+          type: string
+          examples:
+            - 'Lleva efectivo: no hay señal de internet y no hay cajeros cerca (el más cercano: Parque de Minca, a 8 km). El prestador ofrece crédito: si no tienes cómo pagar, le pagas después (plazo: 3 días). Es un acuerdo con el prestador; la plataforma no lo cobra ni lo garantiza.'
 
     ServicioGuardar:
       type: object

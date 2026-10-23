@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_buscar_servicios
 from app.api.i18n.idioma_peticion import idioma_peticion
-from app.api.routers.parametros import categorias, coordenada_opcional
+from app.api.routers.parametros import categorias, coordenada_opcional, tipos
 from app.api.schemas.error_respuesta import ErrorRespuesta
 from app.api.schemas.resultado_busqueda_respuesta import ResultadoBusquedaRespuesta
 from app.application.dto.criterios_busqueda import (
@@ -15,6 +15,8 @@ from app.application.dto.criterios_busqueda import (
     OrdenBusqueda,
 )
 from app.application.use_cases.buscar_servicios import BuscarServicios
+from app.domain.value_objects.atributos.valores import NivelFisico, OpcionDietaria
+from app.domain.value_objects.catalogos import UnidadTarifa
 from app.domain.value_objects.idioma import Idioma
 
 router = APIRouter(prefix="/api/catalog", tags=["Catálogo"])
@@ -40,6 +42,16 @@ async def buscar_servicios(
     orden: OrdenBusqueda = OrdenBusqueda.CALIFICACION,
     pagina: Annotated[int, Query(ge=1)] = 1,
     tamano: Annotated[int, Query(ge=1, le=50)] = 20,
+    tipo: Annotated[str | None, Query(description="Uno o varios, separados por comas")] = None,
+    unidad_tarifa: UnidadTarifa | None = None,
+    idioma_atencion: Annotated[str | None, Query(pattern=r"^[a-z]{2}$")] = None,
+    accesible: bool | None = None,
+    mascotas: bool | None = None,
+    apto_ninos: bool | None = None,
+    opcion_dietaria: OpcionDietaria | None = None,
+    nivel_fisico: NivelFisico | None = None,
+    acepta_pago_digital: bool | None = None,
+    ofrece_credito: bool | None = None,
 ) -> ResultadoBusquedaRespuesta:
     criterios = CriteriosBusqueda(
         idioma=idioma,
@@ -53,5 +65,15 @@ async def buscar_servicios(
         cerca_de=coordenada_opcional(lat, lon),
         radio_m=radio_m,
         orden=orden,
+        tipos=tipos(tipo),
+        unidad_tarifa=unidad_tarifa,
+        idioma_atencion=idioma_atencion,
+        accesible=accesible,
+        mascotas=mascotas,
+        apto_ninos=apto_ninos,
+        opcion_dietaria=opcion_dietaria,
+        nivel_fisico=nivel_fisico,
+        acepta_pago_digital=acepta_pago_digital,
+        ofrece_credito=ofrece_credito,
     )
     return ResultadoBusquedaRespuesta.desde(await buscar.execute(criterios), idioma)

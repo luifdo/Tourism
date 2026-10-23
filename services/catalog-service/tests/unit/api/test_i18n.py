@@ -11,6 +11,7 @@ from app.api.i18n.mensajes_error import MENSAJES, VALIDACION, mensaje_error
 from app.application import errores
 from app.domain import errors
 from app.domain.errors import DatoInvalido, ErrorDominio, VersionDistinta, ZonaEnUso
+from app.domain.value_objects.atributos import valores
 from app.domain.value_objects.catalogos import Categoria, NivelAlerta, UnidadTarifa
 from app.domain.value_objects.idioma import Idioma
 from app.domain.value_objects.saturacion import NivelSaturacion
@@ -51,7 +52,24 @@ def test_todos_los_textos_estan_en_ambos_idiomas(catalogo: dict) -> None:
 
 
 @pytest.mark.parametrize(
-    "enum", [Categoria, NivelAlerta, NivelSaturacion, TipoServicio, UnidadTarifa]
+    "enum",
+    [
+        Categoria,
+        NivelAlerta,
+        NivelSaturacion,
+        TipoServicio,
+        UnidadTarifa,
+        valores.NivelFisico,
+        valores.TipoHabitacion,
+        valores.Amenidad,
+        valores.TipoCocina,
+        valores.OpcionDietaria,
+        valores.TipoVisitante,
+        valores.ServicioEnSitio,
+        valores.SenalInternet,
+        valores.MedioPago,
+        valores.RecomendacionDinero,
+    ],
 )
 def test_cada_valor_fijo_tiene_etiqueta_en_ambos_idiomas(enum: type) -> None:
     for valor in enum:

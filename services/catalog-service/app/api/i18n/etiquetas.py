@@ -6,6 +6,17 @@ la PWA, el chatbot y cualquier otro cliente muestren el mismo texto.
 
 from enum import StrEnum
 
+from app.domain.value_objects.atributos.valores import (
+    Amenidad,
+    MedioPago,
+    OpcionDietaria,
+    RecomendacionDinero,
+    SenalInternet,
+    ServicioEnSitio,
+    TipoCocina,
+    TipoHabitacion,
+    TipoVisitante,
+)
 from app.domain.value_objects.catalogos import Categoria, NivelAlerta, UnidadTarifa
 from app.domain.value_objects.idioma import Idioma
 from app.domain.value_objects.saturacion import NivelSaturacion
@@ -56,6 +67,54 @@ ETIQUETAS: dict[StrEnum, dict[Idioma, str]] = {
     NivelSaturacion.BAJO: {Idioma.ES: "Bajo", Idioma.EN: "Low"},
     NivelSaturacion.MEDIO: {Idioma.ES: "Medio", Idioma.EN: "Medium"},
     NivelSaturacion.ALTO: {Idioma.ES: "Alto", Idioma.EN: "High"},
+    # Valores de los atributos. Un mismo código en dos enumeraciones (BAJO en NivelFisico y
+    # NivelSaturacion, EFECTIVO, VEGETARIANA, PARQUEADERO) es la misma clave y la misma etiqueta.
+    TipoHabitacion.PRIVADA: {_ES: "Privada", _EN: "Private room"},
+    TipoHabitacion.COMPARTIDA: {_ES: "Compartida", _EN: "Shared room"},
+    TipoHabitacion.DORMITORIO: {_ES: "Dormitorio", _EN: "Dorm"},
+    TipoHabitacion.SUITE: {_ES: "Suite", _EN: "Suite"},
+    TipoHabitacion.CABANA: {_ES: "Cabaña", _EN: "Cabin"},
+    TipoHabitacion.CARPA: {_ES: "Carpa", _EN: "Tent"},
+    Amenidad.WIFI: {_ES: "Wifi", _EN: "Wi-Fi"},
+    Amenidad.AIRE_ACONDICIONADO: {_ES: "Aire acondicionado", _EN: "Air conditioning"},
+    Amenidad.VENTILADOR: {_ES: "Ventilador", _EN: "Fan"},
+    Amenidad.AGUA_CALIENTE: {_ES: "Agua caliente", _EN: "Hot water"},
+    Amenidad.PISCINA: {_ES: "Piscina", _EN: "Pool"},
+    Amenidad.PARQUEADERO: {_ES: "Parqueadero", _EN: "Parking"},
+    Amenidad.COCINA_COMPARTIDA: {_ES: "Cocina compartida", _EN: "Shared kitchen"},
+    Amenidad.LAVANDERIA: {_ES: "Lavandería", _EN: "Laundry"},
+    TipoCocina.CARIBENA: {_ES: "Caribeña", _EN: "Caribbean"},
+    TipoCocina.DE_MAR: {_ES: "De mar", _EN: "Seafood"},
+    TipoCocina.COLOMBIANA: {_ES: "Colombiana", _EN: "Colombian"},
+    TipoCocina.INTERNACIONAL: {_ES: "Internacional", _EN: "International"},
+    TipoCocina.VEGETARIANA: {_ES: "Vegetariana", _EN: "Vegetarian"},
+    TipoCocina.CAFE_Y_POSTRES: {_ES: "Café y postres", _EN: "Coffee and desserts"},
+    TipoCocina.COMIDA_RAPIDA: {_ES: "Comida rápida", _EN: "Fast food"},
+    OpcionDietaria.VEGANA: {_ES: "Vegana", _EN: "Vegan"},
+    OpcionDietaria.SIN_GLUTEN: {_ES: "Sin gluten", _EN: "Gluten-free"},
+    OpcionDietaria.SIN_LACTOSA: {_ES: "Sin lactosa", _EN: "Lactose-free"},
+    TipoVisitante.GENERAL: {_ES: "General", _EN: "General"},
+    TipoVisitante.NACIONAL: {_ES: "Nacional", _EN: "Colombian resident"},
+    TipoVisitante.EXTRANJERO: {_ES: "Extranjero", _EN: "Foreign visitor"},
+    TipoVisitante.NINO: {_ES: "Niño", _EN: "Child"},
+    TipoVisitante.ESTUDIANTE: {_ES: "Estudiante", _EN: "Student"},
+    TipoVisitante.ADULTO_MAYOR: {_ES: "Adulto mayor", _EN: "Senior"},
+    ServicioEnSitio.BANOS: {_ES: "Baños", _EN: "Restrooms"},
+    ServicioEnSitio.DUCHAS: {_ES: "Duchas", _EN: "Showers"},
+    ServicioEnSitio.SALVAVIDAS: {_ES: "Salvavidas", _EN: "Lifeguards"},
+    ServicioEnSitio.COMIDA: {_ES: "Venta de comida", _EN: "Food for sale"},
+    ServicioEnSitio.CASILLEROS: {_ES: "Casilleros", _EN: "Lockers"},
+    SenalInternet.CON_SENAL: {_ES: "Con señal", _EN: "Signal available"},
+    SenalInternet.INTERMITENTE: {_ES: "Señal intermitente", _EN: "Unreliable signal"},
+    SenalInternet.SIN_SENAL: {_ES: "Sin señal", _EN: "No signal"},
+    MedioPago.EFECTIVO: {_ES: "Efectivo", _EN: "Cash"},
+    MedioPago.TARJETA: {_ES: "Tarjeta", _EN: "Card"},
+    MedioPago.TRANSFERENCIA: {
+        _ES: "Transferencia (Nequi, Daviplata, Bre-B)",
+        _EN: "Bank transfer (Nequi, Daviplata, Bre-B)",
+    },
+    RecomendacionDinero.DIGITAL: {_ES: "Digital", _EN: "Digital"},
+    RecomendacionDinero.CUALQUIERA: {_ES: "Cualquiera", _EN: "Either"},
 }
 
 
