@@ -250,49 +250,16 @@ paths:
           in: query
           description: Radio en metros alrededor de (`lat`, `lon`).
           schema: { type: integer, minimum: 100, maximum: 50000, default: 5000 }
-        - name: tipo
-          in: query
-          description: Uno o varios tipos de servicio.
-          style: form
-          explode: false
-          schema:
-            type: array
-            items: { $ref: '#/components/schemas/TipoServicio' }
-        - name: unidad_tarifa
-          in: query
-          schema: { $ref: '#/components/schemas/UnidadTarifa' }
-        - name: idioma_atencion
-          in: query
-          description: Idioma en que se atiende (ISO 639-1), sobre `atributos.comunes.idiomas_atencion`.
-          schema: { type: string, pattern: '^[a-z]{2}$', examples: [en] }
-        - name: accesible
-          in: query
-          description: 'Sobre `atributos.comunes.accesible`. Filtra por lo informado: `false` trae los que dijeron que no, no los que no lo informaron (igual en los demás sí/no).'
-          schema: { type: boolean }
-        - name: mascotas
-          in: query
-          description: Sobre `atributos.comunes.mascotas`.
-          schema: { type: boolean }
-        - name: apto_ninos
-          in: query
-          description: Sobre `atributos.comunes.apto_ninos`.
-          schema: { type: boolean }
-        - name: opcion_dietaria
-          in: query
-          description: Sobre `atributos.gastronomia.opciones_dietarias`.
-          schema: { type: string, enum: [VEGETARIANA, VEGANA, SIN_GLUTEN, SIN_LACTOSA] }
-        - name: nivel_fisico
-          in: query
-          description: Sobre `atributos.experiencia.nivel_fisico`.
-          schema: { type: string, enum: [BAJO, MEDIO, ALTO] }
-        - name: acepta_pago_digital
-          in: query
-          description: Acepta tarjeta o transferencia en el lugar (`atributos.pagos.medios_pago`).
-          schema: { type: boolean }
-        - name: ofrece_credito
-          in: query
-          description: El prestador ofrece crédito (`atributos.pagos.credito.ofrece`).
-          schema: { type: boolean }
+        - $ref: '#/components/parameters/FiltroTipo'
+        - $ref: '#/components/parameters/FiltroUnidadTarifa'
+        - $ref: '#/components/parameters/FiltroIdiomaAtencion'
+        - $ref: '#/components/parameters/FiltroAccesible'
+        - $ref: '#/components/parameters/FiltroMascotas'
+        - $ref: '#/components/parameters/FiltroAptoNinos'
+        - $ref: '#/components/parameters/FiltroOpcionDietaria'
+        - $ref: '#/components/parameters/FiltroNivelFisico'
+        - $ref: '#/components/parameters/FiltroAceptaPagoDigital'
+        - $ref: '#/components/parameters/FiltroOfreceCredito'
         - name: fecha
           in: query
           description: Filtra por disponibilidad en booking para esa fecha.
@@ -519,6 +486,8 @@ paths:
       tags: [Mapa]
       summary: Servicios en la vista del mapa (UC16)
       description: |
+        Admite los mismos filtros de tipo y atributos que `/buscar`, para que la lista y el
+        mapa de la PWA muestren lo mismo.
         Ruta pública. Devuelve solo lo que cae en `bbox`. Con zoom menor que 13 el servidor
         agrupa los puntos cercanos en celdas de unos 64 px y cada grupo trae su conteo; un
         grupo de un solo servicio llega como `tipo=servicio`. Al agrupar, la vista se amplía
@@ -540,6 +509,16 @@ paths:
             type: array
             items: { $ref: '#/components/schemas/Categoria' }
         - $ref: '#/components/parameters/ZonaQuery'
+        - $ref: '#/components/parameters/FiltroTipo'
+        - $ref: '#/components/parameters/FiltroUnidadTarifa'
+        - $ref: '#/components/parameters/FiltroIdiomaAtencion'
+        - $ref: '#/components/parameters/FiltroAccesible'
+        - $ref: '#/components/parameters/FiltroMascotas'
+        - $ref: '#/components/parameters/FiltroAptoNinos'
+        - $ref: '#/components/parameters/FiltroOpcionDietaria'
+        - $ref: '#/components/parameters/FiltroNivelFisico'
+        - $ref: '#/components/parameters/FiltroAceptaPagoDigital'
+        - $ref: '#/components/parameters/FiltroOfreceCredito'
       responses:
         '200':
           description: FeatureCollection de puntos.
@@ -981,6 +960,60 @@ components:
       schema: { type: string, enum: [es, en] }
 
   parameters:
+    FiltroTipo:
+      name: tipo
+      in: query
+      description: Uno o varios tipos de servicio.
+      style: form
+      explode: false
+      schema:
+        type: array
+        items: { $ref: '#/components/schemas/TipoServicio' }
+    FiltroUnidadTarifa:
+      name: unidad_tarifa
+      in: query
+      schema: { $ref: '#/components/schemas/UnidadTarifa' }
+    FiltroIdiomaAtencion:
+      name: idioma_atencion
+      in: query
+      description: Idioma en que se atiende (ISO 639-1), sobre `atributos.comunes.idiomas_atencion`.
+      schema: { type: string, pattern: '^[a-z]{2}$', examples: [en] }
+    FiltroAccesible:
+      name: accesible
+      in: query
+      description: 'Sobre `atributos.comunes.accesible`. Filtra por lo informado: `false` trae los que dijeron que no, no los que no lo informaron (igual en los demás sí/no).'
+      schema: { type: boolean }
+    FiltroMascotas:
+      name: mascotas
+      in: query
+      description: Sobre `atributos.comunes.mascotas`.
+      schema: { type: boolean }
+    FiltroAptoNinos:
+      name: apto_ninos
+      in: query
+      description: Sobre `atributos.comunes.apto_ninos`.
+      schema: { type: boolean }
+    FiltroOpcionDietaria:
+      name: opcion_dietaria
+      in: query
+      description: Sobre `atributos.gastronomia.opciones_dietarias`.
+      schema: { type: string, enum: [VEGETARIANA, VEGANA, SIN_GLUTEN, SIN_LACTOSA] }
+    FiltroNivelFisico:
+      name: nivel_fisico
+      in: query
+      description: Sobre `atributos.experiencia.nivel_fisico`.
+      schema: { type: string, enum: [BAJO, MEDIO, ALTO] }
+    FiltroAceptaPagoDigital:
+      name: acepta_pago_digital
+      in: query
+      description: Acepta tarjeta o transferencia en el lugar (`atributos.pagos.medios_pago`).
+      schema: { type: boolean }
+    FiltroOfreceCredito:
+      name: ofrece_credito
+      in: query
+      description: El prestador ofrece crédito (`atributos.pagos.credito.ofrece`).
+      schema: { type: boolean }
+
     AcceptLanguage:
       name: Accept-Language
       in: header

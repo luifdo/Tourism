@@ -8,6 +8,9 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.dto.criterios_busqueda import CriteriosBusqueda
+from app.application.dto.criterios_mapa_servicios import CriteriosMapaServicios
+from app.application.dto.escala_mapa import EscalaMapa
+from app.application.dto.filtros_servicio import FiltrosServicio
 from app.domain.entities.atractivo_servicio import AtractivoServicio, DatosServicio
 from app.domain.entities.prestador_perfil import PrestadorPerfil
 from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
@@ -28,11 +31,12 @@ from app.domain.value_objects.atributos.valores import (
     TipoHabitacion,
 )
 from app.domain.value_objects.catalogos import UnidadTarifa
-from app.domain.value_objects.geo import Coordenada
+from app.domain.value_objects.geo import Bbox, Coordenada
 from app.domain.value_objects.idioma import Idioma
 from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
 from app.domain.value_objects.tipo_servicio import TipoServicio
+from app.infrastructure.persistence.consultas.sql_consulta_mapa import SqlConsultaMapa
 from app.infrastructure.persistence.consultas.sql_consulta_servicios import SqlConsultaServicios
 from app.infrastructure.persistence.unidad_de_trabajo import SqlUnidadDeTrabajo
 
@@ -128,7 +132,7 @@ async def servicios(sesiones: Sesiones) -> dict[str, AtractivoServicio]:
 
 async def nombres(sesiones: Sesiones, **filtros: object) -> set[str]:
     pagina = await SqlConsultaServicios(sesiones).buscar(
-        CriteriosBusqueda(idioma=Idioma.ES, **filtros)  # type: ignore[arg-type]
+        CriteriosBusqueda(idioma=Idioma.ES, filtros=FiltrosServicio(**filtros))  # type: ignore[arg-type]
     )
     return {s.nombre.es for s in pagina.items}
 
@@ -164,7 +168,11 @@ async def test_resumen_y_ficha_traen_tipo_unidad_y_atributos(
 ) -> None:
     consulta = SqlConsultaServicios(sesiones)
     [hostal] = (
-        await consulta.buscar(CriteriosBusqueda(idioma=Idioma.ES, tipos=(TipoServicio.HOSTAL,)))
+        await consulta.buscar(
+            CriteriosBusqueda(
+                idioma=Idioma.ES, filtros=FiltrosServicio(tipos=(TipoServicio.HOSTAL,))
+            )
+        )
     ).items
     assert (hostal.tipo, hostal.unidad_tarifa) == (TipoServicio.HOSTAL, UnidadTarifa.POR_NOCHE)
 
@@ -173,3 +181,25 @@ async def test_resumen_y_ficha_traen_tipo_unidad_y_atributos(
     assert detalle is not None
     assert detalle.atributos == caminata.datos.atributos
     assert detalle.atributos.pagos == PAGOS_SIN_SENAL
+
+
+# Vista alrededor de Minca: zoom 15 trae los servicios uno a uno; zoom 10 los agrupa.
+VISTA_MINCA = Bbox(min_lon=-74.13, min_lat=11.13, max_lon=-74.10, max_lat=11.16)
+
+
+@pytest.mark.parametrize("zoom", [15, 10], ids=["individuales", "agrupados"])
+async def test_el_mapa_usa_los_mismos_filtros(
+    sesiones: Sesiones, servicios: dict[str, AtractivoServicio], zoom: int
+) -> None:
+    consulta = SqlConsultaMapa(sesiones)
+
+    async def contar(filtros: FiltrosServicio) -> int:
+        mapa = await consulta.servicios(
+            CriteriosMapaServicios(vista=VISTA_MINCA, escala=EscalaMapa(zoom), filtros=filtros)
+        )
+        return len(mapa.servicios) + sum(g.conteo for g in mapa.grupos)
+
+    assert await contar(FiltrosServicio()) == 3
+    assert await contar(FiltrosServicio(ofrece_credito=True)) == 1
+    assert await contar(FiltrosServicio(tipos=(TipoServicio.RESTAURANTE,), accesible=True)) == 1
+    assert await contar(FiltrosServicio(mascotas=True, nivel_fisico=NivelFisico.ALTO)) == 0

@@ -1,7 +1,13 @@
 """Conversión de parámetros de consulta compartida por los routers de lectura."""
 
+from typing import Annotated
+
+from fastapi import Query
+
+from app.application.dto.filtros_servicio import FiltrosServicio
 from app.domain.errors import DatoInvalido
-from app.domain.value_objects.catalogos import Categoria
+from app.domain.value_objects.atributos.valores import NivelFisico, OpcionDietaria
+from app.domain.value_objects.catalogos import Categoria, UnidadTarifa
 from app.domain.value_objects.geo import Bbox, Coordenada
 from app.domain.value_objects.tipo_servicio import TipoServicio
 
@@ -50,3 +56,30 @@ def tipos(valor: str | None) -> tuple[TipoServicio, ...]:
         return tuple(TipoServicio(t.strip().upper()) for t in valor.split(",") if t.strip())
     except ValueError as exc:
         raise DatoInvalido(campo="tipo", regla="formato") from exc
+
+
+def filtros_servicio(
+    tipo: Annotated[str | None, Query(description="Uno o varios, separados por comas")] = None,
+    unidad_tarifa: UnidadTarifa | None = None,
+    idioma_atencion: Annotated[str | None, Query(pattern=r"^[a-z]{2}$")] = None,
+    accesible: bool | None = None,
+    mascotas: bool | None = None,
+    apto_ninos: bool | None = None,
+    opcion_dietaria: OpcionDietaria | None = None,
+    nivel_fisico: NivelFisico | None = None,
+    acepta_pago_digital: bool | None = None,
+    ofrece_credito: bool | None = None,
+) -> FiltrosServicio:
+    """Parámetros de tipo y atributos que comparten `/buscar` y `/mapa/servicios`."""
+    return FiltrosServicio(
+        tipos=tipos(tipo),
+        unidad_tarifa=unidad_tarifa,
+        idioma_atencion=idioma_atencion,
+        accesible=accesible,
+        mascotas=mascotas,
+        apto_ninos=apto_ninos,
+        opcion_dietaria=opcion_dietaria,
+        nivel_fisico=nivel_fisico,
+        acepta_pago_digital=acepta_pago_digital,
+        ofrece_credito=ofrece_credito,
+    )

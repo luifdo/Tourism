@@ -29,6 +29,7 @@ from app.application.dto.zona_en_mapa import ZonaEnMapa
 from app.domain.value_objects.catalogos import Categoria
 from app.domain.value_objects.geo import Bbox, Coordenada
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.infrastructure.persistence.consultas.condiciones_filtros import agregar_filtros
 from app.infrastructure.persistence.consultas.sql_consulta_alertas import (
     ORDEN_POR_NIVEL,
     alerta_desde_fila,
@@ -113,6 +114,7 @@ class SqlConsultaMapa:
         if criterios.categorias:
             condiciones.append("s.categoria = ANY(:categorias)")
             parametros["categorias"] = [c.value for c in criterios.categorias]
+        agregar_filtros(criterios.filtros, condiciones, parametros)
         if criterios.zona:
             union_zona = "JOIN zona z ON z.id = s.zona_id AND z.activa AND z.codigo = :zona"
             parametros["zona"] = criterios.zona

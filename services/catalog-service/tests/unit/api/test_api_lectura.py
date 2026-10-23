@@ -244,10 +244,11 @@ class TestParametros:
         assert r.status_code == 200
         c = consultas.criterios
         assert c is not None
-        assert c.tipos == (TipoServicio.HOSTAL, TipoServicio.HOTEL)
-        assert c.unidad_tarifa is UnidadTarifa.POR_NOCHE
-        assert c.opcion_dietaria is OpcionDietaria.VEGANA
-        assert c.filtro_atributos() == {
+        f = c.filtros
+        assert f.tipos == (TipoServicio.HOSTAL, TipoServicio.HOTEL)
+        assert f.unidad_tarifa is UnidadTarifa.POR_NOCHE
+        assert f.opcion_dietaria is OpcionDietaria.VEGANA
+        assert f.filtro_atributos() == {
             "comunes": {"accesible": True, "mascotas": False, "idiomas_atencion": ["en"]},
             "gastronomia": {"opciones_dietarias": ["VEGANA"]},
             "experiencia": {"nivel_fisico": "BAJO"},

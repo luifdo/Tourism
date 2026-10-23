@@ -4,6 +4,7 @@ from uuid import UUID
 from valkey.exceptions import ConnectionError as ValkeyConnectionError
 
 from app.application.dto.criterios_busqueda import CriteriosBusqueda
+from app.application.dto.filtros_servicio import FiltrosServicio
 from app.application.dto.pagina_servicios import PaginaServicios
 from app.application.dto.servicio_detalle import ServicioDetalle
 from app.domain.value_objects.idioma import Idioma
@@ -98,7 +99,9 @@ async def test_filtros_de_atributos_son_otra_clave() -> None:
     origen = OrigenContador()
     cache = ConsultaServiciosEnCache(origen, ValkeyEnMemoria())  # type: ignore[arg-type]
     await cache.buscar(ES)
-    await cache.buscar(CriteriosBusqueda(idioma=Idioma.ES, ofrece_credito=True))
+    await cache.buscar(
+        CriteriosBusqueda(idioma=Idioma.ES, filtros=FiltrosServicio(ofrece_credito=True))
+    )
     assert origen.llamadas == 2
 
 

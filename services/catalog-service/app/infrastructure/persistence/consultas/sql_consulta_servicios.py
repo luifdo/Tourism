@@ -3,13 +3,11 @@
 * Distancia con `geography`: ST_DWithin y ST_Distance trabajan en metros y usan el índice GIST.
 * Texto con la columna `tsvector` del idioma pedido y `websearch_to_tsquery` (admite frases
   entre comillas y `-palabra`), sin tildes.
-* Los filtros de atributos son una sola contención `atributos @> filtro` (índice GIN
-  `jsonb_path_ops` de la migración 0004).
+* Los filtros de tipo y atributos los arma `agregar_filtros`, igual que en el mapa.
 * Las condiciones se agregan solo si el filtro viene: así PostgreSQL elige el mejor índice y
   asyncpg no tiene que adivinar el tipo de parámetros nulos.
 """
 
-import json
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -30,6 +28,7 @@ from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.idioma import Idioma
 from app.domain.value_objects.texto_traducido import TextoTraducido
 from app.domain.value_objects.tipo_servicio import TipoServicio
+from app.infrastructure.persistence.consultas.condiciones_filtros import agregar_filtros
 from app.infrastructure.persistence.consultas.sql_consulta_alertas import SqlConsultaAlertas
 from app.infrastructure.persistence.repositorios.comun import texto_o_none
 
@@ -90,15 +89,7 @@ class SqlConsultaServicios:
         if criterios.categorias:
             condiciones.append("s.categoria = ANY(:categorias)")
             parametros["categorias"] = [c.value for c in criterios.categorias]
-        if criterios.tipos:
-            condiciones.append("s.tipo = ANY(:tipos)")
-            parametros["tipos"] = [t.value for t in criterios.tipos]
-        if criterios.unidad_tarifa:
-            condiciones.append("s.unidad_tarifa = :unidad_tarifa")
-            parametros["unidad_tarifa"] = criterios.unidad_tarifa.value
-        if (filtro := criterios.filtro_atributos()) is not None:
-            condiciones.append("s.atributos @> CAST(:atributos AS jsonb)")
-            parametros["atributos"] = json.dumps(filtro)
+        agregar_filtros(criterios.filtros, condiciones, parametros)
         if criterios.zona:
             condiciones.append("z.codigo = :zona")
             parametros["zona"] = criterios.zona

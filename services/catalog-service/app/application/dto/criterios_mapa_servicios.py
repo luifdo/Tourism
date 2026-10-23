@@ -2,6 +2,7 @@ import math
 from dataclasses import dataclass, field
 
 from app.application.dto.escala_mapa import EscalaMapa
+from app.application.dto.filtros_servicio import FiltrosServicio
 from app.domain.value_objects.catalogos import Categoria
 from app.domain.value_objects.geo import Bbox
 
@@ -38,6 +39,7 @@ class CriteriosMapaServicios:
     escala: EscalaMapa
     categorias: tuple[Categoria, ...] = field(default_factory=tuple)
     zona: str | None = None
+    filtros: FiltrosServicio = field(default_factory=FiltrosServicio)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "categorias", tuple(sorted(set(self.categorias))))

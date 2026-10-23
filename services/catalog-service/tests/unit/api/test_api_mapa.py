@@ -121,12 +121,25 @@ class TestServicios:
     def test_filtros_llegan_validados(self, cliente: TestClient, mapa: MapaFalso) -> None:
         cliente.get(
             "/api/catalog/mapa/servicios",
-            params={"bbox": BBOX, "zoom": 15, "categoria": "playa,cultura", "zona": "taganga"},
+            params={
+                "bbox": BBOX,
+                "zoom": 15,
+                "categoria": "playa,cultura",
+                "zona": "taganga",
+                "tipo": "ACCESO_PLAYA",
+                "mascotas": "true",
+                "acepta_pago_digital": "false",
+            },
         )
         c = mapa.criterios
         assert c is not None
         assert c.vista == Bbox(-74.25, 11.10, -74.05, 11.35) and c.escala == EscalaMapa(15)
         assert (c.categorias, c.zona) == ((Categoria.CULTURA, Categoria.PLAYA), "taganga")
+        assert c.filtros.filtro_atributos() == {
+            "comunes": {"mascotas": True},
+            "pagos": {"acepta_pago_digital": False},
+        }
+        assert [t.value for t in c.filtros.tipos] == ["ACCESO_PLAYA"]
 
 
 class TestZonasYAlertas:
