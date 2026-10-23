@@ -88,7 +88,7 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | Ruta | Caso de uso | Notas |
 |---|---|---|
 | `GET /api/catalog/servicios` | UC7 | Pública, paginada |
-| `GET /api/catalog/servicios/{id}` | UC9 | Pública; incluye alertas vigentes del servicio y de su zona, `atributos` en el idioma pedido con sus `etiquetas` y `aviso_pagos` |
+| `GET /api/catalog/servicios/{id}` | UC9 | Pública; incluye alertas vigentes del servicio y de su zona, `atributos` en el idioma pedido con sus `etiquetas`, `aviso_pagos` y `regla_base_cancelacion` (la regla que aplica booking, junto a la política informativa del prestador; texto en `app/api/i18n/textos_plataforma.py`) |
 | `GET /api/catalog/buscar` | UC8 | Pública; texto, categorías, tipos, zona, precio y su unidad, cercanía en metros y filtros de atributos (ver abajo); caché de 300 s en Valkey |
 | `GET /api/catalog/zonas` | Filtros | Pública |
 | `GET /api/catalog/alertas` | UC26 | Pública; vigentes, de mayor a menor nivel |

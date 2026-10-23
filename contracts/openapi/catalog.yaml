@@ -1270,7 +1270,7 @@ components:
       allOf:
         - $ref: '#/components/schemas/ServicioResumen'
         - type: object
-          required: [descripcion, capacidad_aforo_diario, prestador, alertas, atributos, etiquetas]
+          required: [descripcion, capacidad_aforo_diario, prestador, regla_base_cancelacion, alertas, atributos, etiquetas]
           properties:
             descripcion: { type: string }
             capacidad_aforo_diario: { type: integer, minimum: 1 }
@@ -1288,6 +1288,15 @@ components:
                   type: string
                   nullable: true
                   description: Informativa; la regla base de la plataforma la aplica booking-service.
+            regla_base_cancelacion:
+              type: string
+              description: |
+                Regla de cancelación de la plataforma en el idioma pedido, para mostrarla junto a la
+                política del prestador (UC9). La aplica booking-service (Guía Técnica del Módulo de
+                Reservas §4.3); si booking la cambia, se cambia este texto. La política del prestador
+                puede ser más flexible, nunca más estricta.
+              examples:
+                - 'Regla de la plataforma: puedes cancelar una reserva solicitada en cualquier momento y una confirmada hasta las 23:59 del día anterior a la fecha reservada. El prestador puede cancelar una reserva confirmada indicando el motivo. La política del prestador puede ser más flexible, nunca más estricta.'
             alertas:
               type: array
               description: Alertas vigentes del servicio y de su zona.

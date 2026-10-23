@@ -8,6 +8,7 @@ import pytest
 from app.api.errores.manejador_errores import ESTADO_POR_CODIGO
 from app.api.i18n.etiquetas import ETIQUETAS, etiqueta
 from app.api.i18n.mensajes_error import MENSAJES, VALIDACION, mensaje_error
+from app.api.i18n.textos_plataforma import REGLA_BASE_CANCELACION
 from app.application import errores
 from app.domain import errors
 from app.domain.errors import DatoInvalido, ErrorDominio, VersionDistinta, ZonaEnUso
@@ -44,7 +45,11 @@ def test_cada_error_del_dominio_y_la_aplicacion_tiene_mensaje_y_estado() -> None
     assert codigos <= set(ESTADO_POR_CODIGO)
 
 
-@pytest.mark.parametrize("catalogo", [MENSAJES, VALIDACION], ids=["mensajes", "validacion"])
+@pytest.mark.parametrize(
+    "catalogo",
+    [MENSAJES, VALIDACION, {"regla_base_cancelacion": REGLA_BASE_CANCELACION}],
+    ids=["mensajes", "validacion", "textos_plataforma"],
+)
 def test_todos_los_textos_estan_en_ambos_idiomas(catalogo: dict) -> None:
     for clave, textos in catalogo.items():
         assert set(textos) == set(Idioma), clave

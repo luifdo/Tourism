@@ -165,6 +165,7 @@ class TestIdioma:
         cuerpo = r.json()
         assert cuerpo["descripcion"] == "Farm walk"
         assert cuerpo["prestador"]["politica_cancelacion"] == "Free 24 h before"
+        assert cuerpo["regla_base_cancelacion"].startswith("Platform rule: you can cancel")
         alerta = cuerpo["alertas"][0]
         assert (alerta["nivel_etiqueta"], alerta["mensaje"]) == ("Critical", "Sendero cerrado")
 
