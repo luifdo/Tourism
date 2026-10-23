@@ -857,8 +857,10 @@ paths:
       summary: Presión sobre la capacidad de carga (UC24)
       description: |
         Roles `Entidad`, `Admin` y `Turista`. La usa la tool `presion_capacidad_carga` del
-        Módulo 5. Para `Turista` la respuesta trae solo `nivel` (sin personas, capacidad
-        ni índice). Calculado por el CronJob cada 30 minutos.
+        Módulo 5. Para `Turista` la respuesta trae solo `zona`, `fecha`, `nivel` y
+        `nivel_etiqueta` (sin personas, capacidad ni índice). Se calcula al consultar, con
+        caché de 5 minutos: `calculado_en` dice de cuándo es el dato. Las zonas sin
+        servicios no salen. Ordenadas de mayor a menor índice.
 
         Índice = personas en reservas activas (`SOLICITADA` y `CONFIRMADA`) ÷ capacidad de
         carga oficial. Niveles: `BAJO` < 0,60; `MEDIO` de 0,60 a < 0,85; `ALTO` ≥ 0,85
@@ -896,8 +898,13 @@ paths:
         - $ref: '#/components/parameters/AcceptLanguage'
         - name: fecha
           in: query
+          description: Por defecto, hoy.
           schema: { type: string, format: date }
         - $ref: '#/components/parameters/BboxOpcional'
+        - name: zoom
+          in: query
+          description: Simplifica los polígonos a la escala del mapa.
+          schema: { type: integer, minimum: 0, maximum: 19, default: 12 }
       responses:
         '200':
           description: FeatureCollection de zonas con su índice.
@@ -1823,7 +1830,7 @@ components:
 
     CapacidadZona:
       type: object
-      description: Para el rol `Turista` solo se incluyen `zona`, `fecha` y `nivel`.
+      description: Para el rol `Turista` solo se incluyen `zona`, `fecha`, `nivel` y `nivel_etiqueta`.
       required: [zona, fecha, nivel]
       properties:
         zona: { $ref: '#/components/schemas/ZonaResumen' }
@@ -1929,13 +1936,16 @@ components:
               properties:
                 type: object
                 required: [codigo, nombre]
-                description: '`indice` y `nivel` solo en `/analitica/mapa-calor`.'
+                description: '`indice`, `nivel` y `nivel_etiqueta` solo en `/analitica/mapa-calor` (nulos si la zona no tiene servicios).'
                 properties:
                   id: { type: string, format: uuid }
                   codigo: { type: string }
                   nombre: { type: string }
-                  indice: { type: number }
-                  nivel: { $ref: '#/components/schemas/NivelSaturacion' }
+                  indice: { type: number, nullable: true }
+                  nivel:
+                    allOf: [{ $ref: '#/components/schemas/NivelSaturacion' }]
+                    nullable: true
+                  nivel_etiqueta: { type: string, nullable: true }
 
     ColeccionAlertasMapa:
       type: object

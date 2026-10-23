@@ -534,7 +534,8 @@ Al estar unificado en el **Módulo 2 (Catálogo, GIS & Inteligencia de Destino)*
 
 1. **Proyección de demanda:** El consumidor `catalog.demanda` guarda en `reserva_proyeccion` el **estado actual de cada reserva** (servicio, fecha, personas, estado y momento del último evento aplicado) con cada evento `reserva.*`; un evento solo se aplica si ocurrió después del último aplicado. La demanda de un día es la suma de personas de las reservas activas (Solicitada y Confirmada) de esa fecha, con el índice `(fecha_reserva, servicio_id)`. La idempotencia por `event_id` (tabla `evento_procesado`) evita aplicar dos veces el mismo evento. El Módulo 2 nunca consulta `booking_db`.
    *Al programar el Módulo 2 nos dimos cuenta de que era más seguro guardar el estado de cada reserva que llevar contadores en una tabla `demanda_diaria` (sumar al solicitar, restar al cancelar…): con contadores, un evento repetido o que llega desordenado por un reintento suma o resta de más y el número queda mal para siempre; con el estado por reserva, el resultado siempre es correcto.*
-2. **Cálculo de aforos:** Un CronJob cada 30 minutos compara la demanda activa por fecha y zona con `capacidad_aforo_diario` y calcula el índice de saturación.
+2. **Cálculo de aforos:** Al consultar (`/analitica/capacidad`, mapa de calor) se compara la demanda activa por fecha y zona con `capacidad_aforo_diario` y se calcula el índice de saturación, con caché de 5 minutos en Valkey (`calculado_en` indica de cuándo es el dato).
+   *Al programar el Módulo 2 nos dimos cuenta de que era más sencillo y más fresco calcularlo al consultar que con un CronJob cada 30 minutos: la suma por día usa el índice de `reserva_proyeccion`, se consulta poco (la Entidad y el chatbot) y no hace falta una tabla de resultados. Las tareas de mantenimiento del módulo (limpieza del outbox y de la disponibilidad de días pasados) corren en su worker.*
 3. **Mapa de calor:** El backend transforma coordenadas y porcentajes de saturación a **GeoJSON** para su visualización en Leaflet.js por parte de la Entidad de Gestión.
 4. **Alertas:** Cuando la Entidad emite una alerta (UC26), se inserta en `alertas_oficiales`; la PWA la muestra en el mapa y el chatbot la consulta con la herramienta `alertas_oficiales` antes de recomendar una zona.
 
@@ -612,7 +613,7 @@ Las vistas de despliegue por actor (Turista, Prestador, Entidad y Administrador)
 | Namespace | Contenido |
 |---|---|
 | `kube-system` | Traefik (Ingress de k3s), cert-manager para certificados TLS. |
-| `turismo-app` | `frontend`, los 5 microservicios y los CronJobs del Módulo 3 y el Módulo 2. |
+| `turismo-app` | `frontend`, los 5 microservicios, los CronJobs del Módulo 3 y el worker del Módulo 2. |
 | `turismo-datos` | Clúster PostgreSQL (CloudNativePG), Valkey, RabbitMQ y SeaweedFS. |
 | `observabilidad` | Prometheus, Grafana, Loki y Blackbox exporter. |
 

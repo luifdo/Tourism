@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.application.ports.almacen_idempotencia import AlmacenIdempotencia
 from app.application.ports.almacen_imagenes import AlmacenImagenes
 from app.application.ports.consulta_alertas import ConsultaAlertas
+from app.application.ports.consulta_capacidad import ConsultaCapacidad
 from app.application.ports.consulta_mapa import ConsultaMapa
 from app.application.ports.consulta_prestador import ConsultaPrestador
 from app.application.ports.consulta_servicios import ConsultaServicios
@@ -23,6 +24,7 @@ from app.application.use_cases.acceso_prestador import FabricaUnidadDeTrabajo
 from app.application.use_cases.buscar_servicios import BuscarServicios
 from app.application.use_cases.cambiar_estado_servicio import CambiarEstadoServicio
 from app.application.use_cases.check_health import CheckHealth
+from app.application.use_cases.consultar_capacidad import ConsultarCapacidad
 from app.application.use_cases.crear_zona import CrearZona
 from app.application.use_cases.desactivar_zona import DesactivarZona
 from app.application.use_cases.editar_alerta import EditarAlerta
@@ -45,6 +47,7 @@ from app.application.use_cases.registrar_servicio import RegistrarServicio
 from app.application.use_cases.retirar_alerta import RetirarAlerta
 from app.application.use_cases.solicitar_subida_imagen import SolicitarSubidaImagen
 from app.application.use_cases.ver_alertas_en_mapa import VerAlertasEnMapa
+from app.application.use_cases.ver_mapa_calor import VerMapaCalor
 from app.application.use_cases.ver_servicios_en_mapa import VerServiciosEnMapa
 from app.application.use_cases.ver_zonas_en_mapa import VerZonasEnMapa
 from app.config import Settings, get_settings
@@ -252,3 +255,20 @@ def get_listar_alertas_entidad(
     consulta: Annotated[ConsultaAlertas, Depends(get_consulta_alertas)], reloj: RelojDep
 ) -> ListarAlertasEntidad:
     return ListarAlertasEntidad(consulta, reloj)
+
+
+def get_consulta_capacidad(request: Request) -> ConsultaCapacidad:
+    return request.app.state.consulta_capacidad
+
+
+def get_consultar_capacidad(
+    consulta: Annotated[ConsultaCapacidad, Depends(get_consulta_capacidad)], reloj: RelojDep
+) -> ConsultarCapacidad:
+    return ConsultarCapacidad(consulta, reloj)
+
+
+def get_ver_mapa_calor(
+    mapa: Annotated[ConsultaMapa, Depends(get_consulta_mapa)],
+    capacidad: Annotated[ConsultarCapacidad, Depends(get_consultar_capacidad)],
+) -> VerMapaCalor:
+    return VerMapaCalor(mapa, capacidad)

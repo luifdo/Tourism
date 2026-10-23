@@ -97,6 +97,8 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | `POST /api/catalog/alertas` | UC26 | Entidad o Admin; sobre un servicio **o** una zona (activos, si no 404); expiración futura y como máximo a 365 días, con zona horaria; audita `ALERTA_PUBLICADA` |
 | `PUT /api/catalog/alertas/{id}` | UC26 | Entidad o Admin; cambia nivel, mensaje o vigencia (el destino no); `If-Match`; una retirada no se edita (`ALERTA_RETIRADA` 409); audita `ALERTA_EDITADA` |
 | `POST /api/catalog/alertas/{id}/desactivar` | UC26 | Entidad o Admin; la retira (no se borra); repetir no cambia nada ni se audita; audita `ALERTA_RETIRADA` |
+| `GET /api/catalog/analitica/capacidad` | UC24 | Entidad, Admin y Turista (este solo ve zona, fecha y nivel); índice por zona de un día (hoy por defecto), servicios con bandera ≥ 0,85, ordenado de mayor a menor; se calcula al consultar con caché de 5 min (`calculado_en`) |
+| `GET /api/catalog/analitica/mapa-calor` | RF-07 | Entidad y Admin; polígonos de las zonas con su índice y nivel (GeoJSON) |
 | `GET /api/catalog/entidad/alertas` | UC26 | Entidad o Admin; panel con todas las alertas o las de un `estado` (`VIGENTE`, `VENCIDA`, `RETIRADA`), recientes primero, con mensaje en ambos idiomas y versión |
 | `GET /api/catalog/mapa/servicios` | UC16 | Pública; GeoJSON recortado a `bbox`; mismos filtros de tipo y atributos que `/buscar`; con zoom < 13 agrupa en el servidor (caché de 300 s) |
 | `GET /api/catalog/mapa/zonas` | UC16 | Pública; polígonos simplificados según el zoom |
@@ -172,7 +174,7 @@ Textos en `{"es", "en"}`, horas `"HH:MM"` e idiomas en ISO 639-1.
 
 La API no publica en RabbitMQ: guarda cada evento en la tabla `outbox` en la misma transacción que el cambio, y un **worker** aparte lo publica (ADR-008, actualizado en este módulo).
 
-* **Worker:** misma imagen, otro comando (`python -m app.worker`) y otro Deployment. Así la publicación y los consumidores no compiten con las peticiones de los turistas, y los reinicios o el escalado de la API no los interrumpen. Expone sus métricas en `WORKER_METRICS_PORT` (9102). Si RabbitMQ no está al arrancar, reintenta la conexión con espera creciente.
+* **Worker:** misma imagen, otro comando (`python -m app.worker`) y otro Deployment. También corre el mantenimiento diario (borrar la disponibilidad de días pasados; las reservas no se borran, son la analítica). Así la publicación y los consumidores no compiten con las peticiones de los turistas, y los reinicios o el escalado de la API no los interrumpen. Expone sus métricas en `WORKER_METRICS_PORT` (9102). Si RabbitMQ no está al arrancar, reintenta la conexión con espera creciente.
 * **Topología** (declarada al conectar; declararla otra vez no cambia nada): exchange `turismo.eventos` (*topic*, clave = `event_type`), exchange `turismo.dlx` y cola `turismo.dead-letter`. Las colas de los consumidores las declaran ellos.
 * **Relay:** cada segundo toma hasta 100 eventos pendientes en orden de creación con `FOR UPDATE SKIP LOCKED` (dos workers nunca toman el mismo), los publica persistentes con *publisher confirms* (`message_id` = `event_id`, `type`, `correlation_id`) y solo entonces marca `publicado_en`. Si RabbitMQ falla, el evento queda pendiente y la espera se duplica hasta 30 s; nada se descarta. Una vez al día borra los publicados con más de 7 días.
 * **Entrega "al menos una vez":** si el worker cae entre la confirmación y la marca, el evento sale otra vez; los consumidores descartan duplicados por `event_id` (tabla `evento_procesado`).

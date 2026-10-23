@@ -3,7 +3,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.disponibilidad_dia import DisponibilidadDia
@@ -46,3 +46,8 @@ class SqlDisponibilidadRepository:
             },
             salvo_si_es_mas_nueva="version",
         )
+
+    async def borrar_anteriores(self, fecha: date) -> int:
+        m = DisponibilidadProyeccionModelo
+        resultado = await self._session.execute(delete(m).where(m.fecha < fecha))
+        return resultado.rowcount or 0

@@ -11,6 +11,7 @@ from app.api.middleware.correlacion_middleware import CorrelacionMiddleware
 from app.api.routers import (
     alertas,
     alertas_entidad,
+    analitica,
     busqueda,
     geocodificacion,
     health,
@@ -25,6 +26,7 @@ from app.api.routers import (
 from app.application.use_cases.registrar_acceso_denegado import RegistrarAccesoDenegado
 from app.config import Settings, get_settings
 from app.infrastructure.cache.cache_versionada import CacheVersionada
+from app.infrastructure.cache.consulta_capacidad_en_cache import ConsultaCapacidadEnCache
 from app.infrastructure.cache.consulta_mapa_en_cache import ConsultaMapaEnCache
 from app.infrastructure.cache.consulta_servicios_en_cache import ConsultaServiciosEnCache
 from app.infrastructure.cache.geocodificador_en_cache import GeocodificadorEnCache
@@ -33,6 +35,7 @@ from app.infrastructure.clients.limitador_por_segundo import LimitadorPorSegundo
 from app.infrastructure.clients.nominatim_geocodificador import NominatimGeocodificador
 from app.infrastructure.observabilidad.configurar_logs import configurar_logs
 from app.infrastructure.persistence.consultas.sql_consulta_alertas import SqlConsultaAlertas
+from app.infrastructure.persistence.consultas.sql_consulta_capacidad import SqlConsultaCapacidad
 from app.infrastructure.persistence.consultas.sql_consulta_mapa import SqlConsultaMapa
 from app.infrastructure.persistence.consultas.sql_consulta_prestador import SqlConsultaPrestador
 from app.infrastructure.persistence.consultas.sql_consulta_servicios import SqlConsultaServicios
@@ -72,6 +75,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.consulta_alertas = SqlConsultaAlertas(sesiones)
         app.state.consulta_mapa = ConsultaMapaEnCache(SqlConsultaMapa(sesiones), valkey)
         app.state.consulta_prestador = SqlConsultaPrestador(sesiones)
+        app.state.consulta_capacidad = ConsultaCapacidadEnCache(
+            SqlConsultaCapacidad(sesiones, reloj), valkey
+        )
         app.state.unidad_de_trabajo = lambda: SqlUnidadDeTrabajo(sesiones)
         app.state.auditor_accesos = RegistrarAccesoDenegado(app.state.unidad_de_trabajo, reloj)
         app.state.invalidador_cache = CacheVersionada(valkey)
@@ -110,6 +116,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         alertas,
         alertas_entidad,
         mapa,
+        analitica,
         servicios_prestador,
         perfil_prestador,
         imagenes,

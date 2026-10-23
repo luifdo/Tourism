@@ -9,6 +9,7 @@ turistas, y los reinicios o el escalado de la API no los interrumpen.
 * Consumidor `catalog.demanda` (`reserva.*` → proyección de reservas).
 * Consumidor `catalog.calificaciones` (`resena.publicada`, `resena.ocultada` → promedio).
 * Consumidor `catalog.disponibilidad` (`disponibilidad.actualizada` → cupos por día).
+* Limpieza diaria de la disponibilidad de días pasados.
 
 Expone sus métricas en `WORKER_METRICS_PORT` (/metrics), que también sirve de sonda de vida.
 """
@@ -31,6 +32,7 @@ from app.application.use_cases.aplicar_prestador_aprobado import AplicarPrestado
 from app.application.use_cases.aplicar_prestador_suspendido import (
     AplicarPrestadorSuspendido,
 )
+from app.application.use_cases.limpiar_disponibilidad_pasada import LimpiarDisponibilidadPasada
 from app.application.use_cases.publicar_eventos_pendientes import PublicarEventosPendientes
 from app.config import Settings, get_settings
 from app.infrastructure.cache.cache_versionada import CacheVersionada
@@ -52,6 +54,7 @@ from app.infrastructure.persistence.database import build_engine, build_session_
 from app.infrastructure.persistence.repositorios.outbox_pendiente import SqlOutboxPendiente
 from app.infrastructure.persistence.unidad_de_trabajo import SqlUnidadDeTrabajo
 from app.infrastructure.reloj import RelojSistema
+from app.infrastructure.tareas.tarea_periodica import TareaPeriodica
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +167,13 @@ async def correr(settings: Settings) -> None:
         await asyncio.gather(
             relay.ejecutar(detener),
             iniciar_consumidores(consumidores, detener, settings.outbox_espera_maxima_segundos),
+            TareaPeriodica(
+                "limpiar-disponibilidad-pasada",
+                timedelta(days=1),
+                LimpiarDisponibilidadPasada(
+                    lambda: SqlUnidadDeTrabajo(sesiones), RelojSistema()
+                ).execute,
+            ).correr(detener),
         )
     finally:
         for consumidor in consumidores:
