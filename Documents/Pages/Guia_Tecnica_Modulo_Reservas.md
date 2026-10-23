@@ -71,6 +71,7 @@ Todas las horas se calculan en la zona horaria `America/Bogota`. La unidad de re
 * **Turista, reserva `CONFIRMADA`:** hasta las 23:59 del día anterior a `fecha_reserva`. El modelo de datos maneja días, no horas, así que la regla de "24 horas antes" se expresa como "hasta el día anterior". Pasado ese límite responde HTTP 409 `FUERA_DE_PLAZO` y la interfaz sugiere contactar al prestador.
 * **Prestador, reserva `CONFIRMADA`:** siempre, con motivo obligatorio (clima, cierre del parque, alerta oficial, etc.). El motivo viaja en `reserva.cancelada` y llega al turista en el correo.
 * Esta es la **regla base de la plataforma** y es la que aplica el servicio. La `politica_cancelacion` que cada prestador publica en su perfil (Módulo 2, UC9) es informativa: puede ser más flexible, pero no más restrictiva que la regla base.
+* Catalog muestra esta regla en la ficha del servicio (UC9) como `regla_base_cancelacion`, copiada de esta sección. **Si la regla cambia, hay que avisarle a catalog (@luifdo) para que actualice el texto.**
 
 ### 4.4 Calendario del prestador (UC19)
 
@@ -89,6 +90,7 @@ Todas las horas se calculan en la zona horaria `America/Bogota`. La unidad de re
 * **Tareas programadas:** dos `CronJob` de Kubernetes que usan la misma imagen del servicio con otro comando (§6.4).
 * **Persistencia:** base lógica `booking_db` en el clúster CloudNativePG, con usuario propio.
 * **Valkey:** solo para las claves de idempotencia de las peticiones (`idem:booking:{key}`, TTL de 48 h).
+* **RabbitMQ al arrancar:** booking declara su cola durable `booking.servicios` y la enlaza a la clave `servicio.publicado` del exchange `turismo.eventos`. Tiene que existir antes de que catalog publique, porque RabbitMQ descarta los mensajes que no tienen una cola enlazada.
 * **Endpoints:** resumen en la §7; detalle en [`booking.yaml`](../../contracts/openapi/booking.yaml).
 * **Configuración:** `DB_URL`, `VALKEY_URL`, `RABBITMQ_URL`, `EVENTS_EXCHANGE`, `TZ=America/Bogota`, `PLAZO_RESPUESTA_HORAS=48`.
 
@@ -212,8 +214,8 @@ Nivel arquitectónico; el DDL detallado se escribe en la Fase 4 (Plan §5).
 
 * **catalog (acordado con @luifdo):** publica `servicio.publicado.v1` al crear, editar, desactivar o reactivar un servicio y al suspender o rehabilitar a su prestador, con los dos ids del prestador, el aforo, la tarifa base, `activo` y `version`. booking lo consume para `servicio_ref`.
 * **catalog (disponibilidad):** consume `disponibilidad.actualizada` en su propia proyección para filtrar `/buscar` y el mapa por fecha y personas, sin llamar a booking (Plan §4.1). Si un día aún no tiene evento, lo muestra como "disponibilidad sin confirmar".
-* **catalog (consumidor):** manejar el nuevo evento `reserva.modificada` en la proyección `demanda_diaria` (mover personas entre fechas) y en el aviso al prestador. Mostrar la regla base de cancelación junto a la política del prestador en la ficha (UC9).
-* **catalog (correos):** incluir el `motivo` de `reserva.rechazada` y `reserva.cancelada` en los correos.
+* **catalog (consumidor) — listo:** consume todos los `reserva.*`, incluido `reserva.modificada`, en la cola `catalog.demanda`. Guarda el estado de cada reserva en su proyección `reserva_proyeccion` y suma por día; ya no usa contadores en una tabla `demanda_diaria`, porque un evento repetido o desordenado descuadraba el total. La regla base de cancelación ya sale en la ficha (UC9).
+* **catalog (correos):** en su paso 16 avisa al prestador cuando se modifica una reserva e incluye el `motivo` en los correos de rechazo y cancelación. Para eso, `reserva.rechazada` y `reserva.cancelada` **tienen que seguir trayendo `motivo`** como dice el contrato.
 * **review:** sin cambios; consume `reserva.finalizada` como está.
 * **recommendation:** usar `GET /disponibilidad` y `GET /mis-reservas`; ambos ya existen en este contrato.
 * **iam:** `X-Usuario-Rol` con los valores `Turista` y `Prestador`, y el id de usuario en `X-Usuario-Id`.
