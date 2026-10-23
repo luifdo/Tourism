@@ -7,6 +7,9 @@ from app.infrastructure.persistence.repositorios.alerta_repository import SqlAle
 from app.infrastructure.persistence.repositorios.calificacion_repository import (
     SqlCalificacionRepository,
 )
+from app.infrastructure.persistence.repositorios.disponibilidad_repository import (
+    SqlDisponibilidadRepository,
+)
 from app.infrastructure.persistence.repositorios.eventos_procesados import SqlEventosProcesados
 from app.infrastructure.persistence.repositorios.outbox import SqlOutbox
 from app.infrastructure.persistence.repositorios.prestador_repository import (
@@ -35,6 +38,7 @@ class SqlUnidadDeTrabajo:
         self.alertas = SqlAlertaRepository(self._session)
         self.reservas = SqlReservaProyeccionRepository(self._session)
         self.calificaciones = SqlCalificacionRepository(self._session)
+        self.disponibilidad = SqlDisponibilidadRepository(self._session)
         self.eventos_procesados = SqlEventosProcesados(self._session)
         self.outbox = SqlOutbox(self._session)
         return self

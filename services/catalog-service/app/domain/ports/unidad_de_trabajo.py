@@ -3,6 +3,7 @@ from typing import Protocol, Self
 
 from app.domain.ports.alerta_repository import AlertaRepository
 from app.domain.ports.calificacion_repository import CalificacionRepository
+from app.domain.ports.disponibilidad_repository import DisponibilidadRepository
 from app.domain.ports.eventos_procesados import EventosProcesados
 from app.domain.ports.outbox import Outbox
 from app.domain.ports.prestador_repository import PrestadorRepository
@@ -27,6 +28,7 @@ class UnidadDeTrabajo(Protocol):
     alertas: AlertaRepository
     reservas: ReservaProyeccionRepository
     calificaciones: CalificacionRepository
+    disponibilidad: DisponibilidadRepository
     eventos_procesados: EventosProcesados
     outbox: Outbox
 

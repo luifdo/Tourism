@@ -34,6 +34,7 @@ EXCHANGE = "turismo.eventos"
 ESPERAS = (0.2, 0.2, 0.2)
 TABLAS_DE_PRUEBA = (
     "outbox",
+    "disponibilidad_proyeccion",
     "evento_procesado",
     "calificacion_resena",
     "reserva_proyeccion",

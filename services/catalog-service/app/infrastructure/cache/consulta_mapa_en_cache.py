@@ -34,7 +34,8 @@ class ConsultaMapaEnCache:
         self._cache = CacheVersionada(valkey)
 
     async def servicios(self, criterios: CriteriosMapaServicios) -> MapaServicios:
-        if not criterios.escala.agrupa:
+        # Con `fecha` tampoco: los cupos cambian con cada reserva.
+        if not criterios.escala.agrupa or criterios.filtros.fecha is not None:
             return await self._origen.servicios(criterios)
         huella = hashlib.sha256(_criterios_json.dump_json(criterios)).hexdigest()[:32]
         clave = await self._cache.clave("mapa", "servicios", huella)

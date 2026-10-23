@@ -29,6 +29,7 @@ Catálogo de atractivos, actividades y perfiles de prestador; búsqueda multicri
 * `reserva.solicitada.v1`, `reserva.modificada.v1`, `reserva.confirmada.v1`, `reserva.rechazada.v1`, `reserva.cancelada.v1`, `reserva.finalizada.v1` (correos y demanda)
 * `resena.publicada.v1` (calificación promedio y métricas)
 * `resena.ocultada.v1` (quita del promedio la reseña ocultada por moderación)
+* `disponibilidad.actualizada.v1` (cupos por servicio y día, para filtrar por fecha y personas)
 
 Esquemas en [`contracts/events/`](../../contracts/events/).
 
@@ -90,7 +91,7 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 |---|---|---|
 | `GET /api/catalog/servicios` | UC7 | Pública, paginada |
 | `GET /api/catalog/servicios/{id}` | UC9 | Pública; incluye alertas vigentes del servicio y de su zona, `atributos` en el idioma pedido con sus `etiquetas`, `aviso_pagos` y `regla_base_cancelacion` (la regla que aplica booking, junto a la política informativa del prestador; texto en `app/api/i18n/textos_plataforma.py`) |
-| `GET /api/catalog/buscar` | UC8 | Pública; texto, categorías, tipos, zona, precio y su unidad, cercanía en metros y filtros de atributos (ver abajo); caché de 300 s en Valkey |
+| `GET /api/catalog/buscar` | UC8 | Pública; texto, categorías, tipos, zona, precio y su unidad, cercanía en metros, filtros de atributos y `fecha`/`personas` (ver abajo); caché de 300 s en Valkey, salvo con `fecha` |
 | `GET /api/catalog/zonas` | Filtros | Pública |
 | `GET /api/catalog/alertas` | UC26 | Pública; vigentes, de mayor a menor nivel |
 | `POST /api/catalog/alertas` | UC26 | Entidad o Admin; sobre un servicio **o** una zona (activos, si no 404); expiración futura y como máximo a 365 días, con zona horaria; audita `ALERTA_PUBLICADA` |
@@ -165,6 +166,7 @@ Textos en `{"es", "en"}`, horas `"HH:MM"` e idiomas en ISO 639-1.
 * **Resultados y listados** traen `tipo` y `unidad_tarifa` con sus etiquetas.
 * **Ficha** (`GET /servicios/{id}`): `atributos` con los mismos bloques, pero con los textos ya en el idioma pedido; los códigos fijos (`DE_MAR`, `SIN_SENAL`...) se mantienen y su texto va en `etiquetas`. Si el servicio informó `pagos`, `aviso_pagos` trae una frase lista para mostrar o para el chatbot, por ejemplo: *«Lleva efectivo: no hay señal de internet y no hay cajeros cerca (el más cercano: Parque de Minca, a 8 km). El prestador ofrece crédito…»*. `importante=true` (sin señal o intermitente, solo efectivo o sin cajeros) indica que la PWA debe destacarlo.
 * **Filtros de `/buscar` y `/mapa/servicios`** (los mismos, para que la lista y el mapa de la PWA muestren lo mismo; `GET /servicios` no los tiene porque para filtrar está `/buscar`): `tipo` (uno o varios), `unidad_tarifa`, `idioma_atencion`, `accesible`, `mascotas`, `apto_ninos`, `opcion_dietaria`, `nivel_fisico`, `acepta_pago_digital` y `ofrece_credito`. Los de atributos se combinan en una sola contención `atributos @> {...}` sobre el índice GIN. Un sí/no filtra por lo informado: `accesible=false` trae los que dijeron que no, no los que no lo informaron. Todos forman parte de la clave de la caché.
+* **Disponibilidad (`fecha`, `personas`):** catalog no llama a booking (Plan §4.1: solo el Módulo 5 llama a otros servicios). Filtra con la proyección que alimenta `disponibilidad.actualizada`: excluye los servicios sin cupo para `personas` ese día o con el día cerrado; los que aún no tienen dato de ese día se muestran con `disponibilidad_confirmada=false` ("disponibilidad sin confirmar") para no esconderlos mientras booking no publique su calendario. Cada resultado trae `cupos_disponibles`. Las búsquedas y mapas con `fecha` no se cachean. Al reservar, booking vuelve a comprobar los cupos con bloqueo: este dato es para buscar, no garantiza el cupo.
 
 ## Mensajería (RabbitMQ)
 
@@ -193,6 +195,7 @@ Base común (`ConsumidorRabbitMQ`), la misma para todas las colas de catalog:
 | `catalog.prestadores` | `prestador.aprobado`, `prestador.suspendido` | **Aprobado:** crea el perfil (habilita UC17) o lo reactiva y actualiza la razón social; al reactivar vuelven solo los servicios apagados por la suspensión. **Suspendido:** apaga el perfil y sus servicios activos (marcados como apagados por suspensión). Cada servicio que cambia publica `servicio.publicado` y se invalida la caché. Si la suspensión de un prestador nuevo llega antes que su aprobación (reintento), se guarda un perfil mínimo ya suspendido: la aprobación vieja se ignora y no queda activo; una aprobación más nueva sí lo activa. **Orden:** `prestador_perfil.estado_iam_en` (migración 0005) guarda el `occurred_at` del último evento de iam aplicado; uno más viejo (p. ej. un reintento que llega tarde) se ignora y no reactiva a un suspendido. |
 | `catalog.demanda` | `reserva.solicitada`, `.modificada`, `.confirmada`, `.rechazada`, `.cancelada`, `.finalizada` | Guarda en `reserva_proyeccion` el **estado actual de cada reserva** (servicio, fecha, personas, estado), no contadores: un evento solo se aplica si ocurrió después del último aplicado, así los repetidos o desordenados no descuadran nada. La demanda de un día = personas de las reservas activas (Solicitada y Confirmada) de esa fecha. `modificada` mueve fecha y personas. No invalida la caché (la demanda no sale en búsqueda ni mapa). catalog nunca consulta `booking_db`. |
 | `catalog.calificaciones` | `resena.publicada`, `resena.ocultada` | Una fila por reseña en `calificacion_resena` con su puntuación y si está `visible`; el promedio (búsqueda, mapa, ficha) cuenta solo las visibles. Ocultar (moderación, UC29) la saca del promedio; volver a publicarla la devuelve, sin contar doble. Un evento más viejo que el último aplicado (`ultimo_evento_en`, migración 0006) se ignora. **No invalida la caché:** el promedio nuevo se ve cuando expira (300 s), para que una ola de reseñas en temporada alta no borre la caché del catálogo (ESC-02). |
+| `catalog.disponibilidad` | `disponibilidad.actualizada` | Guarda en `disponibilidad_proyeccion` (migración 0008) los cupos de cada servicio por día, con la `version` de la fila de booking: una versión menor o igual se ignora. Un día cerrado llega con `cupos_totales = 0`. |
 
 ## Correlación
 

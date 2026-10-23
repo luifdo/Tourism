@@ -27,6 +27,8 @@ class ServicioResumenRespuesta(BaseModel):
     total_resenas: int
     imagen_principal: str | None
     distancia_m: int | None = None
+    cupos_disponibles: int | None = None
+    disponibilidad_confirmada: bool | None = None
 
     @classmethod
     def desde(cls, servicio: ServicioResumen, idioma: Idioma) -> "ServicioResumenRespuesta":
@@ -46,4 +48,6 @@ class ServicioResumenRespuesta(BaseModel):
             total_resenas=servicio.total_resenas,
             imagen_principal=servicio.imagen_principal,
             distancia_m=servicio.distancia_m,
+            cupos_disponibles=servicio.cupos_disponibles,
+            disponibilidad_confirmada=servicio.disponibilidad_confirmada,
         )

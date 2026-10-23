@@ -1,5 +1,6 @@
 """Conversión de parámetros de consulta compartida por los routers de lectura."""
 
+from datetime import date
 from typing import Annotated
 
 from fastapi import Query
@@ -69,6 +70,8 @@ def filtros_servicio(
     nivel_fisico: NivelFisico | None = None,
     acepta_pago_digital: bool | None = None,
     ofrece_credito: bool | None = None,
+    fecha: Annotated[date | None, Query(description="Día con cupo según booking")] = None,
+    personas: Annotated[int, Query(ge=1, description="Personas que necesitan cupo")] = 1,
 ) -> FiltrosServicio:
     """Parámetros de tipo y atributos que comparten `/buscar` y `/mapa/servicios`."""
     return FiltrosServicio(
@@ -82,4 +85,6 @@ def filtros_servicio(
         nivel_fisico=nivel_fisico,
         acepta_pago_digital=acepta_pago_digital,
         ofrece_credito=ofrece_credito,
+        fecha=fecha,
+        personas=personas,
     )

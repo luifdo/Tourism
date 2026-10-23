@@ -212,9 +212,12 @@ paths:
         Ruta pública. La usa la tool `buscar_servicios` del Módulo 5.
         Los filtros de atributos (`idioma_atencion` a `ofrece_credito`) se combinan en una
         sola contención sobre la columna JSONB `atributos`, con índice GIN.
-        Los filtros de catálogo se cachean 300 s. Con `fecha`, el servicio consulta la
-        disponibilidad en booking-service para los resultados de la página; si booking no
-        responde a tiempo, se devuelven sin ese filtro y `disponibilidad_verificada=false`.
+        Los resultados se cachean 300 s, salvo con `fecha` (los cupos cambian con cada reserva).
+        Con `fecha` se filtra por los cupos que publica booking (`disponibilidad.actualizada`),
+        sin llamarlo (Plan §4.1): se excluyen los servicios sin cupo para `personas` ese día o
+        con el día cerrado; los que aún no tienen dato de ese día se devuelven con
+        `disponibilidad_confirmada=false` para no esconderlos. Al reservar, booking vuelve a
+        comprobar los cupos.
       operationId: buscarServicios
       security: []
       parameters:
@@ -260,14 +263,8 @@ paths:
         - $ref: '#/components/parameters/FiltroNivelFisico'
         - $ref: '#/components/parameters/FiltroAceptaPagoDigital'
         - $ref: '#/components/parameters/FiltroOfreceCredito'
-        - name: fecha
-          in: query
-          description: Filtra por disponibilidad en booking para esa fecha.
-          schema: { type: string, format: date }
-        - name: personas
-          in: query
-          description: Personas que necesitan cupo en `fecha`.
-          schema: { type: integer, minimum: 1, default: 1 }
+        - $ref: '#/components/parameters/FiltroFecha'
+        - $ref: '#/components/parameters/FiltroPersonas'
         - name: orden
           in: query
           description: '`distancia` requiere `lat` y `lon`; `relevancia` requiere `texto`.'
@@ -596,6 +593,8 @@ paths:
         - $ref: '#/components/parameters/FiltroNivelFisico'
         - $ref: '#/components/parameters/FiltroAceptaPagoDigital'
         - $ref: '#/components/parameters/FiltroOfreceCredito'
+        - $ref: '#/components/parameters/FiltroFecha'
+        - $ref: '#/components/parameters/FiltroPersonas'
       responses:
         '200':
           description: FeatureCollection de puntos.
@@ -1037,6 +1036,16 @@ components:
       schema: { type: string, enum: [es, en] }
 
   parameters:
+    FiltroFecha:
+      name: fecha
+      in: query
+      description: Día con cupo según booking (`disponibilidad.actualizada`). Sin dato de ese día, el servicio se incluye sin confirmar.
+      schema: { type: string, format: date }
+    FiltroPersonas:
+      name: personas
+      in: query
+      description: Personas que necesitan cupo en `fecha`; distinto de 1 requiere `fecha`.
+      schema: { type: integer, minimum: 1, default: 1 }
     FiltroTipo:
       name: tipo
       in: query
@@ -1168,7 +1177,7 @@ components:
     TamanoBusqueda:
       name: tamano
       in: query
-      description: Máximo 50, porque con `fecha` cada página se verifica en booking.
+      description: Máximo 50.
       schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
     IdempotencyKey:
       name: Idempotency-Key
@@ -1674,16 +1683,16 @@ components:
                   cupos_disponibles:
                     type: integer
                     nullable: true
-                    description: Solo si se envió `fecha` y booking respondió.
+                    description: Solo con `fecha`; nulo si booking aún no publicó ese día.
+                  disponibilidad_confirmada:
+                    type: boolean
+                    nullable: true
+                    description: Nulo sin `fecha`; `false` si booking aún no publicó los cupos de ese día (la PWA lo muestra como "disponibilidad sin confirmar").
         pagina: { type: integer }
         tamano: { type: integer }
         total:
           type: integer
-          description: Total antes del filtro de disponibilidad.
-        disponibilidad_verificada:
-          type: boolean
-          nullable: true
-          description: Nulo sin `fecha`; `false` si booking no respondió y los resultados no se filtraron por cupos.
+          description: Total con todos los filtros, incluida la disponibilidad.
 
     PerfilGuardar:
       type: object

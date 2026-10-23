@@ -28,3 +28,6 @@ class ServicioResumen:
     total_resenas: int
     imagen_principal: str | None
     distancia_m: int | None = None
+    # Solo con `fecha`: cupos según booking; None con fecha = disponibilidad sin confirmar.
+    cupos_disponibles: int | None = None
+    disponibilidad_confirmada: bool | None = None

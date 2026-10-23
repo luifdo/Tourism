@@ -1,5 +1,6 @@
 import re
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from app.domain.errors import DatoInvalido
@@ -17,6 +18,11 @@ class FiltrosServicio:
     Así la lista y el mapa de la PWA muestran lo mismo con los mismos filtros. Un sí/no
     filtra por lo que el prestador informó: `accesible=False` trae los que dijeron que no,
     no los que no lo informaron.
+
+    Con `fecha` se excluyen los servicios que, según booking, no tienen cupo para
+    `personas` ese día (o lo tienen cerrado). Los que aún no tienen dato de ese día se
+    muestran como "disponibilidad sin confirmar": no se esconden mientras booking no
+    haya publicado su calendario.
     """
 
     tipos: tuple[TipoServicio, ...] = field(default_factory=tuple)
@@ -29,11 +35,17 @@ class FiltrosServicio:
     nivel_fisico: NivelFisico | None = None
     acepta_pago_digital: bool | None = None
     ofrece_credito: bool | None = None
+    fecha: date | None = None
+    personas: int = 1
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "tipos", tuple(sorted(set(self.tipos))))
         if self.idioma_atencion is not None and not _IDIOMA.match(self.idioma_atencion):
             raise DatoInvalido(campo="idioma_atencion", regla="formato")
+        if self.personas < 1:
+            raise DatoInvalido(campo="personas", regla="minimo", minimo=1)
+        if self.personas != 1 and self.fecha is None:
+            raise DatoInvalido(campo="personas", regla="requiere", requiere="fecha")
 
     def filtro_atributos(self) -> dict[str, Any] | None:
         """Objeto para `atributos @> filtro` (índice GIN), o None si no hay filtros de atributos.

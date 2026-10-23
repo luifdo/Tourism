@@ -8,6 +8,7 @@ turistas, y los reinicios o el escalado de la API no los interrumpen.
 * Consumidor `catalog.prestadores` (`prestador.aprobado`, `prestador.suspendido`).
 * Consumidor `catalog.demanda` (`reserva.*` → proyección de reservas).
 * Consumidor `catalog.calificaciones` (`resena.publicada`, `resena.ocultada` → promedio).
+* Consumidor `catalog.disponibilidad` (`disponibilidad.actualizada` → cupos por día).
 
 Expone sus métricas en `WORKER_METRICS_PORT` (/metrics), que también sirve de sonda de vida.
 """
@@ -23,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from valkey.asyncio import Valkey
 
 from app.application.ports.invalidador_cache import InvalidadorCache
+from app.application.use_cases.aplicar_disponibilidad import AplicarDisponibilidad
 from app.application.use_cases.aplicar_evento_resena import AplicarEventoResena
 from app.application.use_cases.aplicar_evento_reserva import AplicarEventoReserva
 from app.application.use_cases.aplicar_prestador_aprobado import AplicarPrestadorAprobado
@@ -35,11 +37,13 @@ from app.infrastructure.cache.cache_versionada import CacheVersionada
 from app.infrastructure.messaging import (
     manejador_calificaciones,
     manejador_demanda,
+    manejador_disponibilidad,
     manejador_prestadores,
 )
 from app.infrastructure.messaging.consumidor_rabbitmq import ConsumidorRabbitMQ
 from app.infrastructure.messaging.manejador_calificaciones import ManejadorCalificaciones
 from app.infrastructure.messaging.manejador_demanda import ManejadorDemanda
+from app.infrastructure.messaging.manejador_disponibilidad import ManejadorDisponibilidad
 from app.infrastructure.messaging.manejador_prestadores import ManejadorPrestadores
 from app.infrastructure.messaging.publicador_rabbitmq import PublicadorRabbitMQ
 from app.infrastructure.messaging.relay_outbox import RelayOutbox
@@ -95,6 +99,11 @@ def construir_consumidores(
             manejador_calificaciones.COLA,
             manejador_calificaciones.CLAVES,
             ManejadorCalificaciones(AplicarEventoResena(uow)),
+        ),
+        (
+            manejador_disponibilidad.COLA,
+            manejador_disponibilidad.CLAVES,
+            ManejadorDisponibilidad(AplicarDisponibilidad(uow)),
         ),
     ]
     return [

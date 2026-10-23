@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from uuid import UUID
 
 from valkey.exceptions import ConnectionError as ValkeyConnectionError
@@ -115,3 +115,15 @@ async def test_entrada_ilegible_cuenta_como_fallo_y_se_reescribe() -> None:
     pagina = await cache.buscar(ES)
     assert pagina.total == 7 and origen.llamadas == 2
     assert b"vieja" not in valkey.datos[clave]
+
+
+async def test_con_fecha_no_se_cachea() -> None:
+    # Los cupos cambian con cada reserva: cada búsqueda con fecha va a PostGIS.
+    origen, valkey = OrigenContador(), ValkeyEnMemoria()
+    cache = ConsultaServiciosEnCache(origen, valkey)  # type: ignore[arg-type]
+    con_fecha = CriteriosBusqueda(
+        idioma=Idioma.ES, filtros=FiltrosServicio(fecha=date(2026, 11, 5))
+    )
+    await cache.buscar(con_fecha)
+    await cache.buscar(con_fecha)
+    assert origen.llamadas == 2 and not any(k.startswith("catalog:buscar") for k in valkey.datos)

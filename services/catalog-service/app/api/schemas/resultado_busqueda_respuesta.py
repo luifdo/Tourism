@@ -4,8 +4,7 @@ from app.domain.value_objects.idioma import Idioma
 
 
 class ResultadoBusquedaRespuesta(PaginaServiciosRespuesta):
-    # Nulo mientras la búsqueda no filtre por `fecha` (integración con booking, paso 14).
-    disponibilidad_verificada: bool | None = None
+    """Con `fecha`, cada resultado trae `cupos_disponibles` y `disponibilidad_confirmada`."""
 
     @classmethod
     def desde(cls, pagina: PaginaServicios, idioma: Idioma) -> "ResultadoBusquedaRespuesta":

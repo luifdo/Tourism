@@ -152,7 +152,7 @@ class TestIdioma:
             "Gastronomía",
         )
         assert item["tarifa_base"] == 85000.5  # número, no texto
-        assert r.json()["disponibilidad_verificada"] is None
+        assert item["disponibilidad_confirmada"] is None  # sin fecha
 
     def test_misma_busqueda_en_ingles(self, cliente: TestClient) -> None:
         r = cliente.get("/api/catalog/buscar", headers={"Accept-Language": "en-US,en;q=0.9"})
@@ -240,12 +240,15 @@ class TestParametros:
                 "nivel_fisico": "BAJO",
                 "acepta_pago_digital": "true",
                 "ofrece_credito": "true",
+                "fecha": "2026-11-05",
+                "personas": 3,
             },
         )
         assert r.status_code == 200
         c = consultas.criterios
         assert c is not None
         f = c.filtros
+        assert (f.fecha.isoformat() if f.fecha else None, f.personas) == ("2026-11-05", 3)
         assert f.tipos == (TipoServicio.HOSTAL, TipoServicio.HOTEL)
         assert f.unidad_tarifa is UnidadTarifa.POR_NOCHE
         assert f.opcion_dietaria is OpcionDietaria.VEGANA

@@ -3,6 +3,7 @@
 * Clave: `catalog:buscar:{generación}:{idioma}:{hash de los criterios}` (ver CacheVersionada).
 * Una entrada que ya no se puede leer (p. ej. guardada antes de un despliegue que cambió
   el resumen) cuenta como fallo de caché.
+* Una búsqueda con `fecha` no se cachea: los cupos cambian con cada reserva.
 * El detalle de un servicio no se cachea: lleva alertas vigentes que deben verse al instante.
 """
 
@@ -32,6 +33,8 @@ class ConsultaServiciosEnCache:
         self._cache = CacheVersionada(valkey)
 
     async def buscar(self, criterios: CriteriosBusqueda) -> PaginaServicios:
+        if criterios.filtros.fecha is not None:
+            return await self._origen.buscar(criterios)
         huella = hashlib.sha256(_criterios_json.dump_json(criterios)).hexdigest()[:32]
         clave = await self._cache.clave("buscar", criterios.idioma.value, huella)
         if clave is not None:

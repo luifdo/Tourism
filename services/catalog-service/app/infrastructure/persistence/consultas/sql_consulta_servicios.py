@@ -28,7 +28,10 @@ from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.idioma import Idioma
 from app.domain.value_objects.texto_traducido import TextoTraducido
 from app.domain.value_objects.tipo_servicio import TipoServicio
-from app.infrastructure.persistence.consultas.condiciones_filtros import agregar_filtros
+from app.infrastructure.persistence.consultas.condiciones_filtros import (
+    COLUMNA_CUPOS,
+    agregar_filtros,
+)
 from app.infrastructure.persistence.consultas.sql_consulta_alertas import SqlConsultaAlertas
 from app.infrastructure.persistence.repositorios.comun import texto_o_none
 
@@ -51,7 +54,7 @@ _ORIGEN = """
 _PUNTO = "ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography"
 
 
-def _resumen(fila: Any, distancia: float | None = None) -> ServicioResumen:
+def _resumen(fila: Any, distancia: float | None = None, con_fecha: bool = False) -> ServicioResumen:
     zona = (
         ZonaResumen(codigo=fila.zona_codigo, nombre=TextoTraducido(**fila.zona_nombre))
         if fila.zona_codigo
@@ -70,6 +73,8 @@ def _resumen(fila: Any, distancia: float | None = None) -> ServicioResumen:
         total_resenas=fila.total_resenas,
         imagen_principal=fila.imagen,
         distancia_m=round(distancia) if distancia is not None else None,
+        cupos_disponibles=fila.cupos if con_fecha else None,
+        disponibilidad_confirmada=(fila.cupos is not None) if con_fecha else None,
     )
 
 
@@ -90,6 +95,9 @@ class SqlConsultaServicios:
             condiciones.append("s.categoria = ANY(:categorias)")
             parametros["categorias"] = [c.value for c in criterios.categorias]
         agregar_filtros(criterios.filtros, condiciones, parametros)
+        con_fecha = criterios.filtros.fecha is not None
+        if con_fecha:
+            columnas.append(COLUMNA_CUPOS)
         if criterios.zona:
             condiciones.append("z.codigo = :zona")
             parametros["zona"] = criterios.zona
@@ -139,7 +147,9 @@ class SqlConsultaServicios:
                     parametros,
                 )
 
-        items = tuple(_resumen(f, f.distancia if criterios.cerca_de else None) for f in filas)
+        items = tuple(
+            _resumen(f, f.distancia if criterios.cerca_de else None, con_fecha) for f in filas
+        )
         return PaginaServicios(
             items=items, pagina=criterios.pagina, tamano=criterios.tamano, total=total or 0
         )
