@@ -1,16 +1,27 @@
 import asyncio
 import logging
 
-from sqlalchemy import text
+from sqlalchemy import MetaData, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
 logger = logging.getLogger(__name__)
 
+# Nombres deterministas de constraints e índices, para que las migraciones sean estables.
+NAMING_CONVENTION = {
+    "ix": "ix_%(column_0_label)s",
+    "uq": "uq_%(table_name)s_%(column_0_name)s",
+    "ck": "ck_%(table_name)s_%(constraint_name)s",
+    "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+    "pk": "pk_%(table_name)s",
+}
+
 
 class Base(DeclarativeBase):
     """Base declarativa de los modelos ORM; Alembic la usa para autogenerar migraciones."""
+
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
 
 
 def build_engine(database_url: str) -> AsyncEngine:

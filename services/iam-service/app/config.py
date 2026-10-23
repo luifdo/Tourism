@@ -15,6 +15,9 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://iam_user:iam_password@localhost:5433/iam_db"
     database_health_timeout_seconds: float = 2.0
+    # Rol con el que se conecta la app; la migración inicial le revoca UPDATE/DELETE/TRUNCATE
+    # sobre bitacora_auditoria.
+    db_app_role: str = "iam_user"
 
     valkey_url: str = "redis://localhost:6379/0"
 

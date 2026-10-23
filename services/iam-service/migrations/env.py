@@ -5,6 +5,7 @@ from alembic import context
 from sqlalchemy.engine import Connection
 
 from app.config import get_settings
+from app.infrastructure.persistence import models  # noqa: F401
 from app.infrastructure.persistence.database import Base, build_engine
 
 config = context.config
