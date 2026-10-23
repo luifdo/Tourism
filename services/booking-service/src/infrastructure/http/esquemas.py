@@ -99,17 +99,6 @@ class Disponibilidad(BaseModel):
     dias: list[DiaDisponible]
 
 
-class ResultadoLote(BaseModel):
-    servicio_id: UUID
-    cupos_disponibles: int
-    disponible: bool
-
-
-class DisponibilidadLote(BaseModel):
-    fecha: date
-    resultados: list[ResultadoLote]
-
-
 class DiaCalendario(BaseModel):
     fecha: date
     cupos_totales: int

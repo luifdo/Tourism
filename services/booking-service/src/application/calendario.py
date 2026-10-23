@@ -1,4 +1,4 @@
-"""Calendario de cupos y tarifas del prestador (UC19) y consultas públicas de disponibilidad (UC10)."""
+"""Calendario de cupos y tarifas del prestador (UC19) y consulta pública de disponibilidad (UC10)."""
 
 from datetime import date, timedelta
 from decimal import Decimal
@@ -10,11 +10,10 @@ from application.ports import UnidadDeTrabajo
 from domain.disponibilidad import DisponibilidadCupo
 from domain.errores import Validacion
 from domain.reglas import hoy_local
-from domain.servicio import ServicioRef, disponibilidad_en
+from domain.servicio import ServicioRef
 
 MAX_DIAS_CONSULTA = 62
 MAX_DIAS_RANGO = 366
-MAX_SERVICIOS_LOTE = 50
 
 
 def validar_rango(desde: date, hasta: date, maximo: int) -> None:
@@ -49,32 +48,6 @@ class ConsultarDisponibilidad:
             if servicio is None or not servicio.activo:
                 return []
             return await uow.disponibilidad.rango(servicio_id, desde, hasta)
-
-
-class ConsultarDisponibilidadLote:
-    """Varios servicios en una fecha, para /buscar del catálogo. Nunca falla por un servicio."""
-
-    def __init__(self, ctx: Contexto):
-        self.ctx = ctx
-
-    async def __call__(
-        self, servicio_ids: list[UUID], fecha: date, personas: int = 1
-    ) -> list[tuple[UUID, int, bool]]:
-        ids = list(dict.fromkeys(servicio_ids))  # sin repetidos, en el orden pedido
-        if not ids:
-            raise Validacion("Indique al menos un servicio.")
-        if len(ids) > MAX_SERVICIOS_LOTE:
-            raise Validacion(f"El lote admite máximo {MAX_SERVICIOS_LOTE} servicios.")
-        if personas < 1:
-            raise Validacion("El número de personas debe ser al menos 1.")
-        ahora = self.ctx.reloj.ahora()
-        async with self.ctx.uow() as uow:
-            servicios = await uow.servicios.varios(ids)
-            dias = await uow.disponibilidad.lote(ids, fecha)
-        return [
-            (sid, *disponibilidad_en(servicios.get(sid), dias.get(sid), fecha, personas, ahora))
-            for sid in ids
-        ]
 
 
 class ConsultarCalendario:

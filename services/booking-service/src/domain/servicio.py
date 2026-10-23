@@ -4,12 +4,9 @@ La alimenta el evento `servicio.publicado.v1`; booking nunca la modifica por su 
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from domain import reglas
-from domain.disponibilidad import DisponibilidadCupo
 from domain.errores import NoDisponible
 
 
@@ -34,18 +31,3 @@ class ServicioRef:
         """Un evento solo se aplica si es más nuevo que lo guardado (descarta viejos y repetidos)."""
         return actual is None or self.version > actual.version
 
-
-def disponibilidad_en(
-    servicio: ServicioRef | None,
-    dia: DisponibilidadCupo | None,
-    fecha: date,
-    personas: int,
-    ahora: datetime,
-) -> tuple[int, bool]:
-    """Cupos y si se puede solicitar: servicio activo, día abierto, fecha a partir de mañana
-    y cupos suficientes (lote de disponibilidad para /buscar del catálogo)."""
-    if servicio is None or not servicio.activo or dia is None:
-        return 0, False
-    cupos = dia.cupos_disponibles
-    admite_solicitudes = fecha > reglas.hoy_local(ahora)
-    return cupos, admite_solicitudes and cupos >= personas

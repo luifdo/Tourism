@@ -163,7 +163,6 @@ Prefijo en Traefik: `/api/bookings`. Errores con el formato común `{ "error", "
 | Método y ruta | Rol | Caso de uso | Notas |
 |---|---|---|---|
 | `GET /disponibilidad?servicio_id&desde&hasta` | Público | UC10 | Rango máximo de 62 días. La usa la tool `consultar_disponibilidad` del Módulo 5. |
-| `GET /disponibilidad/lote?servicio_ids&fecha&personas` | Público | UC8, UC10 | Hasta 50 servicios en una fecha. La usa catalog-service en `/buscar` con `fecha`. Lectura sin bloqueos; un servicio desconocido o sin el día abierto sale con `disponible = false`, sin error. |
 | `POST /` | Turista | UC11 | `Idempotency-Key`. Responde 201 con la reserva en `SOLICITADA`. |
 | `GET /mis-reservas?estado` | Turista | UC13 | Paginado. La usa la tool `historial_turista` del Módulo 5. |
 | `GET /{id}` | Turista o prestador dueño | UC13, UC20 | 404 si no es suya. |
@@ -210,13 +209,12 @@ Nivel arquitectónico; el DDL detallado se escribe en la Fase 4 (Plan §5).
 ## 11. Qué se necesita de los demás módulos
 
 * **catalog (acordado con @luifdo):** publica `servicio.publicado.v1` al crear, editar, desactivar o reactivar un servicio y al suspender o rehabilitar a su prestador, con los dos ids del prestador, el aforo, la tarifa base, `activo` y `version`. booking lo consume para `servicio_ref`.
-* **catalog (búsqueda):** en `/buscar` con `fecha`, consulta `GET /api/bookings/disponibilidad/lote` para la página de resultados (máximo 50). Si booking no responde a tiempo, el catálogo devuelve los resultados sin ese filtro.
 * **catalog (consumidor):** manejar el nuevo evento `reserva.modificada` en la proyección `demanda_diaria` (mover personas entre fechas) y en el aviso al prestador. Mostrar la regla base de cancelación junto a la política del prestador en la ficha (UC9).
 * **catalog (correos):** incluir el `motivo` de `reserva.rechazada` y `reserva.cancelada` en los correos.
 * **review:** sin cambios; consume `reserva.finalizada` como está.
 * **recommendation:** usar `GET /disponibilidad` y `GET /mis-reservas`; ambos ya existen en este contrato.
 * **iam:** `X-Usuario-Rol` con los valores `Turista` y `Prestador`, y el id de usuario en `X-Usuario-Id`.
-* **gateway (Traefik):** `GET /api/bookings/disponibilidad` y `GET /api/bookings/disponibilidad/lote` públicos y el resto con ForwardAuth (Plan §4.1).
+* **gateway (Traefik):** `GET /api/bookings/disponibilidad` público y el resto con ForwardAuth (Plan §4.1).
 * **frontend:**
   * flujo de solicitud en 4 pasos (RNF-11);
   * botones de reservar, modificar, cancelar, confirmar y rechazar deshabilitados sin conexión, con la explicación;

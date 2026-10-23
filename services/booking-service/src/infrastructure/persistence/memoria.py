@@ -68,10 +68,6 @@ class RepositorioDisponibilidadMemoria:
         dias = [d for (sid, f), d in self._todos().items() if sid == servicio_id and desde <= f <= hasta]
         return copy.deepcopy(sorted(dias, key=lambda d: d.fecha))
 
-    async def lote(self, servicio_ids: list[UUID], fecha: date) -> dict[UUID, DisponibilidadCupo]:
-        todos = self._todos()
-        return {sid: copy.deepcopy(d) for sid in servicio_ids if (d := todos.get((sid, fecha)))}
-
 
 class RepositorioReservasMemoria:
     def __init__(self, almacen: AlmacenMemoria, cambios: _Cambios):

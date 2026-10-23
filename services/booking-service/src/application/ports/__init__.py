@@ -60,9 +60,6 @@ class RepositorioDisponibilidad(Protocol):
 
     async def rango(self, servicio_id: UUID, desde: date, hasta: date) -> list[DisponibilidadCupo]: ...
 
-    async def lote(self, servicio_ids: list[UUID], fecha: date) -> dict[UUID, DisponibilidadCupo]:
-        """Lectura sin bloqueo de varios servicios en una fecha."""
-
 
 class UnidadDeTrabajo(Protocol):
     servicios: RepositorioServicios

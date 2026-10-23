@@ -123,22 +123,10 @@ async def test_cancelar_sin_cuerpo_y_rechazar_con_motivo(cliente):
     assert (r.json()["estado"], r.json()["motivo"]) == ("RECHAZADA", "Sin guía")
 
 
-async def test_disponibilidad_y_lote(cliente):
+async def test_disponibilidad(cliente):
     await solicitar(cliente, personas=8)
     r = await cliente.get(f"{BASE}/disponibilidad", params={"servicio_id": SERVICIO, "desde": "2026-11-10", "hasta": "2026-11-11"})
     assert [d["cupos_disponibles"] for d in r.json()["dias"]] == [2, 10]
-    desconocido = str(uuid4())
-    r = await cliente.get(
-        f"{BASE}/disponibilidad/lote",
-        params={"servicio_ids": f"{SERVICIO},{desconocido}", "fecha": "2026-11-10", "personas": 3},
-    )
-    assert r.json() == {
-        "fecha": "2026-11-10",
-        "resultados": [
-            {"servicio_id": SERVICIO, "cupos_disponibles": 2, "disponible": False},
-            {"servicio_id": desconocido, "cupos_disponibles": 0, "disponible": False},
-        ],
-    }
 
 
 async def test_calendario_del_prestador(cliente):

@@ -15,7 +15,6 @@ from application.calendario import (
     AbrirRangoCalendario,
     ConsultarCalendario,
     ConsultarDisponibilidad,
-    ConsultarDisponibilidadLote,
     GuardarDiaCalendario,
 )
 from application.consultas import ListarReservas, ObtenerReserva
@@ -104,26 +103,6 @@ async def consultar_disponibilidad(
     return e.Disponibilidad(
         servicio_id=servicio_id,
         dias=[e.DiaDisponible(fecha=d.fecha, cupos_disponibles=d.cupos_disponibles, tarifa_dia=d.tarifa_dia) for d in dias],
-    )
-
-
-@router.get("/disponibilidad/lote", tags=["Disponibilidad"], response_model=e.DisponibilidadLote,
-            summary="Disponibilidad de varios servicios en una fecha (para /buscar del catálogo)",
-            responses={400: ERRORES[400]})
-async def consultar_disponibilidad_lote(
-    request: Request,
-    servicio_ids: Annotated[str, Query(description="Hasta 50 ids separados por comas.")],
-    fecha: date,
-    personas: Annotated[int, Query(ge=1)] = 1,
-):
-    try:
-        ids = [UUID(x.strip()) for x in servicio_ids.split(",") if x.strip()]
-    except ValueError as exc:
-        raise Validacion("servicio_ids debe ser una lista de UUID separados por comas.") from exc
-    resultados = await ConsultarDisponibilidadLote(_ctx(request))(ids, fecha, personas)
-    return e.DisponibilidadLote(
-        fecha=fecha,
-        resultados=[e.ResultadoLote(servicio_id=s, cupos_disponibles=c, disponible=d) for s, c, d in resultados],
     )
 
 

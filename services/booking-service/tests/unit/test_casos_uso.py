@@ -12,7 +12,6 @@ from application.calendario import (
     AbrirRangoCalendario,
     ConsultarCalendario,
     ConsultarDisponibilidad,
-    ConsultarDisponibilidadLote,
     GuardarDiaCalendario,
 )
 from application.consultas import ListarReservas, ObtenerReserva
@@ -291,18 +290,6 @@ class TestTareas:
 # ---------- Consultas ----------
 
 class TestConsultas:
-    async def test_lote_en_orden_sin_repetidos_y_sin_fallar(self, esc):
-        await esc.solicitar(personas=8)
-        desconocido = uuid4()
-        resultados = await ConsultarDisponibilidadLote(esc.ctx)(
-            [desconocido, esc.servicio_id, desconocido], DIA_1, personas=2
-        )
-        assert resultados == [(desconocido, 0, False), (esc.servicio_id, 2, True)]
-
-    async def test_lote_limite_de_50(self, esc):
-        with pytest.raises(Validacion):
-            await ConsultarDisponibilidadLote(esc.ctx)([uuid4() for _ in range(51)], DIA_1)
-
     async def test_disponibilidad_de_servicio_inactivo_es_vacia(self, esc):
         await esc.publicar_servicio(version=2, activo=False)
         assert await ConsultarDisponibilidad(esc.ctx)(esc.servicio_id, DIA_1, DIA_2) == []
