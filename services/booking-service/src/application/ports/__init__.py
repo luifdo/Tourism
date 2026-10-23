@@ -6,7 +6,8 @@ from typing import Any, Protocol, Self
 from uuid import UUID
 
 from domain.disponibilidad import DisponibilidadCupo
-from domain.reserva import EstadoReserva, EventoDominio, Reserva
+from domain.eventos import EventoDominio
+from domain.reserva import EstadoReserva, Reserva
 from domain.servicio import ServicioRef
 
 

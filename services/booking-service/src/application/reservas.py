@@ -42,11 +42,12 @@ async def _reserva_de(uow: UnidadDeTrabajo, reserva_id: UUID, actor: Actor, usua
     return reserva
 
 
-async def _liberar(uow: UnidadDeTrabajo, reserva: Reserva) -> None:
+async def _liberar(uow: UnidadDeTrabajo, reserva: Reserva) -> DisponibilidadCupo | None:
     dia = await uow.disponibilidad.obtener(reserva.servicio_id, reserva.fecha_reserva)
     if dia is not None:
         dia.liberar(reserva.numero_personas)
         await uow.disponibilidad.guardar(dia)
+    return dia
 
 
 class SolicitarReserva:
@@ -76,7 +77,7 @@ class SolicitarReserva:
             await uow.disponibilidad.guardar(dia)
             await uow.reservas.guardar(reserva)
             await uow.commit()
-        await self.ctx.publicador.publicar(eventos_de(reserva, turista_id), correlation_id)
+        await self.ctx.publicador.publicar(eventos_de(reserva, turista_id, [dia]), correlation_id)
         return reserva
 
 
@@ -117,7 +118,7 @@ class ModificarReserva:
                 await uow.disponibilidad.guardar(dia)
             await uow.reservas.guardar(reserva)
             await uow.commit()
-        await self.ctx.publicador.publicar(eventos_de(reserva, turista_id), correlation_id)
+        await self.ctx.publicador.publicar(eventos_de(reserva, turista_id, dias.values()), correlation_id)
         return reserva
 
 
@@ -145,10 +146,10 @@ class RechazarReserva:
         async with self.ctx.uow() as uow:
             reserva = await _reserva_de(uow, reserva_id, Actor.PRESTADOR, prestador_usuario_id)
             reserva.rechazar(motivo, self.ctx.reloj.ahora())
-            await _liberar(uow, reserva)
+            dia = await _liberar(uow, reserva)
             await uow.reservas.guardar(reserva)
             await uow.commit()
-        await self.ctx.publicador.publicar(eventos_de(reserva, prestador_usuario_id), correlation_id)
+        await self.ctx.publicador.publicar(eventos_de(reserva, prestador_usuario_id, [dia]), correlation_id)
         return reserva
 
 
@@ -167,8 +168,8 @@ class CancelarReserva:
         async with self.ctx.uow() as uow:
             reserva = await _reserva_de(uow, reserva_id, actor, usuario_id)
             reserva.cancelar(actor, self.ctx.reloj.ahora(), motivo)
-            await _liberar(uow, reserva)
+            dia = await _liberar(uow, reserva)
             await uow.reservas.guardar(reserva)
             await uow.commit()
-        await self.ctx.publicador.publicar(eventos_de(reserva, usuario_id), correlation_id)
+        await self.ctx.publicador.publicar(eventos_de(reserva, usuario_id, [dia]), correlation_id)
         return reserva

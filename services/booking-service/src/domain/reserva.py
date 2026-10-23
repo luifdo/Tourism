@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 from domain import reglas
 from domain.errores import FueraDePlazo, PlazoVencido, TransicionInvalida, Validacion
+from domain.eventos import EventoDominio
 
 if TYPE_CHECKING:
     from domain.servicio import ServicioRef
@@ -35,12 +36,6 @@ class Actor(StrEnum):
 
 
 ESTADOS_ACTIVOS = frozenset({EstadoReserva.SOLICITADA, EstadoReserva.CONFIRMADA})
-
-
-@dataclass(frozen=True)
-class EventoDominio:
-    tipo: str  # routing key, p. ej. "reserva.confirmada"
-    payload: dict[str, Any]
 
 
 @dataclass

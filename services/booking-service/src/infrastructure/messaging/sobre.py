@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from domain.reserva import EventoDominio
+from domain.eventos import EventoDominio
 
 PRODUCTOR = "booking-service"
 

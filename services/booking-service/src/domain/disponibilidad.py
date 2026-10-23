@@ -1,4 +1,14 @@
-"""Cupos de un servicio en un día (Guía §4.4). El dueño sale de `ServicioRef`."""
+"""Cupos de un servicio en un día (Guía §4.4). El dueño sale de `ServicioRef`.
+
+La fila lleva dos contadores, con propósitos distintos:
+
+* `version`: solo sube cuando el prestador edita totales o tarifa. Es la del `ETag`/`If-Match`;
+  así una reserva ajena no causa un conflicto falso cuando la PWA sincroniza una edición
+  hecha sin conexión (ESC-09).
+* `secuencia`: sube con **cada** cambio de la fila (reservas y ediciones). Es la que viaja como
+  `version` en el evento `disponibilidad.actualizada`, porque catalog descarta los eventos con
+  un número menor o igual al que ya tiene y necesita ver también los cambios por reservas.
+"""
 
 from dataclasses import dataclass
 from datetime import date
@@ -6,19 +16,18 @@ from decimal import Decimal
 from uuid import UUID
 
 from domain.errores import CuposComprometidos, CuposInsuficientes, SuperaAforo, Validacion
+from domain.eventos import EventoDominio
 
 
 @dataclass
 class DisponibilidadCupo:
-    """`version` solo sube con los cambios del prestador (totales y tarifa): así una reserva
-    ajena no genera un conflicto falso cuando la PWA sincroniza una edición hecha sin conexión."""
-
     servicio_id: UUID
     fecha: date
     cupos_totales: int
     cupos_disponibles: int
     tarifa_dia: Decimal | None = None
-    version: int = 1
+    version: int = 1  # ediciones del prestador (ETag / If-Match)
+    secuencia: int = 1  # cualquier cambio de la fila (evento disponibilidad.actualizada)
 
     @classmethod
     def abrir(
@@ -44,11 +53,13 @@ class DisponibilidadCupo:
                 f"Solo quedan {self.cupos_disponibles} cupos para el {self.fecha.isoformat()}."
             )
         self.cupos_disponibles -= personas
+        self.secuencia += 1
 
     def liberar(self, personas: int) -> None:
         if personas < 1 or personas > self.cupos_reservados:
             raise ValueError("No se pueden liberar más cupos de los reservados.")
         self.cupos_disponibles += personas
+        self.secuencia += 1
 
     def ajustar(
         self, cupos_totales: int, tarifa_dia: Decimal | None, aforo: int | None = None
@@ -65,6 +76,24 @@ class DisponibilidadCupo:
         self.cupos_disponibles = cupos_totales - reservados
         self.tarifa_dia = tarifa_dia
         self.version += 1
+        self.secuencia += 1
+
+    def evento(self) -> EventoDominio:
+        """disponibilidad.actualizada: el estado completo del día, no la diferencia.
+
+        Un día cerrado sale con cupos_totales = 0. Catalog lo usa solo para buscar;
+        el cupo lo sigue garantizando booking con el bloqueo al reservar.
+        """
+        return EventoDominio(
+            "disponibilidad.actualizada",
+            {
+                "servicio_id": str(self.servicio_id),
+                "fecha": self.fecha.isoformat(),
+                "cupos_totales": self.cupos_totales,
+                "cupos_disponibles": self.cupos_disponibles,
+                "version": self.secuencia,
+            },
+        )
 
 
 def _validar_totales(

@@ -152,4 +152,7 @@ async def test_demo_publicar_servicio_y_expirar(cliente):
     await cliente.post("/dev/reloj/avanzar", params={"horas": 48})
     assert (await cliente.post("/dev/tareas/expirar")).json() == {"expiradas": 1}
     eventos = (await cliente.get("/dev/eventos")).json()
-    assert eventos[0]["event_type"] == "auditoria.registrada" and eventos[1]["event_type"] == "reserva.rechazada"
+    # /dev/eventos muestra los más recientes primero: el último lote fue rechazada + auditoría + disponibilidad.
+    assert [e["event_type"] for e in eventos[:3]] == [
+        "disponibilidad.actualizada", "auditoria.registrada", "reserva.rechazada",
+    ]

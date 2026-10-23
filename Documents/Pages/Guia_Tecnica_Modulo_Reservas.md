@@ -27,7 +27,7 @@ El módulo es el **dueño de los cupos y del estado de cada reserva**. Los demá
 * calendario de cupos y tarifa del día del prestador (UC19);
 * panel de solicitudes del prestador: confirmar, rechazar y cancelar (UC20);
 * expiración automática de solicitudes sin respuesta y finalización de reservas vencidas;
-* publicación de los eventos `reserva.*` y `auditoria.registrada`.
+* publicación de los eventos `reserva.*`, `disponibilidad.actualizada` y `auditoria.registrada`.
 
 **No incluye:** pagos ni depósitos, envío de correos (lo hace el Módulo 2 al consumir los eventos), reseñas, listas de espera ni reservas por horas (la unidad es el día).
 
@@ -112,10 +112,11 @@ SELECT cupos_disponibles FROM disponibilidad_cupo
 WHERE servicio_id = $1 AND fecha = $2
 FOR UPDATE;
 -- validar en dominio y luego:
-UPDATE disponibilidad_cupo SET cupos_disponibles = cupos_disponibles - $3 ...;
+UPDATE disponibilidad_cupo SET cupos_disponibles = cupos_disponibles - $3, secuencia = secuencia + 1 ...;
 ```
 
 * Mover cupos no sube la `version` del día. La `version` solo cambia cuando el prestador edita los cupos totales o la tarifa (UC19); así una reserva no provoca un conflicto falso cuando la PWA sincroniza una edición hecha sin conexión (ESC-09).
+* La fila lleva además una `secuencia`, que sube con **cada** cambio (reservas y ediciones del prestador). Es la que viaja como `version` en `disponibilidad.actualizada` (§6.5), porque catalog descarta los eventos con un número menor o igual al que ya tiene y necesita ver también los cambios por reservas.
 
 * Cuando se bloquean dos filas (modificación con cambio de fecha), se bloquean **siempre en orden ascendente de fecha** para evitar interbloqueos (*deadlocks*).
 * Restricción en la base: `CHECK (cupos_disponibles BETWEEN 0 AND cupos_totales)`, como segunda barrera si el código fallara.
@@ -153,6 +154,7 @@ Si no devuelve filas, el servicio consulta el estado actual y responde 404 (no e
 
 ### 6.5 Publicación de eventos
 
+* **`disponibilidad.actualizada`** (acordado con @luifdo el 23 de octubre): cada vez que cambia una fila de disponibilidad se publica el **estado completo del día** (`servicio_id`, `fecha`, `cupos_totales`, `cupos_disponibles` y `version` = `secuencia`), no la diferencia. Sale al solicitar, modificar, rechazar, cancelar o expirar, y cuando el prestador abre o edita su calendario. Un día cerrado sale con `cupos_totales = 0`. Si una operación toca un día varias veces (un lote del CronJob), sale un solo evento con el estado final. Confirmar y finalizar no mueven cupos, así que no lo publican. Catalog lo usa solo para filtrar la búsqueda y el mapa por fecha: el cupo lo sigue garantizando el bloqueo al reservar.
 * Se publica con *publisher confirms* y mensajes persistentes; si RabbitMQ no confirma, se reintenta 3 veces y se deja un registro de error con el `reserva_id` (Plan §4.3).
 * **Riesgo aceptado (ADR-008):** si el proceso se cae entre el `COMMIT` y la publicación, el evento se pierde. Para este módulo el impacto es alto, porque `reserva.finalizada` habilita la reseña y `reserva.confirmada` dispara el correo. Por eso es el primer candidato a adoptar el patrón *outbox* que el ADR-008 deja como evolución; la decisión se toma con los resultados de las pruebas de la §10.
 
@@ -181,7 +183,7 @@ Prefijo en Traefik: `/api/bookings`. Errores con el formato común `{ "error", "
 Nivel arquitectónico; el DDL detallado se escribe en la Fase 4 (Plan §5).
 
 * **`servicio_ref`** (proyección local): `servicio_id`, `prestador_id`, `prestador_usuario_id`, `capacidad_aforo_diario`, `tarifa_base`, `activo`, `version`. La alimenta el evento `servicio.publicado.v1` de catalog-service (cola `booking.servicios`); se aplica solo si su `version` es mayor que la guardada, así un mensaje viejo o repetido no pisa uno nuevo. Permite validar al dueño, el aforo y si el servicio está activo sin llamar al Módulo 2.
-* **`disponibilidad_cupo`**: `id`, `servicio_id`, `fecha`, `cupos_totales`, `cupos_disponibles`, `tarifa_dia` (nula = `tarifa_base` de `servicio_ref`), `version`. Única por (`servicio_id`, `fecha`). El dueño sale de `servicio_ref`.
+* **`disponibilidad_cupo`**: `id`, `servicio_id`, `fecha`, `cupos_totales`, `cupos_disponibles`, `tarifa_dia` (nula = `tarifa_base` de `servicio_ref`), `version` (ediciones del prestador, `ETag`) y `secuencia` (cada cambio, evento a catalog). Única por (`servicio_id`, `fecha`). El dueño sale de `servicio_ref`.
 * **`solicitud_reserva`**: `id`, `turista_id`, `servicio_id`, `prestador_id`, `prestador_usuario_id`, `fecha_reserva`, `numero_personas`, `estado`, `expira_en`, `motivo`, `cancelada_por`, `version`, `creado_en`, `actualizado_en`. Los dos ids del prestador se copian de `servicio_ref` al solicitar. Índices por (`turista_id`, `estado`), (`prestador_usuario_id`, `estado`, `expira_en`) y (`estado`, `fecha_reserva`) para los CronJobs.
 * **Ids de usuario y de perfil:**
   * `turista_id` y `prestador_usuario_id` son ids de usuario de iam-service, los mismos de `X-Usuario-Id`. Con ellos se decide quién puede ver y cambiar cada reserva.
@@ -209,6 +211,7 @@ Nivel arquitectónico; el DDL detallado se escribe en la Fase 4 (Plan §5).
 ## 11. Qué se necesita de los demás módulos
 
 * **catalog (acordado con @luifdo):** publica `servicio.publicado.v1` al crear, editar, desactivar o reactivar un servicio y al suspender o rehabilitar a su prestador, con los dos ids del prestador, el aforo, la tarifa base, `activo` y `version`. booking lo consume para `servicio_ref`.
+* **catalog (disponibilidad):** consume `disponibilidad.actualizada` en su propia proyección para filtrar `/buscar` y el mapa por fecha y personas, sin llamar a booking (Plan §4.1). Si un día aún no tiene evento, lo muestra como "disponibilidad sin confirmar".
 * **catalog (consumidor):** manejar el nuevo evento `reserva.modificada` en la proyección `demanda_diaria` (mover personas entre fechas) y en el aviso al prestador. Mostrar la regla base de cancelación junto a la política del prestador en la ficha (UC9).
 * **catalog (correos):** incluir el `motivo` de `reserva.rechazada` y `reserva.cancelada` en los correos.
 * **review:** sin cambios; consume `reserva.finalizada` como está.

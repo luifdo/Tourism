@@ -1,6 +1,8 @@
 """Casos de uso contra los adaptadores en memoria (sin Postgres ni RabbitMQ)."""
 
 import asyncio
+import json
+from pathlib import Path
 from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID, uuid4
@@ -34,6 +36,7 @@ from infrastructure.persistence.memoria import AlmacenMemoria, fabrica_memoria
 from infrastructure.reloj import RelojFijo
 
 AHORA = datetime(2026, 11, 1, 10, 0, tzinfo=ZONA)
+ESQUEMA_DISPONIBILIDAD = Path(__file__).resolve().parents[4] / "contracts" / "events" / "disponibilidad.actualizada.v1.json"
 DIA_1 = date(2026, 11, 10)
 DIA_2 = date(2026, 11, 11)
 
@@ -74,6 +77,10 @@ class Escenario:
 
     def cupos(self, fecha: date = DIA_1) -> int:
         return self.almacen.dias[(self.servicio_id, fecha)].cupos_disponibles
+
+    def dias_publicados(self) -> list[dict]:
+        """Payloads de los disponibilidad.actualizada publicados después del último clear()."""
+        return [s["payload"] for s in self.publicador.publicados if s["event_type"] == "disponibilidad.actualizada"]
 
 
 @pytest.fixture
@@ -167,7 +174,7 @@ class TestSolicitar:
         assert r.estado is EstadoReserva.SOLICITADA
         assert (r.prestador_id, r.prestador_usuario_id) == (esc.prestador_id, esc.prestador_usuario_id)
         assert esc.cupos() == 7
-        assert esc.publicador.tipos() == ["reserva.solicitada", "auditoria.registrada"]
+        assert esc.publicador.tipos() == ["reserva.solicitada", "auditoria.registrada", "disponibilidad.actualizada"]
         sobre = esc.publicador.publicados[0]
         assert sobre["producer"] == "booking-service"
         assert sobre["payload"]["prestador_id"] == str(esc.prestador_id)
@@ -210,9 +217,14 @@ class TestSolicitar:
 class TestModificar:
     async def test_cambia_de_fecha_y_mueve_los_cupos(self, esc):
         r = await esc.solicitar(personas=2)
+        esc.publicador.publicados.clear()
         r = await ModificarReserva(esc.ctx)(esc.turista_id, r.id, r.version, fecha_reserva=DIA_2, numero_personas=4)
         assert (r.fecha_reserva, esc.cupos(DIA_1), esc.cupos(DIA_2)) == (DIA_2, 10, 6)
-        assert esc.publicador.tipos()[-2] == "reserva.modificada"
+        assert "reserva.modificada" in esc.publicador.tipos()
+        # Un evento por cada día tocado: se liberó el 10 y se descontó en el 11.
+        assert {(d["fecha"], d["cupos_disponibles"]) for d in esc.dias_publicados()} == {
+            ("2026-11-10", 10), ("2026-11-11", 6),
+        }
 
     async def test_si_la_nueva_fecha_no_alcanza_no_cambia_nada(self, esc):
         r = await esc.solicitar(personas=2)
@@ -285,6 +297,63 @@ class TestTareas:
         assert await FinalizarReservas(esc.ctx)() == 1
         assert esc.almacen.reservas[r.id].estado is EstadoReserva.FINALIZADA
         assert "reserva.finalizada" in esc.publicador.tipos()
+
+
+# ---------- disponibilidad.actualizada (para catalog) ----------
+
+class TestDisponibilidadActualizada:
+    async def test_solicitar_publica_el_estado_completo_del_dia(self, esc):
+        await esc.solicitar(personas=3)
+        [dia] = esc.dias_publicados()
+        assert dia == {
+            "servicio_id": str(esc.servicio_id), "fecha": "2026-11-10",
+            "cupos_totales": 10, "cupos_disponibles": 7, "version": 2,
+        }
+
+    async def test_la_version_del_evento_sube_con_cada_cambio_aunque_no_cambie_el_etag(self, esc):
+        r = await esc.solicitar(personas=3)
+        await RechazarReserva(esc.ctx)(esc.prestador_usuario_id, r.id, "Sin guía disponible")
+        versiones = [d["version"] for d in esc.dias_publicados()]
+        assert versiones == sorted(versiones) and len(set(versiones)) == 2  # siempre sube
+        assert esc.almacen.dias[(esc.servicio_id, DIA_1)].version == 1  # el ETag del prestador no cambió
+
+    async def test_una_solicitud_rechazada_por_cupos_no_publica_nada(self, esc):
+        with pytest.raises(CuposInsuficientes):
+            await esc.solicitar(personas=11)
+        assert esc.dias_publicados() == []
+
+    async def test_abrir_un_rango_publica_un_evento_por_dia_creado(self, esc):
+        await esc.abrir(cupos=5, desde=DIA_2, hasta=date(2026, 11, 12))  # el 11 ya existía
+        assert [(d["fecha"], d["version"]) for d in esc.dias_publicados()] == [("2026-11-12", 1)]
+
+    async def test_cerrar_el_dia_publica_cupos_totales_en_cero(self, esc):
+        await GuardarDiaCalendario(esc.ctx)(esc.prestador_usuario_id, esc.servicio_id, DIA_1, 0, None, 1)
+        [dia] = esc.dias_publicados()
+        assert (dia["cupos_totales"], dia["cupos_disponibles"]) == (0, 0)
+
+    async def test_expirar_dos_solicitudes_del_mismo_dia_publica_un_solo_evento_final(self, esc):
+        await esc.solicitar(personas=2)
+        await esc.solicitar(personas=3, turista=uuid4())
+        esc.publicador.publicados.clear()
+        esc.reloj.avanzar(hours=48)
+        assert await ExpirarSolicitudes(esc.ctx)() == 2
+        [dia] = esc.dias_publicados()
+        assert dia["cupos_disponibles"] == 10
+
+    async def test_confirmar_y_finalizar_no_mueven_cupos_ni_publican_disponibilidad(self, esc):
+        r = await esc.solicitar()
+        esc.publicador.publicados.clear()
+        await ConfirmarReserva(esc.ctx)(esc.prestador_usuario_id, r.id)
+        esc.reloj.avanzar(days=10)
+        await FinalizarReservas(esc.ctx)()
+        assert esc.dias_publicados() == []
+
+    async def test_el_payload_cumple_el_esquema_del_contrato(self, esc):
+        await esc.solicitar()
+        [dia] = esc.dias_publicados()
+        esquema = json.loads(ESQUEMA_DISPONIBILIDAD.read_text(encoding="utf-8"))
+        assert set(dia) == set(esquema["properties"]) and set(esquema["required"]) <= set(dia)
+        assert 0 <= dia["cupos_disponibles"] <= dia["cupos_totales"] and dia["version"] >= 1
 
 
 # ---------- Consultas ----------

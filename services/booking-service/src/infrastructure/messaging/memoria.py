@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from domain.reserva import EventoDominio
+from domain.eventos import EventoDominio
 from infrastructure.messaging.sobre import armar_sobre
 
 

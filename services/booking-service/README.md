@@ -26,6 +26,7 @@ Disponibilidad de cupos en tiempo real con bloqueo transaccional, máquina de es
 * `reserva.rechazada.v1`
 * `reserva.cancelada.v1`
 * `reserva.finalizada.v1`
+* `disponibilidad.actualizada.v1` (estado completo del día cada vez que cambian sus cupos; lo consume catalog para buscar)
 * `auditoria.registrada.v1`
 
 **Consume:**

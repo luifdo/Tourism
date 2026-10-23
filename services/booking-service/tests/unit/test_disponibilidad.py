@@ -86,3 +86,30 @@ class TestAjustar:
     def test_tarifa_negativa(self):
         with pytest.raises(Validacion):
             dia(10).ajustar(10, Decimal("-1"))
+
+
+class TestSecuencia:
+    """`secuencia` sube con cada cambio; `version` (ETag) solo con las ediciones del prestador."""
+
+    def test_cada_cambio_sube_la_secuencia(self):
+        d = dia(10)
+        d.descontar(3)
+        d.liberar(1)
+        d.ajustar(12, None)
+        assert (d.secuencia, d.version) == (4, 2)
+
+    def test_un_cambio_rechazado_no_sube_la_secuencia(self):
+        d = dia(3)
+        with pytest.raises(CuposInsuficientes):
+            d.descontar(4)
+        assert d.secuencia == 1
+
+    def test_el_evento_lleva_el_estado_completo_y_la_secuencia_como_version(self):
+        d = dia(10)
+        d.descontar(4)
+        evento = d.evento()
+        assert evento.tipo == "disponibilidad.actualizada"
+        assert evento.payload == {
+            "servicio_id": str(d.servicio_id), "fecha": "2026-11-05",
+            "cupos_totales": 10, "cupos_disponibles": 6, "version": 2,
+        }

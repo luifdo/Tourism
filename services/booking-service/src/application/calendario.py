@@ -4,7 +4,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from application.base import Contexto
+from application.base import Contexto, eventos_de_dias
 from application.errores import DiaExistente, NoEncontrado, VersionDistinta
 from application.ports import UnidadDeTrabajo
 from domain.disponibilidad import DisponibilidadCupo
@@ -82,7 +82,7 @@ class AbrirRangoCalendario:
             raise Validacion("No se pueden abrir días pasados.")
         if dias_semana and not dias_semana <= set(range(1, 8)):
             raise Validacion("Los días de la semana van de 1 (lunes) a 7 (domingo).")
-        creados: list[date] = []
+        creados: list[DisponibilidadCupo] = []
         omitidos: list[date] = []
         async with self.ctx.uow() as uow:
             servicio = await _servicio_del_prestador(uow, servicio_id, prestador_usuario_id, para_escribir=True)
@@ -92,16 +92,16 @@ class AbrirRangoCalendario:
                     if await uow.disponibilidad.obtener(servicio_id, fecha):
                         omitidos.append(fecha)
                     else:
-                        await uow.disponibilidad.guardar(
-                            DisponibilidadCupo.abrir(
-                                servicio_id, fecha, cupos_totales, tarifa_dia,
-                                aforo=servicio.capacidad_aforo_diario,
-                            )
+                        dia = DisponibilidadCupo.abrir(
+                            servicio_id, fecha, cupos_totales, tarifa_dia,
+                            aforo=servicio.capacidad_aforo_diario,
                         )
-                        creados.append(fecha)
+                        await uow.disponibilidad.guardar(dia)
+                        creados.append(dia)
                 fecha += timedelta(days=1)
             await uow.commit()
-        return creados, omitidos
+        await self.ctx.publicador.publicar(eventos_de_dias(creados), None)
+        return [d.fecha for d in creados], omitidos
 
 
 class GuardarDiaCalendario:
@@ -138,4 +138,5 @@ class GuardarDiaCalendario:
                 dia.ajustar(cupos_totales, tarifa_dia, aforo)
             await uow.disponibilidad.guardar(dia)
             await uow.commit()
+        await self.ctx.publicador.publicar(eventos_de_dias([dia]), None)
         return dia, creado
