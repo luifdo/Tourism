@@ -101,6 +101,9 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | `GET`, `PUT /api/catalog/prestador/perfil` | UC4 | Teléfono, dirección y política de cancelación; `If-Match` |
 | `POST /api/catalog/prestador/imagenes` | UC17 | URL firmada de SeaweedFS (JPEG/PNG/WebP, 5 MB, 10 min) |
 | `GET /api/catalog/geocodificar` | UC17 | Rol Prestador; Nominatim con caché de 7 días y 1 petición/s entre réplicas |
+| `POST /api/catalog/zonas` | Zonas | Entidad o Admin; reasigna los servicios que cubre; `CODIGO_EXISTENTE` 409. Crear, editar y desactivar guardan `auditoria.registrada` en el outbox |
+| `GET`, `PUT /api/catalog/zonas/{id}` | Zonas | Entidad o Admin; polígono completo y textos es/en; `If-Match`; si cambia el polígono reasigna los servicios |
+| `POST /api/catalog/zonas/{id}/desactivar` | Zonas | Entidad o Admin; `If-Match`; con alertas vigentes `ZONA_EN_USO` 409; sus servicios pasan a otra zona o quedan sin zona |
 | `GET /health` | RNF-01 | `200` si PostgreSQL responde, `503` si no. Valkey y RabbitMQ no se revisan: sin caché la búsqueda sigue y los eventos esperan en el outbox (ESC-01) |
 | `GET /metrics` | RNF-12 | Prometheus |
 

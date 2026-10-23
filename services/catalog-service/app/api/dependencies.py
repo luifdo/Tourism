@@ -23,15 +23,20 @@ from app.application.use_cases.acceso_prestador import FabricaUnidadDeTrabajo
 from app.application.use_cases.buscar_servicios import BuscarServicios
 from app.application.use_cases.cambiar_estado_servicio import CambiarEstadoServicio
 from app.application.use_cases.check_health import CheckHealth
+from app.application.use_cases.crear_zona import CrearZona
+from app.application.use_cases.desactivar_zona import DesactivarZona
 from app.application.use_cases.editar_perfil import EditarPerfil
 from app.application.use_cases.editar_servicio import EditarServicio
+from app.application.use_cases.editar_zona import EditarZona
 from app.application.use_cases.escritura_servicio import EscrituraServicio
+from app.application.use_cases.escritura_zona import EscrituraZona
 from app.application.use_cases.geocodificar_direccion import GeocodificarDireccion
 from app.application.use_cases.listar_alertas import ListarAlertas
 from app.application.use_cases.listar_servicios_prestador import ListarServiciosPrestador
 from app.application.use_cases.listar_zonas import ListarZonas
 from app.application.use_cases.obtener_perfil import ObtenerPerfil
 from app.application.use_cases.obtener_servicio import ObtenerServicio
+from app.application.use_cases.obtener_zona import ObtenerZona
 from app.application.use_cases.registrar_servicio import RegistrarServicio
 from app.application.use_cases.solicitar_subida_imagen import SolicitarSubidaImagen
 from app.application.use_cases.ver_alertas_en_mapa import VerAlertasEnMapa
@@ -197,3 +202,30 @@ def get_geocodificar(
     geocodificador: Annotated[Geocodificador, Depends(get_geocodificador)],
 ) -> GeocodificarDireccion:
     return GeocodificarDireccion(geocodificador)
+
+
+def get_escritura_zona(
+    invalidador: Annotated[InvalidadorCache, Depends(get_invalidador_cache)],
+) -> EscrituraZona:
+    return EscrituraZona(invalidador)
+
+
+EscrituraZonaDep = Annotated[EscrituraZona, Depends(get_escritura_zona)]
+
+
+def get_crear_zona(uow: Uow, escritura: EscrituraZonaDep, reloj: RelojDep) -> CrearZona:
+    return CrearZona(uow, escritura, reloj)
+
+
+def get_obtener_zona(
+    consulta: Annotated[ConsultaZonas, Depends(get_consulta_zonas)],
+) -> ObtenerZona:
+    return ObtenerZona(consulta)
+
+
+def get_editar_zona(uow: Uow, escritura: EscrituraZonaDep, reloj: RelojDep) -> EditarZona:
+    return EditarZona(uow, escritura, reloj)
+
+
+def get_desactivar_zona(uow: Uow, escritura: EscrituraZonaDep, reloj: RelojDep) -> DesactivarZona:
+    return DesactivarZona(uow, escritura, reloj)

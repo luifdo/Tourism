@@ -45,9 +45,9 @@ class TestZona:
 
     def test_desactivar(self) -> None:
         z = zona()
-        z.desactivar(1, alertas_vigentes=0)
+        assert z.desactivar(1, alertas_vigentes=0) is True
         assert not z.activa and z.version == 2
-        z.desactivar(2, alertas_vigentes=0)  # repetido: sin efecto
+        assert z.desactivar(2, alertas_vigentes=3) is False  # repetido: sin efecto ni error
         assert z.version == 2
 
 

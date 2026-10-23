@@ -18,6 +18,14 @@ class NivelAlerta(StrEnum):
     CRITICA = "CRITICA"
 
 
+class ResultadoAuditoria(StrEnum):
+    """`resultado` de `auditoria.registrada.v1`."""
+
+    EXITO = "EXITO"
+    DENEGADO = "DENEGADO"
+    ERROR = "ERROR"
+
+
 class EstadoReserva(StrEnum):
     """Estados de la reserva según booking-service (Plan §6.4)."""
 

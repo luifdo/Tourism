@@ -364,7 +364,11 @@ paths:
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/Prohibido' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
-        '409': { $ref: '#/components/responses/VersionDistinta' }
+        '409':
+          description: '`CODIGO_EXISTENTE` (el código nuevo ya es de otra zona) o `VERSION_DISTINTA` (la versión actual va en `ETag`).'
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
         '428': { $ref: '#/components/responses/FaltaIfMatch' }
 
   /zonas/{zona_id}/desactivar:

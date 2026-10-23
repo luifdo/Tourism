@@ -6,9 +6,11 @@ from uuid import UUID
 
 from sqlalchemy import func, select, text
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.zona import Zona
+from app.domain.errors import CodigoExistente, DatoInvalido
 from app.domain.value_objects.codigo_zona import CodigoZona
 from app.domain.value_objects.geo import Coordenada, PoligonoGeoJSON
 from app.domain.value_objects.texto_traducido import TextoTraducido
@@ -21,6 +23,26 @@ _ZONA_QUE_CUBRE = """
     ORDER BY ST_Area(z.poligono) ASC
     LIMIT 1
 """
+
+# SQLSTATE de PostgreSQL: llave única repetida (`codigo`) y CHECK incumplido (`ST_IsValid`).
+_UNICO_VIOLADO = "23505"
+_CHECK_VIOLADO = "23514"
+
+
+def columnas_zona() -> tuple[Any, Any]:
+    """Modelo y polígono en GeoJSON (15 decimales: sin perder precisión al reeditar)."""
+    return ZonaModelo, func.ST_AsGeoJSON(ZonaModelo.poligono, 15)
+
+
+def zona_desde_fila(modelo: ZonaModelo, geojson: str) -> Zona:
+    return Zona(
+        id=modelo.id,
+        codigo=CodigoZona(modelo.codigo),
+        nombre=TextoTraducido(**modelo.nombre),
+        poligono=PoligonoGeoJSON.desde_geojson(json.loads(geojson)),
+        activa=modelo.activa,
+        version=modelo.version,
+    )
 
 
 class SqlZonaRepository:
@@ -54,6 +76,11 @@ class SqlZonaRepository:
         )
 
     async def guardar(self, zona: Zona) -> None:
+        """Traduce las restricciones de la tabla a errores del dominio.
+
+        El código único y la validez del polígono los garantiza PostgreSQL, así dos
+        peticiones simultáneas con el mismo código no pasan las dos.
+        """
         sentencia = insert(ZonaModelo).values(
             id=zona.id,
             codigo=zona.codigo.valor,
@@ -67,27 +94,23 @@ class SqlZonaRepository:
             version=zona.version,
         )
         columnas = ("codigo", "nombre", "poligono", "activa", "version")
-        await self._session.execute(
-            sentencia.on_conflict_do_update(
-                index_elements=["id"], set_={c: sentencia.excluded[c] for c in columnas}
+        try:
+            await self._session.execute(
+                sentencia.on_conflict_do_update(
+                    index_elements=["id"], set_={c: sentencia.excluded[c] for c in columnas}
+                )
             )
-        )
+        except IntegrityError as exc:
+            estado = getattr(exc.orig, "sqlstate", None)
+            if estado == _UNICO_VIOLADO:
+                raise CodigoExistente(codigo=zona.codigo.valor) from exc
+            if estado == _CHECK_VIOLADO:
+                raise DatoInvalido(campo="poligono", regla="poligono_invalido") from exc
+            raise
 
     async def _uno(self, condicion: Any) -> Zona | None:
         resultado = await self._session.execute(
-            select(ZonaModelo, func.ST_AsGeoJSON(ZonaModelo.poligono, 15))
-            .where(condicion)
-            .with_for_update()
+            select(*columnas_zona()).where(condicion).with_for_update()
         )
         fila = resultado.first()
-        if fila is None:
-            return None
-        modelo, geojson = fila
-        return Zona(
-            id=modelo.id,
-            codigo=CodigoZona(modelo.codigo),
-            nombre=TextoTraducido(**modelo.nombre),
-            poligono=PoligonoGeoJSON.desde_geojson(json.loads(geojson)),
-            activa=modelo.activa,
-            version=modelo.version,
-        )
+        return zona_desde_fila(*fila) if fila else None

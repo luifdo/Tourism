@@ -137,6 +137,10 @@ VALIDACION: dict[str, dict[Idioma, str]] = {
         _ES: "Cada anillo debe terminar en el mismo punto en que empieza.",
         _EN: "Each ring must end at the same point where it starts.",
     },
+    "poligono_invalido": {
+        _ES: "El polígono no es válido: sus bordes se cruzan o se tocan a sí mismos.",
+        _EN: "The polygon is not valid: its edges cross or touch themselves.",
+    },
     "punto_lon_lat": {
         _ES: "Cada punto debe ser [longitud, latitud].",
         _EN: "Each point must be [longitude, latitude].",

@@ -1,11 +1,19 @@
-"""Lectura de zonas activas (implementa ConsultaZonas)."""
+"""Lectura de zonas (implementa ConsultaZonas), sin bloquear filas."""
 
-from sqlalchemy import text
+from uuid import UUID
+
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.dto.zona_vista import ZonaVista
+from app.domain.entities.zona import Zona
 from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.infrastructure.persistence.modelos.zona import ZonaModelo
+from app.infrastructure.persistence.repositorios.zona_repository import (
+    columnas_zona,
+    zona_desde_fila,
+)
 
 # ST_PointOnSurface garantiza un punto dentro del polígono (el centroide puede caer fuera).
 # Se redondea a 6 decimales (~10 cm) para no exponer ruido de punto flotante.
@@ -35,3 +43,10 @@ class SqlConsultaZonas:
             )
             for f in filas
         ]
+
+    async def zona(self, zona_id: UUID) -> Zona | None:
+        async with self._sesiones() as session:
+            fila = (
+                await session.execute(select(*columnas_zona()).where(ZonaModelo.id == zona_id))
+            ).first()
+        return zona_desde_fila(*fila) if fila else None

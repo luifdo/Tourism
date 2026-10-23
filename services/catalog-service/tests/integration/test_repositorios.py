@@ -18,6 +18,7 @@ from app.domain.entities.reserva_proyeccion import (
     TipoEventoReserva,
 )
 from app.domain.entities.zona import Zona
+from app.domain.errors import DatoInvalido
 from app.domain.value_objects.catalogos import Categoria, EstadoReserva, NivelAlerta
 from app.domain.value_objects.codigo_zona import CodigoZona
 from app.domain.value_objects.geo import Coordenada, PoligonoGeoJSON
@@ -197,7 +198,7 @@ class TestZonas:
             }
         )
         zona = Zona.crear(CodigoZona("prueba-mono"), TextoTraducido(es="Moño"), mono)
-        with pytest.raises(IntegrityError):
+        with pytest.raises(DatoInvalido, match="poligono_invalido"):
             async with SqlUnidadDeTrabajo(sesiones) as uow:
                 await uow.zonas.guardar(zona)
 

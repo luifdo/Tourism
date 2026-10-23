@@ -19,6 +19,7 @@ from app.api.routers import (
     servicios,
     servicios_prestador,
     zonas,
+    zonas_entidad,
 )
 from app.config import Settings, get_settings
 from app.infrastructure.cache.cache_versionada import CacheVersionada
@@ -102,6 +103,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         servicios,
         busqueda,
         zonas,
+        zonas_entidad,
         alertas,
         mapa,
         servicios_prestador,

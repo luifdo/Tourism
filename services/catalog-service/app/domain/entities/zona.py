@@ -41,11 +41,13 @@ class Zona(Versionado):
         self._avanzar_version()
         return cambio_poligono
 
-    def desactivar(self, version_esperada: int, alertas_vigentes: int) -> None:
+    def desactivar(self, version_esperada: int, alertas_vigentes: int) -> bool:
+        """Devuelve False si ya estaba inactiva (no hay nada que reasignar ni auditar)."""
         self._verificar_version(version_esperada)
         if not self.activa:
-            return
+            return False
         if alertas_vigentes > 0:
             raise ZonaEnUso(zona=str(self.codigo), alertas_vigentes=alertas_vigentes)
         self.activa = False
         self._avanzar_version()
+        return True
