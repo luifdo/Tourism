@@ -141,6 +141,22 @@ VALIDACION: dict[str, dict[Idioma, str]] = {
         _ES: "El polígono no es válido: sus bordes se cruzan o se tocan a sí mismos.",
         _EN: "The polygon is not valid: its edges cross or touch themselves.",
     },
+    "repetido": {
+        _ES: "El campo «{campo}» tiene valores repetidos.",
+        _EN: "The field '{campo}' has repeated values.",
+    },
+    "bloque_obligatorio": {
+        _ES: "Para el tipo {tipo} hay que llenar «{campo}».",
+        _EN: "Type {tipo} requires '{campo}'.",
+    },
+    "bloque_no_permitido": {
+        _ES: "«{campo}» no corresponde al tipo {tipo}.",
+        _EN: "'{campo}' does not apply to type {tipo}.",
+    },
+    "recomendacion_sin_medio": {
+        _ES: "La recomendación de dinero no coincide con los medios de pago aceptados.",
+        _EN: "The money recommendation does not match the accepted payment methods.",
+    },
     "punto_lon_lat": {
         _ES: "Cada punto debe ser [longitud, latitud].",
         _EN: "Each point must be [longitude, latitude].",

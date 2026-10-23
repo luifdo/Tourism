@@ -19,11 +19,16 @@ from app.domain.entities.reserva_proyeccion import (
 )
 from app.domain.entities.zona import Zona
 from app.domain.errors import DatoInvalido
-from app.domain.value_objects.catalogos import Categoria, EstadoReserva, NivelAlerta
+from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
+from app.domain.value_objects.atributos.bloque_entrada import BloqueEntrada
+from app.domain.value_objects.atributos.bloque_gastronomia import BloqueGastronomia
+from app.domain.value_objects.atributos.valores import TipoCocina
+from app.domain.value_objects.catalogos import Categoria, EstadoReserva, NivelAlerta, UnidadTarifa
 from app.domain.value_objects.codigo_zona import CodigoZona
 from app.domain.value_objects.geo import Coordenada, PoligonoGeoJSON
 from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 from app.infrastructure.persistence.unidad_de_trabajo import SqlUnidadDeTrabajo
 
 pytestmark = pytest.mark.integration
@@ -38,11 +43,28 @@ LEJOS = Coordenada(lat=10.50, lon=-74.50)
 Sesiones = async_sessionmaker[AsyncSession]
 
 
+# Un tipo por categoría con su bloque principal mínimo (las pruebas filtran por categoría).
+TIPO_DE = {
+    Categoria.PLAYA: TipoServicio.ACCESO_PLAYA,
+    Categoria.CULTURA: TipoServicio.MUSEO_SITIO,
+    Categoria.NATURALEZA: TipoServicio.RESERVA_PARQUE,
+    Categoria.GASTRONOMIA: TipoServicio.RESTAURANTE,
+}
+
+
+def atributos_de(tipo: TipoServicio) -> AtributosServicio:
+    if tipo is TipoServicio.RESTAURANTE:
+        return AtributosServicio(gastronomia=BloqueGastronomia(tipos_cocina=(TipoCocina.DE_MAR,)))
+    return AtributosServicio(entrada=BloqueEntrada())
+
+
 def datos(ubicacion: Coordenada = EN_MINCA) -> DatosServicio:
     return DatosServicio(
         nombre=TextoTraducido(es="Tour del café en Minca", en="Minca coffee tour"),
         descripcion=TextoTraducido(es="Recorrido por fincas cafeteras"),
-        categoria=Categoria.NATURALEZA,
+        tipo=TIPO_DE[Categoria.NATURALEZA],
+        unidad_tarifa=UnidadTarifa.POR_PERSONA,
+        atributos=atributos_de(TIPO_DE[Categoria.NATURALEZA]),
         ubicacion=ubicacion,
         tarifa_base=Tarifa(Decimal("85000.50")),
         capacidad_aforo_diario=20,

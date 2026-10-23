@@ -1,33 +1,50 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import UUID, uuid4
 
 from app.domain.entities.prestador_perfil import PrestadorPerfil
 from app.domain.entities.versionado import Versionado
 from app.domain.errors import DatoInvalido, NoEncontrado
-from app.domain.value_objects.catalogos import Categoria
+from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
+from app.domain.value_objects.catalogos import Categoria, UnidadTarifa
 from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 
 MAX_IMAGENES = 10
 
 
 @dataclass(frozen=True, slots=True)
 class DatosServicio:
-    """Campos que el prestador escribe al registrar o editar una oferta."""
+    """Campos que el prestador escribe al registrar o editar una oferta.
+
+    La categoría no se escribe: sale del tipo, así nunca se contradicen.
+    """
 
     nombre: TextoTraducido
     descripcion: TextoTraducido
-    categoria: Categoria
+    tipo: TipoServicio
     ubicacion: Coordenada
     tarifa_base: Tarifa
+    unidad_tarifa: UnidadTarifa
     capacidad_aforo_diario: int
     imagenes_urls: tuple[str, ...] = ()
+    atributos: AtributosServicio = field(default_factory=AtributosServicio)
+
+    @property
+    def categoria(self) -> Categoria:
+        return self.tipo.categoria
 
     def validar(self, origen_imagenes: str) -> None:
         if self.capacidad_aforo_diario < 1:
             raise DatoInvalido(campo="capacidad_aforo_diario", regla="minimo", minimo=1)
+        self.atributos.validar_para(self.tipo)
+        experiencia = self.atributos.experiencia
+        if experiencia and (experiencia.grupo_maximo or 0) > self.capacidad_aforo_diario:
+            raise DatoInvalido(
+                campo="grupo_maximo", regla="mayor_que", otro="capacidad_aforo_diario"
+            )
         if len(self.imagenes_urls) > MAX_IMAGENES:
             raise DatoInvalido(campo="imagenes_urls", regla="maximo", maximo=MAX_IMAGENES)
         for url in self.imagenes_urls:

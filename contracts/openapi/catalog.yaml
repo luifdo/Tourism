@@ -1082,7 +1082,30 @@ components:
     Categoria:
       type: string
       description: Código estable; la PWA lo traduce.
-      enum: [PLAYA, NATURALEZA, CULTURA, GASTRONOMIA, AVENTURA, ALOJAMIENTO]
+      enum: [PLAYA, NATURALEZA, CULTURA, GASTRONOMIA, AVENTURA, ALOJAMIENTO, TRANSPORTE]
+
+    TipoServicio:
+      type: string
+      description: |
+        Qué es la oferta. Define la categoría y qué bloques de `atributos` usa:
+        * ALOJAMIENTO (bloque `alojamiento`): HOTEL, HOSTAL, POSADA_ECOHOTEL, GLAMPING_CAMPING, APARTAMENTO_TURISTICO.
+        * GASTRONOMIA: RESTAURANTE y CAFE_BAR (`gastronomia`); EXPERIENCIA_GASTRONOMICA (`experiencia`, y `gastronomia` opcional).
+        * AVENTURA (`experiencia`): TOUR_GUIADO, SENDERISMO, DEPORTE_ACUATICO.
+        * NATURALEZA: AVISTAMIENTO (`experiencia`); RESERVA_PARQUE (`entrada`).
+        * PLAYA: ACCESO_PLAYA (`entrada`); ALQUILER_EQUIPO (`alquiler`).
+        * CULTURA: TOUR_CULTURAL y EXPERIENCIA_COMUNITARIA (`experiencia`); MUSEO_SITIO (`entrada`); EVENTO_FESTIVAL (`entrada`, y `experiencia` opcional).
+        * TRANSPORTE (`transporte`): TRANSPORTE_MARITIMO, TRASLADO_TERRESTRE.
+        Todos admiten `comunes` y `pagos`. Un establecimiento con varias ofertas registra un servicio por cada una.
+      enum: [HOTEL, HOSTAL, POSADA_ECOHOTEL, GLAMPING_CAMPING, APARTAMENTO_TURISTICO,
+             RESTAURANTE, CAFE_BAR, EXPERIENCIA_GASTRONOMICA, TOUR_GUIADO, SENDERISMO,
+             DEPORTE_ACUATICO, AVISTAMIENTO, RESERVA_PARQUE, ACCESO_PLAYA, ALQUILER_EQUIPO,
+             TOUR_CULTURAL, MUSEO_SITIO, EXPERIENCIA_COMUNITARIA, EVENTO_FESTIVAL,
+             TRANSPORTE_MARITIMO, TRASLADO_TERRESTRE]
+
+    UnidadTarifa:
+      type: string
+      description: A qué corresponde `tarifa_base`.
+      enum: [POR_PERSONA, POR_NOCHE, POR_GRUPO, POR_UNIDAD, POR_HORA, POR_DIA]
 
     NivelAlerta:
       type: string
@@ -1190,28 +1213,223 @@ components:
 
     ServicioGuardar:
       type: object
-      required: [nombre, descripcion, categoria, ubicacion, tarifa_base, capacidad_aforo_diario]
+      description: La categoría no se envía; sale de `tipo`.
+      required: [nombre, descripcion, tipo, ubicacion, tarifa_base, unidad_tarifa, capacidad_aforo_diario]
       properties:
         nombre: { $ref: '#/components/schemas/TextoTraducido' }
         descripcion: { $ref: '#/components/schemas/TextoTraducido' }
-        categoria: { $ref: '#/components/schemas/Categoria' }
+        tipo: { $ref: '#/components/schemas/TipoServicio' }
         ubicacion: { $ref: '#/components/schemas/Coordenada' }
         tarifa_base: { type: number, minimum: 0 }
+        unidad_tarifa: { $ref: '#/components/schemas/UnidadTarifa' }
         capacidad_aforo_diario: { type: integer, minimum: 1 }
+        atributos: { $ref: '#/components/schemas/AtributosServicio' }
         imagenes_urls:
           type: array
           maxItems: 10
           items: { type: string, format: uri }
 
+    # ---------- Atributos por tipo de servicio (columna JSONB `atributos`) ----------
+    # Textos en {es, en}; horas "HH:MM"; idiomas ISO 639-1 ("es", "en", "fr"...).
+    # En los sí/no de `comunes`, null significa "no informado".
+
+    Hora:
+      type: string
+      pattern: '^([01]\d|2[0-3]):[0-5]\d$'
+      examples: ['14:00']
+
+    Idiomas:
+      type: array
+      maxItems: 20
+      uniqueItems: true
+      items: { type: string, pattern: '^[a-z]{2}$' }
+
+    AtributosServicio:
+      type: object
+      description: Bloques de atributos. `tipo` define cuál es obligatorio y cuáles se admiten (ver TipoServicio).
+      additionalProperties: false
+      properties:
+        comunes: { $ref: '#/components/schemas/BloqueComunes' }
+        alojamiento: { $ref: '#/components/schemas/BloqueAlojamiento' }
+        experiencia: { $ref: '#/components/schemas/BloqueExperiencia' }
+        gastronomia: { $ref: '#/components/schemas/BloqueGastronomia' }
+        entrada: { $ref: '#/components/schemas/BloqueEntrada' }
+        alquiler: { $ref: '#/components/schemas/BloqueAlquiler' }
+        transporte: { $ref: '#/components/schemas/BloqueTransporte' }
+        pagos: { $ref: '#/components/schemas/BloquePagos' }
+
+    BloqueComunes:
+      type: object
+      description: Bloque A, para todos los tipos.
+      additionalProperties: false
+      properties:
+        horario: { $ref: '#/components/schemas/TextoTraducido' }
+        idiomas_atencion: { allOf: [{ $ref: '#/components/schemas/Idiomas' }], default: [es] }
+        incluye: { $ref: '#/components/schemas/TextoTraducido' }
+        no_incluye: { $ref: '#/components/schemas/TextoTraducido' }
+        accesible: { type: boolean, nullable: true, description: Silla de ruedas y movilidad reducida. }
+        mascotas: { type: boolean, nullable: true }
+        apto_ninos: { type: boolean, nullable: true }
+        practicas_sostenibles: { $ref: '#/components/schemas/TextoTraducido' }
+        certificacion_sostenible: { type: string, maxLength: 100, examples: [NTS-TS 002] }
+
+    BloqueAlojamiento:
+      type: object
+      description: Bloque B.
+      additionalProperties: false
+      required: [check_in, check_out, habitaciones]
+      properties:
+        check_in: { $ref: '#/components/schemas/Hora' }
+        check_out: { $ref: '#/components/schemas/Hora' }
+        habitaciones:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            additionalProperties: false
+            required: [tipo, capacidad_personas]
+            properties:
+              tipo: { type: string, enum: [PRIVADA, COMPARTIDA, DORMITORIO, SUITE, CABANA, CARPA] }
+              capacidad_personas: { type: integer, minimum: 1, maximum: 50 }
+              cantidad: { type: integer, minimum: 1, maximum: 500, default: 1 }
+        amenidades:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [WIFI, AIRE_ACONDICIONADO, VENTILADOR, AGUA_CALIENTE, PISCINA, PARQUEADERO, COCINA_COMPARTIDA, LAVANDERIA]
+        desayuno_incluido: { type: boolean, default: false }
+
+    BloqueExperiencia:
+      type: object
+      description: Bloque C. `grupo_maximo` no puede superar `capacidad_aforo_diario`.
+      additionalProperties: false
+      required: [duracion_minutos, nivel_fisico]
+      properties:
+        duracion_minutos: { type: integer, minimum: 1, maximum: 20160 }
+        nivel_fisico: { type: string, enum: [BAJO, MEDIO, ALTO] }
+        punto_encuentro: { $ref: '#/components/schemas/TextoTraducido' }
+        salidas_por_dia: { type: integer, minimum: 1, maximum: 48 }
+        edad_minima: { type: integer, minimum: 0, maximum: 99 }
+        grupo_minimo: { type: integer, minimum: 1, maximum: 1000 }
+        grupo_maximo: { type: integer, minimum: 1, maximum: 1000 }
+        incluye_guia: { type: boolean, default: false }
+        idiomas_guia: { allOf: [{ $ref: '#/components/schemas/Idiomas' }], description: Requiere `incluye_guia`. }
+        incluye_transporte: { type: boolean, default: false }
+        incluye_equipo: { type: boolean, default: false }
+        que_llevar: { $ref: '#/components/schemas/TextoTraducido' }
+        requisitos: { $ref: '#/components/schemas/TextoTraducido' }
+
+    BloqueGastronomia:
+      type: object
+      description: Bloque D.
+      additionalProperties: false
+      required: [tipos_cocina]
+      properties:
+        tipos_cocina:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, enum: [CARIBENA, DE_MAR, COLOMBIANA, INTERNACIONAL, VEGETARIANA, CAFE_Y_POSTRES, COMIDA_RAPIDA] }
+        opciones_dietarias:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: [VEGETARIANA, VEGANA, SIN_GLUTEN, SIN_LACTOSA] }
+        precio_min_persona: { type: number, minimum: 0 }
+        precio_max_persona: { type: number, minimum: 0 }
+        requiere_reserva: { type: boolean, default: false }
+        puestos: { type: integer, minimum: 1, maximum: 5000 }
+        domicilio: { type: boolean, default: false }
+
+    BloqueEntrada:
+      type: object
+      description: Bloque E. Sin `tarifas` por visitante se cobra `tarifa_base` a todos.
+      additionalProperties: false
+      properties:
+        tarifas:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [tipo_visitante, valor]
+            properties:
+              tipo_visitante: { type: string, enum: [GENERAL, NACIONAL, EXTRANJERO, NINO, ESTUDIANTE, ADULTO_MAYOR] }
+              valor: { type: number, minimum: 0 }
+        temporadas_cierre: { $ref: '#/components/schemas/TextoTraducido' }
+        reglas: { $ref: '#/components/schemas/TextoTraducido' }
+        servicios_en_sitio:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: [BANOS, DUCHAS, SALVAVIDAS, COMIDA, PARQUEADERO, CASILLEROS] }
+
+    BloqueAlquiler:
+      type: object
+      description: Bloque F. El tiempo de alquiler lo da `unidad_tarifa`.
+      additionalProperties: false
+      required: [equipos]
+      properties:
+        equipos: { $ref: '#/components/schemas/TextoTraducido' }
+        deposito: { type: number, minimum: 0 }
+        requiere_documento: { type: boolean, default: false }
+
+    BloqueTransporte:
+      type: object
+      description: Bloque G.
+      additionalProperties: false
+      required: [origen, destino, duracion_minutos, capacidad_vehiculo]
+      properties:
+        origen: { $ref: '#/components/schemas/TextoTraducido' }
+        destino: { $ref: '#/components/schemas/TextoTraducido' }
+        duracion_minutos: { type: integer, minimum: 1, maximum: 1440 }
+        capacidad_vehiculo: { type: integer, minimum: 1, maximum: 500 }
+        horarios_salida: { type: array, uniqueItems: true, items: { $ref: '#/components/schemas/Hora' } }
+        incluye_chaleco_salvavidas: { type: boolean, nullable: true }
+
+    BloquePagos:
+      type: object
+      description: |
+        Bloque H: dinero y pagos en el lugar, para sitios sin señal o sin cajeros.
+        `recomendacion_dinero` DIGITAL exige TARJETA o TRANSFERENCIA en `medios_pago`; EFECTIVO exige EFECTIVO.
+        El crédito es un acuerdo entre turista y prestador: la plataforma lo informa, no lo cobra ni lo garantiza.
+      additionalProperties: false
+      required: [senal_internet, medios_pago, recomendacion_dinero]
+      properties:
+        senal_internet: { type: string, enum: [CON_SENAL, INTERMITENTE, SIN_SENAL] }
+        medios_pago:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, enum: [EFECTIVO, TARJETA, TRANSFERENCIA], description: TRANSFERENCIA incluye Nequi, Daviplata y Bre-B. }
+        recomendacion_dinero: { type: string, enum: [EFECTIVO, DIGITAL, CUALQUIERA] }
+        credito:
+          type: object
+          description: El prestador cubre el gasto y el turista le paga después (al recuperar señal o pasar por un cajero).
+          additionalProperties: false
+          properties:
+            ofrece: { type: boolean, default: false }
+            plazo_dias: { type: integer, minimum: 1, maximum: 90, description: Requiere `ofrece`. }
+            condiciones: { allOf: [{ $ref: '#/components/schemas/TextoTraducido' }], description: Requiere `ofrece`. }
+        cajeros:
+          type: object
+          additionalProperties: false
+          required: [hay_cerca]
+          properties:
+            hay_cerca: { type: boolean }
+            referencia: { allOf: [{ $ref: '#/components/schemas/TextoTraducido' }], description: 'Dónde está el más cercano, p. ej. "En el parque de Minca".' }
+            distancia_km: { type: number, minimum: 0, maximum: 200 }
+
     ServicioEditable:
       allOf:
         - $ref: '#/components/schemas/ServicioGuardar'
         - type: object
-          required: [id, prestador_id, activo, version, creado_en, actualizado_en]
+          required: [id, prestador_id, categoria, atributos, activo, version, creado_en, actualizado_en]
           properties:
             id: { type: string, format: uuid }
             prestador_id: { type: string, format: uuid }
+            tipo_etiqueta: { type: string, description: Nombre del tipo en el idioma pedido. }
+            categoria: { $ref: '#/components/schemas/Categoria' }
             categoria_etiqueta: { type: string, description: Nombre de la categoría en el idioma pedido. }
+            unidad_tarifa_etiqueta: { type: string, examples: [por persona] }
             zona:
               allOf: [{ $ref: '#/components/schemas/ZonaResumen' }]
               nullable: true

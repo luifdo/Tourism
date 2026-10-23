@@ -94,7 +94,7 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | `GET /api/catalog/mapa/servicios` | UC16 | Pública; GeoJSON recortado a `bbox`; con zoom < 13 agrupa en el servidor (caché de 300 s) |
 | `GET /api/catalog/mapa/zonas` | UC16 | Pública; polígonos simplificados según el zoom |
 | `GET /api/catalog/mapa/alertas` | UC16, UC26 | Pública; puntos (alertas de servicio) y polígonos (de zona) |
-| `POST /api/catalog/servicios` | UC17 | Prestador activo; `Idempotency-Key`; publica `servicio.publicado` (outbox) |
+| `POST /api/catalog/servicios` | UC17 | Prestador activo; `tipo`, `unidad_tarifa` y `atributos` por tipo (ver abajo); `Idempotency-Key`; publica `servicio.publicado` (outbox) |
 | `PUT /api/catalog/servicios/{id}` | UC18 | Dueño; `If-Match` e `Idempotency-Key` |
 | `POST /api/catalog/servicios/{id}/desactivar`, `/reactivar` | UC18 | Dueño; `If-Match`; repetir no publica nada |
 | `GET /api/catalog/prestador/servicios` | UC18 | Sus servicios, inactivos incluidos, en ambos idiomas |
@@ -130,6 +130,29 @@ Las capas salen en GeoJSON (RFC 7946, `application/geo+json`), siempre en `[lon,
 * **Eventos:** el cambio y `servicio.publicado` se guardan en la misma transacción (tabla `outbox`); el relay que los publica en RabbitMQ llega con la mensajería. Tras confirmar se invalida la caché de búsqueda y mapa.
 * **Bloqueos:** toda escritura bloquea primero el perfil y luego el servicio (`SELECT ... FOR UPDATE`), siempre en ese orden. El panel lee sin bloquear.
 * **Imágenes:** la PWA sube directo a SeaweedFS con una URL firmada que incluye el tipo y el tamaño; cada imagen queda en `{prestador_id}/{uuid}.{ext}` y un servicio solo acepta imágenes de la carpeta de su prestador. `docker-compose.dev.yml` levanta SeaweedFS en el puerto 8333 y crea el bucket.
+
+## Tipos de servicio y atributos
+
+Cada oferta tiene un **`tipo`** (21 tipos, ver `TipoServicio` en el [contrato](../../contracts/openapi/catalog.yaml)) que define su categoría y qué datos pide el formulario. La categoría ya no se envía: sale del tipo. Se suma la categoría **`TRANSPORTE`** (lanchas y traslados).
+
+* **Ofertas combinadas:** cada cosa que se reserva por separado es un servicio distinto. Un hostal con tour y restaurante registra tres servicios, cada uno con su tarifa, aforo, reservas y reseñas. Lo que viene incluido y no se reserva aparte (desayuno, guía, transporte) es un atributo.
+* **`unidad_tarifa`** acompaña a `tarifa_base`: `POR_PERSONA`, `POR_NOCHE`, `POR_GRUPO`, `POR_UNIDAD`, `POR_HORA` o `POR_DIA`.
+* **`atributos`** (columna JSONB, migración `0004`) agrupa lo propio de cada tipo en bloques. Cada tipo exige su bloque principal y rechaza los que no le corresponden (`400 bloque_obligatorio` / `bloque_no_permitido`):
+
+| Bloque | Para | Contenido |
+|---|---|---|
+| `comunes` | Todos | Horario, idiomas de atención, qué incluye y qué no, accesibilidad, mascotas, apto para niños, prácticas y certificación sostenibles |
+| `alojamiento` | Hotel, hostal, posada, glamping, apartamento | Check-in y check-out, habitaciones por tipo y capacidad, amenidades, desayuno |
+| `experiencia` | Tours, senderismo, deportes, avistamiento, experiencias culturales y comunitarias | Duración, nivel físico, punto de encuentro, edad mínima, tamaño de grupo (no supera el aforo), guía e idiomas, qué llevar, requisitos |
+| `gastronomia` | Restaurante, café o bar | Tipos de cocina, opciones dietarias, rango de precio por persona, reserva, puestos, domicilio |
+| `entrada` | Parques, playas, museos, eventos | Tarifas por tipo de visitante, temporadas de cierre, reglas, servicios en el sitio |
+| `alquiler` | Alquiler de equipo | Equipos, depósito, documento |
+| `transporte` | Lancha y traslado terrestre | Origen, destino, duración, capacidad, horarios, chaleco salvavidas |
+| `pagos` | Todos (la PWA lo sugiere en experiencias, entradas y transporte) | Ver abajo |
+
+**Dinero y pagos en el lugar (`pagos`):** en sitios alejados puede no haber señal para pagar ni cajeros. El prestador informa la señal de internet (`CON_SENAL`, `INTERMITENTE`, `SIN_SENAL`), los medios que acepta (efectivo, tarjeta, transferencia como Nequi, Daviplata o Bre-B), qué recomienda llevar (`EFECTIVO`, `DIGITAL` o `CUALQUIERA`, que debe coincidir con los medios aceptados), si ofrece **crédito** (cubre el gasto y el turista le paga después, al recuperar señal o pasar por un cajero, con plazo y condiciones) y si hay **cajeros** cerca o dónde está el más cercano. El crédito es un acuerdo entre turista y prestador: la plataforma lo informa, no lo cobra ni lo garantiza.
+
+Textos en `{"es", "en"}`, horas `"HH:MM"` e idiomas en ISO 639-1. Por ahora los atributos se escriben y se leen en el panel del prestador. La ficha pública (con el aviso de efectivo) y los filtros de búsqueda llegan en el paso siguiente. Los filtros previstos son `tipo`, `unidad_tarifa`, `idioma_atencion`, `accesible`, `mascotas`, `apto_ninos`, `opcion_dietaria`, `nivel_fisico`, `acepta_pago_digital` y `ofrece_credito`, sobre el índice GIN de `atributos`.
 
 ## Correlación
 

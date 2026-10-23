@@ -14,11 +14,16 @@ from app.domain.entities.alerta_oficial import AlertaOficial
 from app.domain.entities.atractivo_servicio import AtractivoServicio, DatosServicio
 from app.domain.entities.calificacion_resena import CalificacionResena
 from app.domain.entities.prestador_perfil import PrestadorPerfil
-from app.domain.value_objects.catalogos import Categoria, NivelAlerta
+from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
+from app.domain.value_objects.atributos.bloque_entrada import BloqueEntrada
+from app.domain.value_objects.atributos.bloque_gastronomia import BloqueGastronomia
+from app.domain.value_objects.atributos.valores import TipoCocina
+from app.domain.value_objects.catalogos import Categoria, NivelAlerta, UnidadTarifa
 from app.domain.value_objects.codigo_zona import CodigoZona
 from app.domain.value_objects.geo import Bbox, Coordenada
 from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 from app.infrastructure.persistence.consultas.sql_consulta_mapa import SqlConsultaMapa
 from app.infrastructure.persistence.unidad_de_trabajo import SqlUnidadDeTrabajo
 
@@ -35,13 +40,30 @@ EN_EL_CENTRO = [Coordenada(lat=11.2420 + i * 0.0003, lon=-74.2110 + i * 0.0003) 
 EN_MINCA = Coordenada(lat=11.1426, lon=-74.1178)
 
 
+# Un tipo por categoría con su bloque principal mínimo (las pruebas filtran por categoría).
+TIPO_DE = {
+    Categoria.PLAYA: TipoServicio.ACCESO_PLAYA,
+    Categoria.CULTURA: TipoServicio.MUSEO_SITIO,
+    Categoria.NATURALEZA: TipoServicio.RESERVA_PARQUE,
+    Categoria.GASTRONOMIA: TipoServicio.RESTAURANTE,
+}
+
+
+def atributos_de(tipo: TipoServicio) -> AtributosServicio:
+    if tipo is TipoServicio.RESTAURANTE:
+        return AtributosServicio(gastronomia=BloqueGastronomia(tipos_cocina=(TipoCocina.DE_MAR,)))
+    return AtributosServicio(entrada=BloqueEntrada())
+
+
 def servicio(
     perfil: PrestadorPerfil, nombre: str, categoria: Categoria, ubicacion: Coordenada
 ) -> AtractivoServicio:
     datos = DatosServicio(
         nombre=TextoTraducido(es=nombre, en=f"{nombre} (en)"),
         descripcion=TextoTraducido(es="Descripción"),
-        categoria=categoria,
+        tipo=TIPO_DE[categoria],
+        unidad_tarifa=UnidadTarifa.POR_PERSONA,
+        atributos=atributos_de(TIPO_DE[categoria]),
         ubicacion=ubicacion,
         tarifa_base=Tarifa(Decimal("50000")),
         capacidad_aforo_diario=20,

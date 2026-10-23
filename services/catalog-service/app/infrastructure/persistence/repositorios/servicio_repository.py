@@ -7,10 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.domain.entities.atractivo_servicio import AtractivoServicio, DatosServicio
-from app.domain.value_objects.catalogos import Categoria
+from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
+from app.domain.value_objects.catalogos import UnidadTarifa
 from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 from app.infrastructure.persistence.modelos.atractivo_servicio import AtractivoServicioModelo
 from app.infrastructure.persistence.repositorios.comun import upsert
 
@@ -24,11 +26,13 @@ def servicio_desde_modelo(fila: AtractivoServicioModelo) -> AtractivoServicio:
         datos=DatosServicio(
             nombre=TextoTraducido(**fila.nombre),
             descripcion=TextoTraducido(**fila.descripcion),
-            categoria=Categoria(fila.categoria),
+            tipo=TipoServicio(fila.tipo),
             ubicacion=Coordenada(lat=fila.lat, lon=fila.lon),
             tarifa_base=Tarifa(Decimal(fila.tarifa_base)),
+            unidad_tarifa=UnidadTarifa(fila.unidad_tarifa),
             capacidad_aforo_diario=fila.capacidad_aforo_diario,
             imagenes_urls=tuple(fila.imagenes_urls),
+            atributos=AtributosServicio.desde_json(fila.atributos),
         ),
         creado_en=fila.creado_en,
         actualizado_en=fila.actualizado_en,
@@ -72,11 +76,14 @@ class SqlServicioRepository:
                 "nombre": datos.nombre.a_dict(),
                 "descripcion": datos.descripcion.a_dict(),
                 "categoria": datos.categoria.value,
+                "tipo": datos.tipo.value,
                 "lat": datos.ubicacion.lat,
                 "lon": datos.ubicacion.lon,
                 "tarifa_base": datos.tarifa_base.valor,
+                "unidad_tarifa": datos.unidad_tarifa.value,
                 "capacidad_aforo_diario": datos.capacidad_aforo_diario,
                 "imagenes_urls": list(datos.imagenes_urls),
+                "atributos": datos.atributos.a_json(),
                 "zona_id": servicio.zona_id,
                 "activo": servicio.activo,
                 "desactivado_por_suspension": servicio.desactivado_por_suspension,

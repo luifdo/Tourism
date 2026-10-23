@@ -128,7 +128,16 @@ def servicio_id(database_url: str, cliente: TestClient) -> str:
         json={
             "nombre": {"es": "Paseo en lancha"},
             "descripcion": {"es": "Recorrido por la bahía"},
-            "categoria": "AVENTURA",
+            "tipo": "TRANSPORTE_MARITIMO",
+            "unidad_tarifa": "POR_PERSONA",
+            "atributos": {
+                "transporte": {
+                    "origen": {"es": "Taganga"},
+                    "destino": {"es": "Playa Cristal"},
+                    "duracion_minutos": 40,
+                    "capacidad_vehiculo": 12,
+                }
+            },
             "ubicacion": CENTRO,
             "tarifa_base": 60000,
             "capacidad_aforo_diario": 12,

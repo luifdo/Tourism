@@ -7,10 +7,13 @@ import pytest
 from app.domain.entities.atractivo_servicio import AtractivoServicio, DatosServicio
 from app.domain.entities.prestador_perfil import PrestadorPerfil
 from app.domain.errors import DatoInvalido, NoEncontrado, PerfilInactivo, VersionDistinta
-from app.domain.value_objects.catalogos import Categoria
+from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
+from app.domain.value_objects.atributos.bloque_entrada import BloqueEntrada
+from app.domain.value_objects.catalogos import UnidadTarifa
 from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 
 ORIGEN = "https://s3.turismo.local/catalogo-imagenes/"
 AHORA = datetime(2026, 10, 18, 15, 0, tzinfo=UTC)
@@ -20,7 +23,9 @@ def datos(**cambios: object) -> DatosServicio:
     base = {
         "nombre": TextoTraducido(es="Tour cafetero", en="Coffee tour"),
         "descripcion": TextoTraducido(es="Recorrido por fincas de Minca"),
-        "categoria": Categoria.NATURALEZA,
+        "tipo": TipoServicio.RESERVA_PARQUE,
+        "unidad_tarifa": UnidadTarifa.POR_PERSONA,
+        "atributos": AtributosServicio(entrada=BloqueEntrada()),
         "ubicacion": Coordenada(lat=11.1426, lon=-74.1178),
         "tarifa_base": Tarifa(Decimal("85000")),
         "capacidad_aforo_diario": 20,

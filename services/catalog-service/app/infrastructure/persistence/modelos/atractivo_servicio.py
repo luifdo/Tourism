@@ -1,4 +1,4 @@
-"""Modelo ORM de la tabla `atractivo_servicio` (esquema en la migración 0001)."""
+"""Modelo ORM de la tabla `atractivo_servicio` (esquema en las migraciones 0001 y 0004)."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -22,6 +22,7 @@ class AtractivoServicioModelo(Base):
     nombre: Mapped[dict[str, str]] = mapped_column(JSONB)
     descripcion: Mapped[dict[str, str]] = mapped_column(JSONB)
     categoria: Mapped[str] = mapped_column(Text)
+    tipo: Mapped[str] = mapped_column(Text)
     lat: Mapped[float]
     lon: Mapped[float]
     ubicacion: Mapped[Any] = mapped_column(
@@ -29,8 +30,10 @@ class AtractivoServicioModelo(Base):
         Computed("ST_SetSRID(ST_MakePoint(lon, lat), 4326)::geography", persisted=True),
     )
     tarifa_base: Mapped[Decimal] = mapped_column(Numeric(12, 2))
+    unidad_tarifa: Mapped[str] = mapped_column(Text)
     capacidad_aforo_diario: Mapped[int]
     imagenes_urls: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    atributos: Mapped[dict[str, Any]] = mapped_column(JSONB)
     zona_id: Mapped[UUID | None]
     activo: Mapped[bool]
     desactivado_por_suspension: Mapped[bool]

@@ -11,9 +11,10 @@ from app.api.i18n.mensajes_error import MENSAJES, VALIDACION, mensaje_error
 from app.application import errores
 from app.domain import errors
 from app.domain.errors import DatoInvalido, ErrorDominio, VersionDistinta, ZonaEnUso
-from app.domain.value_objects.catalogos import Categoria, NivelAlerta
+from app.domain.value_objects.catalogos import Categoria, NivelAlerta, UnidadTarifa
 from app.domain.value_objects.idioma import Idioma
 from app.domain.value_objects.saturacion import NivelSaturacion
+from app.domain.value_objects.tipo_servicio import TipoServicio
 
 APP = Path(__file__).resolve().parents[3] / "app"
 
@@ -49,7 +50,9 @@ def test_todos_los_textos_estan_en_ambos_idiomas(catalogo: dict) -> None:
         assert all(t.strip() for t in textos.values()), clave
 
 
-@pytest.mark.parametrize("enum", [Categoria, NivelAlerta, NivelSaturacion])
+@pytest.mark.parametrize(
+    "enum", [Categoria, NivelAlerta, NivelSaturacion, TipoServicio, UnidadTarifa]
+)
 def test_cada_valor_fijo_tiene_etiqueta_en_ambos_idiomas(enum: type) -> None:
     for valor in enum:
         assert set(ETIQUETAS[valor]) == set(Idioma), valor

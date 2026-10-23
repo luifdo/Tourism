@@ -8,7 +8,11 @@ from app.domain.entities.atractivo_servicio import AtractivoServicio, DatosServi
 from app.domain.entities.prestador_perfil import PrestadorPerfil
 from app.domain.errors import DatoInvalido
 from app.domain.events.servicio_publicado import ServicioPublicado
-from app.domain.value_objects.catalogos import Categoria
+from app.domain.value_objects.atributos.atributos_servicio import AtributosServicio
+from app.domain.value_objects.atributos.bloque_entrada import BloqueEntrada
+from app.domain.value_objects.atributos.bloque_gastronomia import BloqueGastronomia
+from app.domain.value_objects.atributos.valores import TipoCocina
+from app.domain.value_objects.catalogos import Categoria, UnidadTarifa
 from app.domain.value_objects.geo import Coordenada
 from app.domain.value_objects.imagen_solicitada import (
     MAX_BYTES_IMAGEN,
@@ -17,8 +21,24 @@ from app.domain.value_objects.imagen_solicitada import (
 )
 from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 
 AHORA = datetime(2026, 10, 18, 15, 0, tzinfo=UTC)
+
+
+# Un tipo por categoría con su bloque principal mínimo (las pruebas filtran por categoría).
+TIPO_DE = {
+    Categoria.PLAYA: TipoServicio.ACCESO_PLAYA,
+    Categoria.CULTURA: TipoServicio.MUSEO_SITIO,
+    Categoria.NATURALEZA: TipoServicio.RESERVA_PARQUE,
+    Categoria.GASTRONOMIA: TipoServicio.RESTAURANTE,
+}
+
+
+def atributos_de(tipo: TipoServicio) -> AtributosServicio:
+    if tipo is TipoServicio.RESTAURANTE:
+        return AtributosServicio(gastronomia=BloqueGastronomia(tipos_cocina=(TipoCocina.DE_MAR,)))
+    return AtributosServicio(entrada=BloqueEntrada())
 
 
 def test_servicio_publicado_cumple_el_contrato() -> None:
@@ -26,7 +46,9 @@ def test_servicio_publicado_cumple_el_contrato() -> None:
     datos = DatosServicio(
         nombre=TextoTraducido(es="Tour"),
         descripcion=TextoTraducido(es="Recorrido"),
-        categoria=Categoria.CULTURA,
+        tipo=TIPO_DE[Categoria.CULTURA],
+        unidad_tarifa=UnidadTarifa.POR_PERSONA,
+        atributos=atributos_de(TIPO_DE[Categoria.CULTURA]),
         ubicacion=Coordenada(lat=11.24, lon=-74.21),
         tarifa_base=Tarifa(Decimal("85000.50")),
         capacidad_aforo_diario=20,

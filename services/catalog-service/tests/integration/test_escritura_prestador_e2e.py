@@ -89,7 +89,9 @@ def cuerpo(prestador: Prestador, **cambios: object) -> dict:
     return {
         "nombre": {"es": "Tour del café", "en": "Coffee tour"},
         "descripcion": {"es": "Recorrido por fincas"},
-        "categoria": "GASTRONOMIA",
+        "tipo": "EXPERIENCIA_GASTRONOMICA",
+        "unidad_tarifa": "POR_PERSONA",
+        "atributos": {"experiencia": {"duracion_minutos": 180, "nivel_fisico": "BAJO"}},
         "ubicacion": CENTRO,
         "tarifa_base": 85000,
         "capacidad_aforo_diario": 20,
@@ -334,3 +336,121 @@ class TestPerfilImagenesYDirecciones:
         )
         assert r.status_code == 200
         assert r.json() == [{"lat": 11.24, "lon": -74.21, "etiqueta": "Parque de los Novios (en)"}]
+
+
+PAGOS_SIN_SENAL = {
+    "senal_internet": "SIN_SENAL",
+    "medios_pago": ["EFECTIVO"],
+    "recomendacion_dinero": "EFECTIVO",
+    "credito": {"ofrece": True, "plazo_dias": 3, "condiciones": {"es": "Pagas por Nequi"}},
+    "cajeros": {"hay_cerca": False, "referencia": {"es": "Parque de Minca"}, "distancia_km": 8},
+}
+
+
+class TestTipoYAtributos:
+    def test_transporte_con_pagos_se_guarda_y_se_relee(
+        self, cliente: TestClient, prestador: Prestador
+    ) -> None:
+        atributos = {
+            "comunes": {"idiomas_atencion": ["es", "en"], "apto_ninos": True},
+            "transporte": {
+                "origen": {"es": "Taganga"},
+                "destino": {"es": "Playa Cristal", "en": "Cristal Beach"},
+                "duracion_minutos": 40,
+                "capacidad_vehiculo": 12,
+                "horarios_salida": ["10:00", "08:00"],
+                "incluye_chaleco_salvavidas": True,
+            },
+            "pagos": PAGOS_SIN_SENAL,
+        }
+        servicio = registrar(
+            cliente,
+            prestador,
+            tipo="TRANSPORTE_MARITIMO",
+            unidad_tarifa="POR_PERSONA",
+            atributos=atributos,
+        )
+        assert (servicio["tipo"], servicio["categoria"]) == ("TRANSPORTE_MARITIMO", "TRANSPORTE")
+        assert servicio["tipo_etiqueta"] == "Transporte en lancha"
+        assert servicio["unidad_tarifa_etiqueta"] == "por persona"
+        assert servicio["atributos"]["transporte"]["horarios_salida"] == ["08:00", "10:00"]
+        assert servicio["atributos"]["pagos"]["credito"]["plazo_dias"] == 3
+        assert servicio["atributos"]["pagos"]["cajeros"]["distancia_km"] == 8
+
+        panel = cliente.get(
+            "/api/catalog/prestador/servicios",
+            headers=prestador.cabeceras | {"Accept-Language": "en"},
+        ).json()["items"][0]
+        assert panel["atributos"] == servicio["atributos"]
+        assert panel["categoria_etiqueta"] == "Transport"
+
+    def test_falta_el_bloque_principal(self, cliente: TestClient, prestador: Prestador) -> None:
+        r = cliente.post(
+            "/api/catalog/servicios",
+            json=cuerpo(prestador, tipo="HOSTAL", atributos={}),
+            headers=prestador.cabeceras,
+        )
+        assert r.status_code == 400 and r.json()["error"] == "VALIDACION"
+        assert r.json()["message"] == "Para el tipo HOSTAL hay que llenar «atributos.alojamiento»."
+
+    def test_bloque_de_otro_tipo(self, cliente: TestClient, prestador: Prestador) -> None:
+        atributos = {
+            "experiencia": {"duracion_minutos": 60, "nivel_fisico": "BAJO"},
+            "alojamiento": {
+                "check_in": "14:00",
+                "check_out": "11:00",
+                "habitaciones": [{"tipo": "PRIVADA", "capacidad_personas": 2}],
+            },
+        }
+        r = cliente.post(
+            "/api/catalog/servicios",
+            json=cuerpo(prestador, atributos=atributos),
+            headers=prestador.cabeceras,
+        )
+        assert r.status_code == 400
+        assert "atributos.alojamiento" in r.json()["message"]
+
+    def test_recomendacion_que_no_coincide_con_los_medios(
+        self, cliente: TestClient, prestador: Prestador
+    ) -> None:
+        atributos = {
+            "experiencia": {"duracion_minutos": 60, "nivel_fisico": "BAJO"},
+            "pagos": PAGOS_SIN_SENAL | {"recomendacion_dinero": "DIGITAL"},
+        }
+        r = cliente.post(
+            "/api/catalog/servicios",
+            json=cuerpo(prestador, atributos=atributos),
+            headers=prestador.cabeceras,
+        )
+        assert r.status_code == 400
+        assert "medios de pago" in r.json()["message"]
+
+    def test_grupo_mayor_que_el_aforo(self, cliente: TestClient, prestador: Prestador) -> None:
+        atributos = {
+            "experiencia": {"duracion_minutos": 60, "nivel_fisico": "BAJO", "grupo_maximo": 50}
+        }
+        r = cliente.post(
+            "/api/catalog/servicios",
+            json=cuerpo(prestador, atributos=atributos),
+            headers=prestador.cabeceras,
+        )
+        assert r.status_code == 400
+
+    def test_campo_desconocido_en_un_bloque(
+        self, cliente: TestClient, prestador: Prestador
+    ) -> None:
+        atributos = {"experiencia": {"duracion_minutos": 60, "nivel_fisico": "BAJO", "x": 1}}
+        r = cliente.post(
+            "/api/catalog/servicios",
+            json=cuerpo(prestador, atributos=atributos),
+            headers=prestador.cabeceras,
+        )
+        assert r.status_code == 400
+
+    def test_la_categoria_ya_no_se_envia(self, cliente: TestClient, prestador: Prestador) -> None:
+        r = cliente.post(
+            "/api/catalog/servicios",
+            json=cuerpo(prestador, categoria="PLAYA"),
+            headers=prestador.cabeceras,
+        )
+        assert r.status_code == 400
