@@ -146,7 +146,7 @@ services/<servicio>/
   * **Capa Geoespacial PostGIS:** Almacenamiento de puntos georreferenciados mediante el tipo nativo `GEOMETRY(Point, 4326)`. Búsquedas por radio y proximidad ejecutadas mediante la función `ST_DWithin` optimizada con índices espaciales `GIST`.
   * **Caché de Segundo Nivel:** Consultas de alto tráfico (catálogo general y listados de categorías) cacheadas en **Valkey** con un tiempo de expiración (TTL) de 300 segundos, invalidándose ante mutaciones del catálogo.
   * **Perfiles de Prestador:** Se crean al consumir `prestador.aprobado`; solo un prestador con perfil activo puede publicar ofertas (UC17).
-  * **Analítica de Demanda por Eventos:** El módulo consume los eventos `reserva.*` y mantiene su propia tabla `demanda_diaria` (Sección 6.7). No consulta `booking_db`.
+  * **Analítica de Demanda por Eventos:** El módulo consume los eventos `reserva.*` y mantiene su propia proyección `reserva_proyeccion` (Sección 6.7). No consulta `booking_db`.
   * **Índice de Saturación:**
     $$\text{Índice de Saturación} = \frac{\sum \text{Personas con reserva activa}}{\text{Capacidad de Carga Oficial}}$$
     Si el índice supera el 85%, el atractivo se marca con bandera de advertencia y se habilita al rol Entidad para emitir alertas oficiales (UC26).
@@ -325,14 +325,14 @@ Las cinco bases son bases lógicas dentro de un mismo clúster PostgreSQL (Cloud
 | Base | Dueño | Modelo | Entidades principales |
 |---|---|---|---|
 | `iam_db` | iam-service | Relacional | `USUARIO`, `DOCUMENTO_VERIFICACION`, `BITACORA_AUDITORIA` |
-| `catalog_db` | catalog-service | Relacional + geoespacial (PostGIS) | `PRESTADOR_PERFIL`, `ATRACTIVO_SERVICIO`, `ALERTA_OFICIAL`, proyección `demanda_diaria` |
+| `catalog_db` | catalog-service | Relacional + geoespacial (PostGIS) | `PRESTADOR_PERFIL`, `ATRACTIVO_SERVICIO`, `ALERTA_OFICIAL`, proyección `reserva_proyeccion` |
 | `booking_db` | booking-service | Relacional (ACID) | `DISPONIBILIDAD_CUPO`, `SOLICITUD_RESERVA` |
 | `review_db` | review-service | Documental (JSONB) | `RESENA_OPINION`, `REPORTE_RESENA`, proyección `elegibilidad_resena` |
 | `recommendation_db` | recommendation-service | Relacional | `RECOMENDACION_LOG` |
 
 ### 5.2 Reglas de Diseño de Datos
 
-* **Sin acceso cruzado:** Ningún servicio lee la base de otro. Las referencias a entidades ajenas (por ejemplo, `servicio_id` en `booking_db`) son identificadores sin llave foránea; los datos que se necesitan de otro servicio se obtienen por REST o se mantienen como **proyecciones locales** alimentadas por eventos (`demanda_diaria` desde `reserva.*`; `elegibilidad_resena` desde `reserva.finalizada`; `PRESTADOR_PERFIL` desde `prestador.aprobado`).
+* **Sin acceso cruzado:** Ningún servicio lee la base de otro. Las referencias a entidades ajenas (por ejemplo, `servicio_id` en `booking_db`) son identificadores sin llave foránea; los datos que se necesitan de otro servicio se obtienen por REST o se mantienen como **proyecciones locales** alimentadas por eventos (`reserva_proyeccion` desde `reserva.*`; `elegibilidad_resena` desde `reserva.finalizada`; `PRESTADOR_PERFIL` desde `prestador.aprobado`).
 * **Bitácora inmutable (RNF-10):** El usuario de aplicación de `iam_db` solo tiene permisos de inserción y consulta sobre la bitácora.
 * **Consistencia de cupos:** Las operaciones de reserva bloquean la fila de disponibilidad dentro de una transacción (Sección 2.3, Módulo 3).
 * **Concurrencia optimista:** Las entidades que la PWA puede editar sin conexión (oferta y cupos) llevan un número de versión para detectar conflictos (Sección 6.8).
@@ -530,7 +530,8 @@ sequenceDiagram
 
 Al estar unificado en el **Módulo 2 (Catálogo, GIS & Inteligencia de Destino)**:
 
-1. **Proyección de demanda:** El consumidor `catalog.demanda` actualiza la proyección `demanda_diaria` con cada evento `reserva.*` (suma al solicitar, mueve a confirmadas al confirmar, resta al rechazar o cancelar y suma a finalizadas al finalizar). La idempotencia por `event_id` evita contar dos veces. El Módulo 2 nunca consulta `booking_db`.
+1. **Proyección de demanda:** El consumidor `catalog.demanda` guarda en `reserva_proyeccion` el **estado actual de cada reserva** (servicio, fecha, personas, estado y momento del último evento aplicado) con cada evento `reserva.*`; un evento solo se aplica si ocurrió después del último aplicado. La demanda de un día es la suma de personas de las reservas activas (Solicitada y Confirmada) de esa fecha, con el índice `(fecha_reserva, servicio_id)`. La idempotencia por `event_id` (tabla `evento_procesado`) evita aplicar dos veces el mismo evento. El Módulo 2 nunca consulta `booking_db`.
+   *Al programar el Módulo 2 nos dimos cuenta de que era más seguro guardar el estado de cada reserva que llevar contadores en una tabla `demanda_diaria` (sumar al solicitar, restar al cancelar…): con contadores, un evento repetido o que llega desordenado por un reintento suma o resta de más y el número queda mal para siempre; con el estado por reserva, el resultado siempre es correcto.*
 2. **Cálculo de aforos:** Un CronJob cada 30 minutos compara la demanda activa por fecha y zona con `capacidad_aforo_diario` y calcula el índice de saturación.
 3. **Mapa de calor:** El backend transforma coordenadas y porcentajes de saturación a **GeoJSON** para su visualización en Leaflet.js por parte de la Entidad de Gestión.
 4. **Alertas:** Cuando la Entidad emite una alerta (UC26), se inserta en `alertas_oficiales`; la PWA la muestra en el mapa y el chatbot la consulta con la herramienta `alertas_oficiales` antes de recomendar una zona.

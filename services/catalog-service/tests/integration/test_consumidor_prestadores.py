@@ -1,20 +1,16 @@
 """Consumidor `catalog.prestadores` contra RabbitMQ, PostGIS y Valkey reales.
 
-Cada prueba usa su propia cola (nombre único) y esperas de reintento cortas, para no esperar
-los 1 s / 5 s / 25 s de producción.
+`bus` y `consumir` (conftest) dan a cada prueba su propia cola y esperas de reintento cortas.
 """
 
 import asyncio
-import json
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 from uuid import UUID, uuid4
 
-import aio_pika
 import pytest
-from aio_pika.abc import AbstractIncomingMessage, AbstractQueue
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from valkey.asyncio import Valkey
@@ -32,18 +28,14 @@ from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
 from app.domain.value_objects.tipo_servicio import TipoServicio
 from app.infrastructure.cache.cache_versionada import CLAVE_GENERACION, CacheVersionada
-from app.infrastructure.messaging.consumidor_rabbitmq import ConsumidorRabbitMQ
 from app.infrastructure.messaging.esquemas.sobre_evento import SobreEvento
 from app.infrastructure.messaging.manejador_prestadores import CLAVES, ManejadorPrestadores
-from app.infrastructure.messaging.topologia_rabbitmq import EXCHANGE_DLX, declarar_topologia
 from app.infrastructure.persistence.unidad_de_trabajo import SqlUnidadDeTrabajo
 from app.infrastructure.reloj import RelojSistema
 
 pytestmark = pytest.mark.integration
 
 Sesiones = async_sessionmaker[AsyncSession]
-EXCHANGE = "turismo.eventos"
-ESPERAS = (0.2, 0.2, 0.2)
 AHORA = datetime(2026, 10, 23, 15, 0, tzinfo=UTC)
 
 
@@ -69,54 +61,6 @@ def aprobado(prestador: UUID, usuario: UUID, **cambios: Any) -> dict[str, Any]:
     return sobre("prestador.aprobado", payload, **cambios)
 
 
-class Bus:
-    """Publica como lo haría iam y escucha la DLQ con una cola propia."""
-
-    def __init__(self, url: str) -> None:
-        self.url = url
-
-    async def __aenter__(self) -> "Bus":
-        self._conexion = await aio_pika.connect_robust(self.url)
-        canal = await self._conexion.channel()
-        self._eventos = await declarar_topologia(canal, EXCHANGE)
-        dlx = await canal.declare_exchange(EXCHANGE_DLX, aio_pika.ExchangeType.TOPIC, durable=True)
-        self.dlq: AbstractQueue = await canal.declare_queue(exclusive=True)
-        await self.dlq.bind(dlx, routing_key="#")
-        return self
-
-    async def __aexit__(self, *_: object) -> None:
-        await self._conexion.close()
-
-    async def publicar(self, cuerpo: dict[str, Any]) -> None:
-        await self._eventos.publish(
-            aio_pika.Message(json.dumps(cuerpo).encode(), type=cuerpo.get("event_type")),
-            routing_key=cuerpo.get("event_type", "prestador.aprobado"),
-        )
-
-    async def de_la_dlq(self) -> AbstractIncomingMessage:
-        mensaje = await self.dlq.get(timeout=5, fail=False)
-        for _ in range(50):
-            if mensaje is not None:
-                await mensaje.ack()
-                return mensaje
-            await asyncio.sleep(0.1)
-            mensaje = await self.dlq.get(fail=False)
-        raise AssertionError("No llegó nada a la DLQ")
-
-
-@pytest.fixture
-async def valkey(valkey_url: str) -> AsyncIterator[Valkey]:
-    cliente = Valkey.from_url(valkey_url)
-    yield cliente
-    await cliente.aclose()
-
-
-@pytest.fixture
-async def bus(rabbitmq_url: str) -> AsyncIterator[Bus]:
-    async with Bus(rabbitmq_url) as b:
-        yield b
-
-
 def manejador_real(sesiones: Sesiones, valkey: Valkey) -> ManejadorPrestadores:
     def uow() -> SqlUnidadDeTrabajo:
         return SqlUnidadDeTrabajo(sesiones)
@@ -125,26 +69,6 @@ def manejador_real(sesiones: Sesiones, valkey: Valkey) -> ManejadorPrestadores:
     return ManejadorPrestadores(
         AplicarPrestadorAprobado(uow, cache, reloj), AplicarPrestadorSuspendido(uow, cache, reloj)
     )
-
-
-@pytest.fixture
-async def consumir(
-    rabbitmq_url: str,
-) -> AsyncIterator[
-    Callable[[Callable[[SobreEvento], Awaitable[ResultadoConsumo]]], Awaitable[None]]
-]:
-    consumidores: list[ConsumidorRabbitMQ] = []
-
-    async def iniciar(manejar: Callable[[SobreEvento], Awaitable[ResultadoConsumo]]) -> None:
-        consumidor = ConsumidorRabbitMQ(
-            rabbitmq_url, EXCHANGE, f"prueba.{uuid4().hex[:8]}", CLAVES, manejar, ESPERAS
-        )
-        await consumidor.iniciar()
-        consumidores.append(consumidor)
-
-    yield iniciar
-    for consumidor in consumidores:
-        await consumidor.cerrar()
 
 
 async def esperar(condicion: Callable[[], Awaitable[bool]], segundos: float = 10) -> None:
@@ -170,9 +94,9 @@ async def contar(sesiones: Sesiones, sql: str) -> int:
 
 
 async def test_aprobado_crea_el_perfil_y_el_duplicado_no_cambia_nada(
-    sesiones: Sesiones, valkey: Valkey, bus: Bus, consumir: Any
+    sesiones: Sesiones, valkey: Valkey, bus: Any, consumir: Any
 ) -> None:
-    await consumir(manejador_real(sesiones, valkey))
+    await consumir(CLAVES, manejador_real(sesiones, valkey))
     prestador, usuario = uuid4(), uuid4()
     evento = aprobado(prestador, usuario)
     await bus.publicar(evento)
@@ -192,7 +116,7 @@ async def _existe(sesiones: Sesiones, prestador: UUID) -> bool:
 
 
 async def test_suspendido_apaga_los_servicios_publica_e_invalida_la_cache(
-    sesiones: Sesiones, valkey: Valkey, bus: Bus, consumir: Any
+    sesiones: Sesiones, valkey: Valkey, bus: Any, consumir: Any
 ) -> None:
     p = PrestadorPerfil.aprobar(uuid4(), uuid4(), "Minca Viva")
     servicio = AtractivoServicio.registrar(
@@ -216,7 +140,7 @@ async def test_suspendido_apaga_los_servicios_publica_e_invalida_la_cache(
         await uow.confirmar()
     generacion = int(await valkey.get(CLAVE_GENERACION) or 0)
 
-    await consumir(manejador_real(sesiones, valkey))
+    await consumir(CLAVES, manejador_real(sesiones, valkey))
     await bus.publicar(
         sobre(
             "prestador.suspendido",
@@ -252,7 +176,7 @@ async def test_suspendido_apaga_los_servicios_publica_e_invalida_la_cache(
 
 
 async def test_fallo_transitorio_se_reintenta_y_se_aplica(
-    sesiones: Sesiones, valkey: Valkey, bus: Bus, consumir: Any
+    sesiones: Sesiones, valkey: Valkey, bus: Any, consumir: Any
 ) -> None:
     real, llamadas = manejador_real(sesiones, valkey), []
 
@@ -262,21 +186,21 @@ async def test_fallo_transitorio_se_reintenta_y_se_aplica(
             raise ConnectionError("PostgreSQL no responde")
         return await real(s)
 
-    await consumir(falla_dos_veces)
+    await consumir(CLAVES, falla_dos_veces)
     prestador = uuid4()
     await bus.publicar(aprobado(prestador, uuid4()))
     await esperar(lambda: _existe(sesiones, prestador))
     assert len(llamadas) == 3 and len(set(llamadas)) == 1
 
 
-async def test_tras_agotar_los_reintentos_va_a_la_dlq(bus: Bus, consumir: Any) -> None:
+async def test_tras_agotar_los_reintentos_va_a_la_dlq(bus: Any, consumir: Any) -> None:
     llamadas = []
 
     async def siempre_falla(s: SobreEvento) -> ResultadoConsumo:
         llamadas.append(1)
         raise ConnectionError("PostgreSQL no responde")
 
-    await consumir(siempre_falla)
+    await consumir(CLAVES, siempre_falla)
     await bus.publicar(aprobado(uuid4(), uuid4()))
     mensaje = await bus.de_la_dlq()
     cabeceras = mensaje.headers or {}
@@ -297,9 +221,9 @@ async def test_tras_agotar_los_reintentos_va_a_la_dlq(bus: Bus, consumir: Any) -
     ids=["payload_invalido", "version_desconocida", "sin_sobre"],
 )
 async def test_un_mensaje_invalido_va_directo_a_la_dlq(
-    sesiones: Sesiones, valkey: Valkey, bus: Bus, consumir: Any, cuerpo: dict
+    sesiones: Sesiones, valkey: Valkey, bus: Any, consumir: Any, cuerpo: dict
 ) -> None:
-    await consumir(manejador_real(sesiones, valkey))
+    await consumir(CLAVES, manejador_real(sesiones, valkey))
     await bus.publicar(cuerpo)
     mensaje = await bus.de_la_dlq()
     assert (mensaje.headers or {})["x-intentos"] == 0
