@@ -1,4 +1,4 @@
-"""Modelo ORM de la tabla `prestador_perfil` (esquema en la migración 0001)."""
+"""Modelo ORM de la tabla `prestador_perfil` (esquema en las migraciones 0001 y 0005)."""
 
 from datetime import datetime
 from uuid import UUID
@@ -21,5 +21,6 @@ class PrestadorPerfilModelo(Base):
     politica_cancelacion: Mapped[dict[str, str] | None] = mapped_column(JSONB)
     activo: Mapped[bool]
     version: Mapped[int]
+    estado_iam_en: Mapped[datetime | None]
     creado_en: Mapped[datetime] = mapped_column(server_default=func.now())
     actualizado_en: Mapped[datetime] = mapped_column(server_default=func.now())

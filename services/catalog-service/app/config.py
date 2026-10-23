@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     outbox_espera_maxima_segundos: float = 30.0
     outbox_retencion_dias: int = 7
     worker_metrics_port: int = 9102
+    # Mensajes que cada consumidor procesa a la vez (prefetch de RabbitMQ).
+    consumidor_prefetch: int = 10
 
     # Imágenes del catálogo en SeaweedFS (API S3). El endpoint es el público: la URL firmada
     # la usa el navegador y la firma incluye el host.

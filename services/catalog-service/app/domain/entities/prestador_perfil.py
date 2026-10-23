@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import datetime
 from uuid import UUID
 
 from app.domain.entities.versionado import Versionado
@@ -21,6 +22,9 @@ class PrestadorPerfil(Versionado):
     direccion: str | None = None
     politica_cancelacion: TextoTraducido | None = None
     activo: bool = True
+    # `occurred_at` del último evento de iam aplicado (aprobado o suspendido). Un reintento
+    # puede traer un evento viejo después de uno nuevo; ese se ignora.
+    estado_iam_en: datetime | None = None
 
     @classmethod
     def aprobar(
@@ -46,6 +50,12 @@ class PrestadorPerfil(Versionado):
         self.activo = False
         self._avanzar_version()
         return True
+
+    def es_evento_iam_viejo(self, ocurrido_en: datetime) -> bool:
+        return self.estado_iam_en is not None and ocurrido_en < self.estado_iam_en
+
+    def registrar_evento_iam(self, ocurrido_en: datetime) -> None:
+        self.estado_iam_en = ocurrido_en
 
     def exigir_activo(self) -> None:
         if not self.activo:

@@ -1,8 +1,11 @@
 """Worker de catalog-service: trabajo en segundo plano, separado de la API.
 
 Corre con la misma imagen y otro comando (`python -m app.worker`), en su propio Deployment.
-Así la publicación de eventos (y, desde el paso 10, los consumidores) no compite con las
-peticiones de los turistas, y los reinicios o el escalado de la API no lo interrumpen.
+Así la publicación de eventos y los consumidores no compiten con las peticiones de los
+turistas, y los reinicios o el escalado de la API no los interrumpen.
+
+* Relay del outbox → `turismo.eventos`.
+* Consumidor `catalog.prestadores` (`prestador.aprobado`, `prestador.suspendido`).
 
 Expone sus métricas en `WORKER_METRICS_PORT` (/metrics), que también sirve de sonda de vida.
 """
@@ -14,14 +17,26 @@ import signal
 from datetime import timedelta
 
 from prometheus_client import start_http_server
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from valkey.asyncio import Valkey
 
+from app.application.ports.invalidador_cache import InvalidadorCache
+from app.application.use_cases.aplicar_prestador_aprobado import AplicarPrestadorAprobado
+from app.application.use_cases.aplicar_prestador_suspendido import (
+    AplicarPrestadorSuspendido,
+)
 from app.application.use_cases.publicar_eventos_pendientes import PublicarEventosPendientes
 from app.config import Settings, get_settings
+from app.infrastructure.cache.cache_versionada import CacheVersionada
+from app.infrastructure.messaging import manejador_prestadores
+from app.infrastructure.messaging.consumidor_rabbitmq import ConsumidorRabbitMQ
+from app.infrastructure.messaging.manejador_prestadores import ManejadorPrestadores
 from app.infrastructure.messaging.publicador_rabbitmq import PublicadorRabbitMQ
 from app.infrastructure.messaging.relay_outbox import RelayOutbox
 from app.infrastructure.observabilidad.configurar_logs import configurar_logs
 from app.infrastructure.persistence.database import build_engine, build_session_factory
 from app.infrastructure.persistence.repositorios.outbox_pendiente import SqlOutboxPendiente
+from app.infrastructure.persistence.unidad_de_trabajo import SqlUnidadDeTrabajo
 from app.infrastructure.reloj import RelojSistema
 
 logger = logging.getLogger(__name__)
@@ -42,6 +57,52 @@ def construir_relay(
     )
 
 
+def construir_consumidores(
+    settings: Settings,
+    sesiones: async_sessionmaker[AsyncSession],
+    invalidador: InvalidadorCache,
+) -> list[ConsumidorRabbitMQ]:
+    reloj = RelojSistema()
+
+    def uow() -> SqlUnidadDeTrabajo:
+        return SqlUnidadDeTrabajo(sesiones)
+
+    prestadores = ManejadorPrestadores(
+        AplicarPrestadorAprobado(uow, invalidador, reloj),
+        AplicarPrestadorSuspendido(uow, invalidador, reloj),
+    )
+    return [
+        ConsumidorRabbitMQ(
+            settings.rabbitmq_url,
+            settings.events_exchange,
+            manejador_prestadores.COLA,
+            manejador_prestadores.CLAVES,
+            prestadores,
+            prefetch=settings.consumidor_prefetch,
+            timeout_segundos=settings.rabbitmq_timeout_seconds,
+        )
+    ]
+
+
+async def iniciar_consumidores(
+    consumidores: list[ConsumidorRabbitMQ], detener: asyncio.Event, espera_maxima: float
+) -> None:
+    """Si RabbitMQ no está al arrancar, reintenta con espera creciente hasta lograrlo."""
+    espera = 1.0
+    pendientes = list(consumidores)
+    while pendientes and not detener.is_set():
+        try:
+            await pendientes[0].iniciar()
+            pendientes.pop(0)
+            espera = 1.0
+        except Exception:
+            logger.warning("RabbitMQ no disponible para consumir; reintento en %.0f s", espera)
+            await pendientes[0].cerrar()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(detener.wait(), timeout=espera)
+            espera = min(espera * 2, espera_maxima)
+
+
 async def correr(settings: Settings) -> None:
     detener = asyncio.Event()
     bucle = asyncio.get_running_loop()
@@ -51,15 +112,28 @@ async def correr(settings: Settings) -> None:
             bucle.add_signal_handler(senal, detener.set)
 
     engine = build_engine(settings.database_url)
+    sesiones = build_session_factory(engine)
+    valkey = Valkey.from_url(
+        settings.valkey_url,
+        socket_timeout=settings.valkey_timeout_seconds,
+        socket_connect_timeout=settings.valkey_timeout_seconds,
+    )
     publicador = PublicadorRabbitMQ(
         settings.rabbitmq_url, settings.events_exchange, settings.rabbitmq_timeout_seconds
     )
-    relay = construir_relay(settings, SqlOutboxPendiente(build_session_factory(engine)), publicador)
+    relay = construir_relay(settings, SqlOutboxPendiente(sesiones), publicador)
+    consumidores = construir_consumidores(settings, sesiones, CacheVersionada(valkey))
     logger.info("Worker iniciado: relay del outbox hacia %s", settings.events_exchange)
     try:
-        await relay.ejecutar(detener)
+        await asyncio.gather(
+            relay.ejecutar(detener),
+            iniciar_consumidores(consumidores, detener, settings.outbox_espera_maxima_segundos),
+        )
     finally:
+        for consumidor in consumidores:
+            await consumidor.cerrar()
         await publicador.cerrar()
+        await valkey.aclose()
         await engine.dispose()
         logger.info("Worker detenido")
 

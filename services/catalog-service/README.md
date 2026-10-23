@@ -165,13 +165,27 @@ Textos en `{"es", "en"}`, horas `"HH:MM"` e idiomas en ISO 639-1.
 
 La API no publica en RabbitMQ: guarda cada evento en la tabla `outbox` en la misma transacción que el cambio, y un **worker** aparte lo publica (ADR-008, actualizado en este módulo).
 
-* **Worker:** misma imagen, otro comando (`python -m app.worker`) y otro Deployment. Así la publicación (y, desde el paso 10, los consumidores) no compite con las peticiones de los turistas, y los reinicios o el escalado de la API no la interrumpen. Expone sus métricas en `WORKER_METRICS_PORT` (9102).
+* **Worker:** misma imagen, otro comando (`python -m app.worker`) y otro Deployment. Así la publicación y los consumidores no compiten con las peticiones de los turistas, y los reinicios o el escalado de la API no los interrumpen. Expone sus métricas en `WORKER_METRICS_PORT` (9102). Si RabbitMQ no está al arrancar, reintenta la conexión con espera creciente.
 * **Topología** (declarada al conectar; declararla otra vez no cambia nada): exchange `turismo.eventos` (*topic*, clave = `event_type`), exchange `turismo.dlx` y cola `turismo.dead-letter`. Las colas de los consumidores las declaran ellos.
 * **Relay:** cada segundo toma hasta 100 eventos pendientes en orden de creación con `FOR UPDATE SKIP LOCKED` (dos workers nunca toman el mismo), los publica persistentes con *publisher confirms* (`message_id` = `event_id`, `type`, `correlation_id`) y solo entonces marca `publicado_en`. Si RabbitMQ falla, el evento queda pendiente y la espera se duplica hasta 30 s; nada se descarta. Una vez al día borra los publicados con más de 7 días.
 * **Entrega "al menos una vez":** si el worker cae entre la confirmación y la marca, el evento sale otra vez; los consumidores descartan duplicados por `event_id` (tabla `evento_procesado`).
 * **Sin cola enlazada, el broker descarta el mensaje:** cada consumidor (iam, booking...) debe declarar su cola durable antes de necesitar los eventos.
 * **Auditoría (ESC-04):** cada `403 ROL_NO_PERMITIDO` guarda un `auditoria.registrada` con acción `ACCESS_DENIED`, el usuario, su rol, los roles permitidos, el método, la ruta y la IP de origen (`X-Forwarded-For`). Si no se puede guardar, queda en el log y el 403 sale igual. `PERFIL_INACTIVO` no se audita: es una regla del negocio, no un acceso indebido. Crear, editar y desactivar zonas también se auditan.
-* **Métricas del worker:** `catalog_outbox_pendientes`, `catalog_outbox_antiguedad_segundos` (alertar si crece), `catalog_eventos_publicados_total{event_type}` y `catalog_eventos_fallos_publicacion_total`.
+* **Métricas del worker:** `catalog_outbox_pendientes`, `catalog_outbox_antiguedad_segundos` (alertar si crece), `catalog_eventos_publicados_total{event_type}`, `catalog_eventos_fallos_publicacion_total` y `catalog_eventos_consumidos_total{cola,event_type,resultado}` (`aplicado`, `duplicado`, `ignorado`, `reintento`, `dlq`).
+
+### Consumidores
+
+Base común (`ConsumidorRabbitMQ`), la misma para todas las colas de catalog:
+
+* **Cola principal** durable `catalog.<propósito>`, enlazada a sus claves en `turismo.eventos`.
+* **Reintentos 1 s, 5 s y 25 s:** colas `<cola>.reintento.<espera>` con TTL que, al vencer, devuelven el mensaje a la cola principal; el intento viaja en la cabecera `x-intentos`. Tras el 3.er reintento fallido, el mensaje va a `turismo.dead-letter` con `x-cola`, `x-intentos` y `x-error`.
+* **Error permanente** (sobre o payload que no cumplen el contrato, versión distinta de 1): directo a la DLQ, sin reintentos.
+* **Idempotencia:** el caso de uso registra el `event_id` en `evento_procesado` en la misma transacción del efecto; un duplicado se reconoce y se descarta.
+* **Correlación:** se toma el `correlation_id` del sobre para los logs y para los eventos que se generen (p. ej. el `servicio.publicado` que provoca una suspensión lleva la correlación de iam).
+
+| Cola | Claves | Qué hace |
+|---|---|---|
+| `catalog.prestadores` | `prestador.aprobado`, `prestador.suspendido` | **Aprobado:** crea el perfil (habilita UC17) o lo reactiva y actualiza la razón social; al reactivar vuelven solo los servicios apagados por la suspensión. **Suspendido:** apaga el perfil y sus servicios activos (marcados como apagados por suspensión). Cada servicio que cambia publica `servicio.publicado` y se invalida la caché. Un suspendido de un prestador desconocido se registra y se ignora. **Orden:** `prestador_perfil.estado_iam_en` (migración 0005) guarda el `occurred_at` del último evento de iam aplicado; uno más viejo (p. ej. un reintento que llega tarde) se ignora y no reactiva a un suspendido. |
 
 ## Correlación
 

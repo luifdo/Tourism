@@ -22,6 +22,7 @@ def perfil_desde_modelo(fila: PrestadorPerfilModelo) -> PrestadorPerfil:
         politica_cancelacion=texto_o_none(fila.politica_cancelacion),
         activo=fila.activo,
         version=fila.version,
+        estado_iam_en=fila.estado_iam_en,
     )
 
 
@@ -50,6 +51,7 @@ class SqlPrestadorRepository:
                 ),
                 "activo": perfil.activo,
                 "version": perfil.version,
+                "estado_iam_en": perfil.estado_iam_en,
                 "actualizado_en": func.now(),
             },
         )
