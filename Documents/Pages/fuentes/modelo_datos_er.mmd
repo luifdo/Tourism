@@ -35,6 +35,7 @@ erDiagram
     BITACORA_AUDITORIA {
         uuid id PK "M1 iam_db, solo INSERT"
         uuid usuario_id FK "Actor (nulo si anónimo)"
+        uuid event_id UK "event_id del sobre del evento; nulo en los eventos propios del Módulo 1; único para evitar duplicados"
         string accion "LOGIN_FAIL, ROLE_CHANGE, ACCESS_DENIED, EXPORT"
         enum resultado "Exito, Denegado, Error"
         string servicio_origen "Servicio que reporta"

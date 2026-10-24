@@ -15,4 +15,6 @@ Punto de entrada único implementado con **Traefik**, el controlador de Ingress 
 
 ForwardAuth consulta `GET /api/iam/auth/verificar`; si el token es válido, Traefik reenvía la petición con `X-Usuario-Id` y `X-Usuario-Rol`. Detalle en el [Plan de Implementación](../Documents/Pages/Plan_de_Implementacion.md) §4.1 y §6.1.
 
+> **Nota:** `POST /api/iam/auth/refresh` también es pública (requiere el refresh token). Esta ruta, `POST /api/iam/auth/logout`, `GET /api/catalog/analitica/capacidad` y `GET /api/reviews/servicios/{id}` son propuestas cuyo contrato se define en la Fase 4 (Plan §4.1).
+
 **Pendiente (Fase 4):** recursos `IngressRoute` y middlewares (ForwardAuth, RateLimit, CORS) en `config/`.
