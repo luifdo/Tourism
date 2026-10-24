@@ -84,6 +84,117 @@ Los puertos de `docker-compose.dev.yml` (5434, 6380, 5673, 15673 y 8333) no choc
 
 Las zonas iniciales (migración `0002`) son rectángulos **aproximados** que no se superponen; la Entidad los corrige desde la API. Si dos zonas cubren un mismo punto, el servicio queda en la de menor área.
 
+## Despliegue
+
+### Con el compose del monorepo
+
+`infra/docker-compose.yml` levanta la infraestructura compartida y el servicio en contenedores: `catalog-migraciones` aplica las migraciones una vez y termina, y luego arrancan `catalog-service` (API en :8002) y `catalog-worker` (métricas en :9102). Prometheus (http://localhost:9090) ya los tiene como objetivos.
+
+```bash
+cd infra
+cp .env.example .env
+docker compose up -d --build
+```
+
+Usa los puertos estándar (5432, 6379, 5672, 8333, 1025/8025 de Mailpit), así que **no** corre a la vez que `docker-compose.dev.yml` (los dos usan el 8333): detén uno antes de levantar el otro (`docker compose -f docker-compose.dev.yml stop`).
+
+### Kubernetes (`k8s/`)
+
+Manifiestos con Kustomize (Plan §7.2-7.4), basados en [`templates/service-template/k8s/`](../../templates/service-template/k8s/):
+
+| Archivo (`k8s/base/`) | Qué es |
+|---|---|
+| `deployment-api.yaml` | API: 2 réplicas, `RollingUpdate` sin indisponibilidad, *startup* hasta 90 s, *readiness* `/health` cada 2 s, *liveness* `/metrics` (no toca la base: si PostgreSQL cae, las réplicas salen del tráfico pero no se reinician todas). Un `initContainer` aplica las migraciones; el candado `pg_advisory_xact_lock` de `migrations/env.py` hace que varios pods que arrancan a la vez esperen al primero. |
+| `deployment-worker.yaml` | Worker: 1 réplica, sin HPA. Se puede subir a 2 sin duplicar publicaciones (SKIP LOCKED en el relay, consumidores idempotentes). |
+| `hpa.yaml` | De 2 a 6 réplicas de la API con objetivo de CPU del 70 %. |
+| `pdb.yaml` | Al drenar un nodo queda al menos una réplica de la API. |
+| `networkpolicy.yaml` | A la API solo entran Traefik, recommendation-service y Prometheus; al worker, solo Prometheus. |
+| `service.yaml`, `configmap.yaml` | Service ClusterIP en el 8002 y la configuración no secreta. |
+
+Las credenciales van en el Secret `catalog-secretos`, que **cada entorno** genera desde un `secretos.env` que no se sube al repositorio (`overlays/local/secretos.env.example` lista las claves). Los contenedores corren sin root, con el sistema de archivos de solo lectura (más `/tmp` en memoria) y sin *capabilities*.
+
+> **Migraciones compatibles hacia atrás:** durante un rolling update los pods viejos siguen atendiendo con la base ya migrada. Primero se agrega (columna nueva con valor por defecto), en otro despliegue se quita lo viejo.
+
+#### Probarlo en el Kubernetes de Docker Desktop (`k8s/overlays/local/`)
+
+El overlay `local` usa la imagen construida en tu Docker y la infraestructura del compose del monorepo, a la que los pods llegan por `host.docker.internal`.
+
+**1. Encender Kubernetes (una sola vez).** Docker Desktop → ⚙️ *Settings* → *Kubernetes* → *Enable Kubernetes* (tipo **kubeadm**) → *Apply & restart*. Queda listo cuando el ícono de Kubernetes, abajo a la izquierda, se pone verde. Para apagarlo, desmarca la misma casilla (libera unos 2 GB de RAM).
+
+**2. Conectarse.** `kubectl` habla con el clúster del *contexto* activo:
+
+```bash
+kubectl config get-contexts               # el activo tiene *; Docker Desktop crea "docker-desktop"
+kubectl config use-context docker-desktop # elegirlo (si tienes otros clústeres)
+kubectl get nodes                         # debe mostrar el nodo "docker-desktop" en Ready
+```
+
+**3. Medidor de CPU para el HPA (una sola vez).** El HPA necesita `metrics-server`. Las versiones recientes de Docker Desktop ya lo traen: prueba primero `kubectl top nodes`; si muestra CPU y memoria, salta este paso. Si da error, instálalo:
+
+```bash
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.7.2/components.yaml
+kubectl -n kube-system patch deployment metrics-server --type=json \
+  -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+kubectl top nodes                         # al minuto muestra CPU y memoria
+```
+
+**4. Desplegar.** Con la infraestructura del compose arriba (`cd infra && docker compose up -d postgres valkey rabbitmq seaweedfs seaweedfs-init mailpit`):
+
+```bash
+cd services/catalog-service
+docker build -t catalog-service:local .                  # el clúster usa esta imagen directamente
+cp k8s/overlays/local/secretos.env.example k8s/overlays/local/secretos.env
+kubectl apply -k k8s/overlays/local                      # crea o actualiza todo
+kubectl -n turismo-app rollout status deployment/catalog-service
+```
+
+Si el compose también tiene `catalog-service` y `catalog-worker` corriendo, detenlos (`docker compose stop catalog-service catalog-worker`): si no, dos workers consumen las mismas colas y el 8002 queda ocupado.
+
+**5. Usarlo.** El Service es interno al clúster; para llegar desde tu máquina se abre un túnel (queda abierto mientras la terminal siga corriendo, Ctrl+C lo cierra):
+
+```bash
+kubectl -n turismo-app port-forward service/catalog-service 8002:8002
+curl http://localhost:8002/health                        # en otra terminal
+```
+
+**6. Mirar qué pasa.**
+
+| Para… | Comando (`-n turismo-app` en todos) |
+|---|---|
+| Ver todo | `kubectl -n turismo-app get pods,deploy,svc,hpa` |
+| Logs de la API (todas las réplicas) | `kubectl -n turismo-app logs -l app.kubernetes.io/component=api -f` |
+| Logs del worker | `kubectl -n turismo-app logs deploy/catalog-worker -f` |
+| Logs de las migraciones de un pod | `kubectl -n turismo-app logs <pod> -c migraciones` |
+| Por qué un pod no arranca | `kubectl -n turismo-app describe pod <pod>` (mira *Events* al final) |
+| Eventos recientes | `kubectl -n turismo-app get events --sort-by=.lastTimestamp` |
+| Consumo de CPU y memoria | `kubectl -n turismo-app top pods` |
+| Estado del HPA | `kubectl -n turismo-app get hpa -w` |
+| Entrar a un pod | `kubectl -n turismo-app exec -it deploy/catalog-service -- sh` |
+
+**7. Cambiar cosas.**
+
+| Para… | Comando |
+|---|---|
+| Desplegar código nuevo | `docker build -t catalog-service:local .` y `kubectl -n turismo-app rollout restart deployment/catalog-service deployment/catalog-worker` |
+| Aplicar cambios de los YAML o de `secretos.env` | `kubectl apply -k k8s/overlays/local` (si cambió el Secret, los pods se recrean solos: su nombre lleva un hash) |
+| Escalar a mano el worker | `kubectl -n turismo-app scale deployment/catalog-worker --replicas=2` |
+| Volver a la versión anterior | `kubectl -n turismo-app rollout undo deployment/catalog-service` |
+| Ver lo que se aplicaría, sin aplicarlo | `kubectl kustomize k8s/overlays/local` o `kubectl diff -k k8s/overlays/local` |
+| Borrar todo el servicio | `kubectl delete -k k8s/overlays/local` (borra también el namespace `turismo-app`) |
+
+**Problemas comunes.**
+
+* `ErrImageNeverPull` / `ImagePullBackOff`: no construiste `catalog-service:local`, o el clúster es de tipo *kind* (en ese caso: `kind load docker-image catalog-service:local --name desktop`).
+* `Init:CrashLoopBackOff`: fallaron las migraciones; casi siempre la base no responde. Mira `logs <pod> -c migraciones` y que el compose tenga `postgres` arriba.
+* `0/1 Running` sin pasar a `1/1`: la *readiness* (`/health`) falla; revisa `DATABASE_URL` en `secretos.env`.
+* El HPA en `<unknown>`: es normal el primer minuto tras desplegar o sin tráfico; si sigue así con carga, falta el paso 3 (`metrics-server`).
+* Docker Desktop queda "verde" pero `docker ps` responde `500 Internal Server Error` y `kubectl` da `TLS handshake timeout` (pasa a veces al activar Kubernetes): ciérralo del todo (clic derecho en el ícono → *Quit Docker Desktop*), en PowerShell ejecuta `wsl --shutdown` y vuelve a abrirlo. No se pierden imágenes, volúmenes ni el clúster.
+* Todo va lento o los pods tardan mucho en arrancar: la máquina virtual de Docker tiene poca RAM para el clúster más el compose. Apaga lo que no uses o dale más memoria en *Settings → Resources* (con el backend WSL, en `%UserProfile%\.wslconfig`).
+
+**Qué se comprobó en local (2026-10-24):** rolling update con peticiones continuas sin un solo fallo (340/340); con PostgreSQL caído 40 s las réplicas salen del tráfico (`0/1`) sin reiniciarse y vuelven solas; con carga el HPA pasó de 2 a 6 réplicas en unos 100 s. La app tarda entre 10 y 20 s en importar (FastAPI, SQLAlchemy, GeoAlchemy2, boto3); por eso hay `startupProbe` (hasta 90 s) y el límite de CPU es de 1 núcleo (el *request*, que es lo que reserva y lo que mide el HPA, sigue en 100m).
+
+En el clúster k3s real cambian tres cosas: la imagen sale de GHCR (`images` de `k8s/base/kustomization.yaml`), la infraestructura vive en el namespace `turismo-datos` (`infra/k8s/`) y el tráfico entra por Traefik. Docker Desktop no aplica las NetworkPolicy (su red no las soporta); k3s sí.
+
 ## Endpoints implementados
 
 El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/health` y `/metrics` en la raíz, como define el contrato. Detalle en [`catalog.yaml`](../../contracts/openapi/catalog.yaml); una prueba verifica que toda ruta implementada esté en el contrato.

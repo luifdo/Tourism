@@ -2,6 +2,7 @@ import asyncio
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import text
 from sqlalchemy.engine import Connection
 
 from app.config import get_settings
@@ -25,6 +26,10 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 database_url = get_settings().database_url
+# En k8s cada pod de la API migra al arrancar (initContainer). Con este candado de PostgreSQL
+# los demás esperan a que termine el primero y luego ven que ya está en head. Es de
+# transacción: se suelta solo al confirmar o si el proceso muere.
+CANDADO_MIGRACIONES = 820_002
 
 
 def run_migrations_offline() -> None:
@@ -41,6 +46,7 @@ def run_migrations_offline() -> None:
 def do_run_migrations(connection: Connection) -> None:
     context.configure(connection=connection, target_metadata=target_metadata)
     with context.begin_transaction():
+        connection.execute(text("SELECT pg_advisory_xact_lock(:k)"), {"k": CANDADO_MIGRACIONES})
         context.run_migrations()
 
 

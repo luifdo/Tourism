@@ -26,6 +26,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN useradd --create-home --uid 1000 catalog
 
+# La imagen oficial borra los .pyc de la biblioteca estándar y en k8s el sistema de archivos es
+# de solo lectura: sin esto, cada arranque recompila toda la stdlib (más de 20 s con CPU limitada).
+RUN python -m compileall -q /usr/local/lib/python3.12
+
 WORKDIR /srv
 COPY --from=builder /opt/venv /opt/venv
 COPY alembic.ini ./

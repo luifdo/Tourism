@@ -1,3 +1,9 @@
+import os
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
 import pytest
 from alembic import command
 from alembic.config import Config
@@ -5,6 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 pytestmark = pytest.mark.integration
+RAIZ = Path(__file__).resolve().parents[2]
 
 
 async def test_zonas_iniciales_bilingues(engine: AsyncEngine) -> None:
@@ -38,6 +45,26 @@ async def test_zonas_iniciales_no_se_superponen(engine: AsyncEngine) -> None:
 def test_bajar_y_subir_migraciones(alembic_cfg: Config) -> None:
     command.downgrade(alembic_cfg, "base")
     command.upgrade(alembic_cfg, "head")
+
+
+def test_dos_pods_migrando_a_la_vez_no_chocan(alembic_cfg: Config, database_url: str) -> None:
+    """Como dos initContainers que arrancan juntos: el candado hace que uno espere al otro."""
+    command.downgrade(alembic_cfg, "base")
+
+    def migrar() -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, "-m", "alembic", "upgrade", "head"],
+            cwd=RAIZ,
+            env=os.environ | {"DATABASE_URL": database_url},
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+    with ThreadPoolExecutor(2) as hilos:
+        resultados = list(hilos.map(lambda _: migrar(), range(2)))
+    assert [r.returncode for r in resultados] == [0, 0], [r.stderr[-2000:] for r in resultados]
+    command.upgrade(alembic_cfg, "head")  # ya está en head: no hace nada
 
 
 async def test_tipo_unidad_y_atributos_son_obligatorios(engine: AsyncEngine) -> None:
