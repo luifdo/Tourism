@@ -15,31 +15,40 @@ Calificaciones y reseñas de turistas con reserva finalizada, respuestas públic
 | Puerto interno | `8004` |
 | Prefijo en el Gateway (Traefik) | `/api/reviews` |
 | Réplicas en k3s | 1 (HPA hasta 3) |
-| Contrato REST | [`contracts/openapi/review.yaml`](../../contracts/openapi/) |
+| Contrato REST | [`contracts/openapi/review.yaml`](../../contracts/openapi/review.yaml) |
 
 ## Eventos
 
-**Publica:**
-* `resena.publicada.v1`
-* `auditoria.registrada.v1`
+**Publica** (con outbox, como catalog-service):
+* `resena.publicada.v1`: al crear o editar una reseña, y al volver a publicar una oculta.
+* `resena.ocultada.v1`: cuando el Administrador la oculta (catalog la quita del promedio).
+* `auditoria.registrada.v1`: decisiones de moderación (MODERACION) y accesos denegados (ACCESS_DENIED).
 
 **Consume:**
-* `reserva.finalizada.v1` (habilita la reseña)
+* `reserva.finalizada.v1` en `review.elegibilidad`: habilita la reseña del turista para ese servicio.
+* `servicio.publicado.v1` en `review.servicios`: qué prestador es dueño de cada servicio (responder y reportar).
+
+## Reglas principales
+
+* Una reseña por turista y servicio, solo con una reserva finalizada; editable por su autor.
+* Autor anónimo: "Turista verificado" y el mes de la visita.
+* Un reporte no oculta la reseña: entra en la cola del Administrador. Pasa a `EN_REVISION` (oculta) al tercer reporte o si la reporta el prestador dueño; su nota sigue contando hasta que el Administrador la publique u oculte.
 
 Esquemas en [`contracts/events/`](../../contracts/events/).
 
 ## Estructura (arquitectura hexagonal)
 
+Misma estructura que catalog-service (una clase por archivo; solo `app/` tiene `__init__.py`):
+
 ```
-src/
+app/
 ├── main.py              # composición: crea la app FastAPI e inyecta los adaptadores
+├── worker.py            # relay del outbox y consumidores (proceso aparte)
 ├── domain/              # entidades y reglas de negocio puras, sin dependencias de frameworks
-├── application/         # casos de uso del servicio (una clase por caso de uso)
-│   └── ports/           # interfaces que el dominio necesita (repositorios, publicador de eventos)
-└── infrastructure/      # adaptadores que implementan los puertos
-    ├── http/            # routers FastAPI (implementan el contrato OpenAPI)
-    ├── persistence/     # repositorios SQLAlchemy sobre la base de datos propia del servicio
-    └── messaging/       # publicación y consumo de eventos en RabbitMQ (aio-pika)
+├── application/         # casos de uso (una clase por caso de uso), DTO y puertos
+├── infrastructure/      # adaptadores: persistencia (SQLAlchemy), mensajería (aio-pika), observabilidad
+└── api/                 # routers FastAPI (implementan el contrato OpenAPI), esquemas, errores e i18n
+migrations/              # Alembic
 tests/
 ├── unit/
 └── integration/
