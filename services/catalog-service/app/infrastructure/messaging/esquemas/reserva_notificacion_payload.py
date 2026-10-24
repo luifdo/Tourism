@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -20,7 +21,7 @@ class ReservaNotificacionPayload(BaseModel):
     fecha_reserva: date
     numero_personas: int = Field(ge=1)
     motivo: str | None = None
-    cancelada_por: UUID | None = None
+    cancelada_por: Literal["Turista", "Prestador"] | None = None  # quién canceló (rol)
     fecha_anterior: date | None = None
     numero_personas_anterior: int | None = Field(default=None, ge=1)
     expira_en: datetime | None = None

@@ -14,6 +14,7 @@ from app.api.dependencies import (
     get_registrar_servicio,
 )
 from app.api.i18n.idioma_peticion import idioma_peticion
+from app.api.routers.parametros import Pagina
 from app.api.schemas.error_respuesta import ErrorRespuesta
 from app.api.schemas.pagina_servicios_editables_respuesta import (
     PaginaServiciosEditablesRespuesta,
@@ -155,7 +156,7 @@ async def servicios_del_prestador(
     identidad: IdentidadDep,
     idioma: IdiomaDep,
     listar: Annotated[ListarServiciosPrestador, Depends(get_listar_servicios_prestador)],
-    pagina: Annotated[int, Query(ge=1)] = 1,
+    pagina: Pagina = 1,
     tamano: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> PaginaServiciosEditablesRespuesta:
     resultado = await listar.execute(identidad, pagina, tamano)

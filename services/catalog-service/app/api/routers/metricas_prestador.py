@@ -1,12 +1,12 @@
 """Métricas de la oferta del prestador autenticado (UC22)."""
 
-from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
 
 from app.api.dependencies import get_obtener_metricas_prestador
 from app.api.i18n.idioma_peticion import idioma_peticion
+from app.api.routers.parametros import Fecha
 from app.api.schemas.error_respuesta import ErrorRespuesta
 from app.api.schemas.metricas_prestador_respuesta import MetricasPrestadorRespuesta
 from app.api.seguridad.identidad_peticion import identidad_peticion
@@ -32,8 +32,8 @@ async def metricas_prestador(
     identidad: Annotated[Identidad, Depends(identidad_peticion)],
     idioma: Annotated[Idioma, Depends(idioma_peticion)],
     obtener: Annotated[ObtenerMetricasPrestador, Depends(get_obtener_metricas_prestador)],
-    desde: date,
-    hasta: date,
+    desde: Fecha,
+    hasta: Fecha,
 ) -> MetricasPrestadorRespuesta:
     metricas = await obtener.execute(identidad, RangoFechas(desde, hasta))
     return MetricasPrestadorRespuesta.desde_dto(metricas, idioma)

@@ -11,6 +11,7 @@ from app.application.ports.enviador_correo import EnviadorCorreo
 from app.application.ports.redactor_correos import RedactorCorreos
 from app.application.use_cases.acceso_prestador import FabricaUnidadDeTrabajo
 from app.domain.entities.reserva_proyeccion import TipoEventoReserva
+from app.domain.value_objects.identidad import Rol
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ class NotificarReserva:
             logger.warning("Correo de %s sin perfil de prestador", reserva.tipo)
             return ResultadoConsumo.IGNORADO
 
-        por_turista = reserva.cancelada_por == reserva.turista_id
+        por_turista = reserva.cancelada_por is Rol.TURISTA
         destinatario_id = self._destinatario(plantilla, reserva, servicio.prestador_usuario_id)
         contacto = await self._directorio.contacto(destinatario_id)
         if contacto is None:
@@ -109,6 +110,6 @@ class NotificarReserva:
     ) -> UUID:
         if plantilla in (PlantillaCorreo.SOLICITUD, PlantillaCorreo.MODIFICACION):
             return prestador_usuario_id
-        if plantilla is PlantillaCorreo.CANCELACION and reserva.cancelada_por == reserva.turista_id:
+        if plantilla is PlantillaCorreo.CANCELACION and reserva.cancelada_por is Rol.TURISTA:
             return prestador_usuario_id  # canceló el turista: se avisa al prestador
         return reserva.turista_id

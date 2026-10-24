@@ -84,6 +84,21 @@ Los puertos de `docker-compose.dev.yml` (5434, 6380, 5673, 15673 y 8333) no choc
 
 Las zonas iniciales (migración `0002`) son rectángulos **aproximados** que no se superponen; la Entidad los corrige desde la API. Si dos zonas cubren un mismo punto, el servicio queda en la de menor área.
 
+## Pruebas
+
+| Capa | Qué comprueba | Dónde |
+|---|---|---|
+| Unitarias | Dominio, casos de uso y API con los puertos simulados | `tests/unit/` (`uv run pytest -m "not integration"`, sin Docker) |
+| Integración | Consultas espaciales, caché, consumidores, idempotencia, outbox y cada endpoint de punta a punta con PostgreSQL+PostGIS, Valkey, RabbitMQ y Mailpit reales (testcontainers) | `tests/integration/` |
+| Contrato REST | **Toda** respuesta que recibe cualquier prueba se valida contra [`catalog.yaml`](../../contracts/openapi/catalog.yaml): código documentado, tipo de contenido y cuerpo según su esquema. Una prueba que se sale del contrato a propósito (un 500 provocado) lleva `@pytest.mark.sin_contrato` | `tests/conftest.py` |
+| Contrato REST (fuzzing) | Schemathesis genera cientos de peticiones válidas e inválidas por operación desde el contrato, como Entidad y como Prestador, contra la app con la base real: nunca un 500, solo respuestas documentadas | `tests/integration/test_contrato_schemathesis.py` |
+| Contrato de eventos | Cada evento que las pruebas publican (como lo haría booking, iam o review) y cada fila que el servicio deja en el outbox se valida contra `envelope.v1` y su esquema en [`contracts/events/`](../../contracts/events/). Un evento roto a propósito (prueba de la DLQ) se publica con `segun_contrato=False` | `tests/conftest.py`, `tests/integration/conftest.py` |
+| Carga (k6) | ESC-02 y ESC-08 | [`k6/`](./k6/README.md) |
+
+`tests/unit/test_pruebas_de_contrato.py` comprueba que los validadores **sí** detectan errores (un cuerpo que no cumple, una operación que no existe, un payload con un tipo equivocado): sin eso, un validador mal conectado dejaría pasar todo en silencio.
+
+Si cambias el contrato, corre la suite: lo que la API devuelva distinto aparece como fallo con la ruta del campo (`items.0.zona: None is not of type 'object'`).
+
 ## Despliegue
 
 ### Con el compose del monorepo

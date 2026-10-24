@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_buscar_servicios, get_obtener_servicio
 from app.api.i18n.idioma_peticion import idioma_peticion
+from app.api.routers.parametros import Pagina
 from app.api.schemas.error_respuesta import ErrorRespuesta
 from app.api.schemas.pagina_servicios_respuesta import PaginaServiciosRespuesta
 from app.api.schemas.servicio_detalle_respuesta import ServicioDetalleRespuesta
@@ -28,7 +29,7 @@ async def listar_servicios(
     buscar: Annotated[BuscarServicios, Depends(get_buscar_servicios)],
     categoria: Annotated[Categoria | None, Query()] = None,
     zona: Annotated[str | None, Query(pattern=r"^[a-z0-9-]{2,40}$")] = None,
-    pagina: Annotated[int, Query(ge=1)] = 1,
+    pagina: Pagina = 1,
     tamano: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> PaginaServiciosRespuesta:
     criterios = CriteriosBusqueda(

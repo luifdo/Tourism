@@ -31,6 +31,7 @@ from app.domain.value_objects.atributos.valores import (
 )
 from app.domain.value_objects.catalogos import UnidadTarifa
 from app.domain.value_objects.geo import Coordenada
+from app.domain.value_objects.identidad import Rol
 from app.domain.value_objects.idioma import Idioma
 from app.domain.value_objects.tarifa import Tarifa
 from app.domain.value_objects.texto_traducido import TextoTraducido
@@ -167,8 +168,8 @@ def caso(
         ),
         (T.CONFIRMADA, {}, "turista@correo.test"),
         (T.RECHAZADA, {"motivo": "Plazo de respuesta vencido"}, "turista@correo.test"),
-        (T.CANCELADA, {"cancelada_por": TURISTA}, "prestador@correo.test"),  # canceló el turista
-        (T.CANCELADA, {"cancelada_por": uuid4(), "motivo": "Lluvias"}, "turista@correo.test"),
+        (T.CANCELADA, {"cancelada_por": Rol.TURISTA}, "prestador@correo.test"),
+        (T.CANCELADA, {"cancelada_por": Rol.PRESTADOR, "motivo": "Lluvias"}, "turista@correo.test"),
     ],
     ids=[
         "solicitada",

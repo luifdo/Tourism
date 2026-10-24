@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException
 
 from app.api.i18n.mensajes_error import mensaje_codigo, mensaje_error, mensaje_validacion
 from app.api.schemas.error_respuesta import ErrorRespuesta
@@ -30,6 +31,7 @@ ESTADO_POR_CODIGO = {
     "NO_AUTENTICADO": status.HTTP_401_UNAUTHORIZED,
     "SOLICITUD_EN_PROCESO": status.HTTP_409_CONFLICT,
     "DEPENDENCIA_NO_DISPONIBLE": status.HTTP_503_SERVICE_UNAVAILABLE,
+    "METODO_NO_PERMITIDO": status.HTTP_405_METHOD_NOT_ALLOWED,
 }
 
 # Tipos de error de Pydantic que corresponden a un dato faltante.
@@ -101,6 +103,25 @@ async def manejar_validacion(request: Request, exc: Exception) -> JSONResponse:
     )
 
 
+async def manejar_http(request: Request, exc: Exception) -> JSONResponse:
+    """Errores que responde el propio FastAPI/Starlette (cuerpo que no es JSON, ruta que no
+    existe, método no admitido), con el mismo formato `Error` e idioma que los demás."""
+    assert isinstance(exc, HTTPException)
+    idioma = _idioma(request)
+    if exc.status_code == status.HTTP_404_NOT_FOUND:
+        codigo, mensaje = "NO_ENCONTRADO", mensaje_codigo("NO_ENCONTRADO", idioma)
+    elif exc.status_code == status.HTTP_405_METHOD_NOT_ALLOWED:
+        datos = {"metodo": request.method}
+        codigo, mensaje = (
+            "METODO_NO_PERMITIDO",
+            mensaje_codigo("METODO_NO_PERMITIDO", idioma, datos),
+        )
+    else:  # 400: el cuerpo no se pudo leer como JSON
+        codigo = "VALIDACION"
+        mensaje = mensaje_validacion("formato", idioma, {"campo": "cuerpo"})
+    return _respuesta(exc.status_code, codigo, mensaje, idioma, dict(exc.headers or {}))
+
+
 async def manejar_inesperado(request: Request, exc: Exception) -> JSONResponse:
     # Este manejador corre fuera de los middlewares: la cabecera de correlación va aquí.
     logger.exception("Error inesperado atendiendo %s %s", request.method, request.url.path)
@@ -117,4 +138,5 @@ async def manejar_inesperado(request: Request, exc: Exception) -> JSONResponse:
 def registrar_manejadores(app: FastAPI) -> None:
     app.add_exception_handler(ErrorDominio, manejar_error_dominio)
     app.add_exception_handler(RequestValidationError, manejar_validacion)
+    app.add_exception_handler(HTTPException, manejar_http)
     app.add_exception_handler(Exception, manejar_inesperado)

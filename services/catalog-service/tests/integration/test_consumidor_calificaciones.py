@@ -163,7 +163,7 @@ async def test_puntuacion_fuera_de_rango_va_a_la_dlq(
     sesiones: Sesiones, servicio_id: UUID, bus: Any, consumir: Any
 ) -> None:
     await consumir(CLAVES, manejador(sesiones))
-    await bus.publicar(evento("publicada", uuid4(), servicio_id, 6))
+    await bus.publicar(evento("publicada", uuid4(), servicio_id, 6), segun_contrato=False)  # 1..5
     mensaje = await bus.de_la_dlq()
     assert mensaje.routing_key == "resena.publicada"
     assert await en_la_busqueda(sesiones) == (None, 0)

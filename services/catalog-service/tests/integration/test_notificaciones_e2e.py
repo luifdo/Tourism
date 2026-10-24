@@ -142,23 +142,29 @@ async def test_confirmacion_y_rechazo_llegan_al_turista_en_su_idioma(
     await bus.publicar(confirmada)  # booking reintenta: no se reenvía
     await bus.publicar(evento("rechazada", servicio, motivo="Plazo de respuesta vencido"))
     await bus.publicar(evento("solicitada", servicio))
+    # Como lo publica booking según el contrato: el rol de quien canceló, no su id.
+    await bus.publicar(
+        evento("cancelada", servicio, cancelada_por="Turista", motivo="Cambio de planes")
+    )
 
-    async def tres() -> bool:
-        return len(await mensajes(buzon)) >= 3
+    async def cuatro() -> bool:
+        return len(await mensajes(buzon)) >= 4
 
-    await esperar(tres)
+    await esperar(cuatro)
     await asyncio.sleep(1)  # por si llegara un duplicado
     recibidos = {m["Subject"]: m for m in await mensajes(buzon)}
     assert set(recibidos) == {
         "Booking confirmed: Blue Pool",
         "Your request was not accepted: Blue Pool",
         "Nueva solicitud de reserva: Pozo Azul",  # al prestador, en español
+        "Reserva cancelada: Pozo Azul",  # canceló el turista: se avisa al prestador
     }
     assert recibidos["Booking confirmed: Blue Pool"]["To"][0]["Address"] == "ana@correo.test"
     assert (
         recibidos["Nueva solicitud de reserva: Pozo Azul"]["To"][0]["Address"]
         == "sierra@correo.test"
     )
+    assert recibidos["Reserva cancelada: Pozo Azul"]["To"][0]["Address"] == "sierra@correo.test"
     rechazo = (
         await buzon.get(f"/message/{recibidos['Your request was not accepted: Blue Pool']['ID']}")
     ).json()

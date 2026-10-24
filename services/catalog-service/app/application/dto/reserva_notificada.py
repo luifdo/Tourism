@@ -3,6 +3,7 @@ from datetime import date, datetime
 from uuid import UUID
 
 from app.domain.entities.reserva_proyeccion import TipoEventoReserva
+from app.domain.value_objects.identidad import Rol
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,7 +18,7 @@ class ReservaNotificada:
     fecha_reserva: date
     numero_personas: int
     motivo: str | None = None  # rechazada, cancelada
-    cancelada_por: UUID | None = None  # cancelada
+    cancelada_por: Rol | None = None  # cancelada: Turista o Prestador
     fecha_anterior: date | None = None  # modificada
     numero_personas_anterior: int | None = None  # modificada
     expira_en: datetime | None = None  # modificada

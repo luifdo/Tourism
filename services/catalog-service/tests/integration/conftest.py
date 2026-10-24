@@ -125,10 +125,16 @@ def alembic_cfg(database_url: str) -> Config:
 
 
 @pytest.fixture
-async def engine(database_url: str) -> AsyncIterator[AsyncEngine]:
+async def engine(
+    database_url: str, validar_evento: Callable[[dict[str, Any]], None]
+) -> AsyncIterator[AsyncEngine]:
     engine = build_engine(database_url)
     yield engine
     async with engine.begin() as conn:
+        # Contrato de eventos: todo lo que la prueba dejó en el outbox es lo que el servicio
+        # publicaría; debe cumplir contracts/events/ (envelope.v1 y el esquema del payload).
+        for (sobre,) in await conn.execute(text("SELECT sobre FROM outbox ORDER BY creado_en")):
+            validar_evento(sobre)
         await conn.execute(text(f"TRUNCATE {', '.join(TABLAS_DE_PRUEBA)} CASCADE"))
         await conn.execute(text("DELETE FROM zona WHERE codigo LIKE 'prueba-%'"))
     await engine.dispose()
@@ -140,10 +146,16 @@ def sesiones(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
 
 
 class Bus:
-    """Publica como lo haría el servicio productor y escucha la DLQ con una cola propia."""
+    """Publica como lo haría el servicio productor y escucha la DLQ con una cola propia.
 
-    def __init__(self, url: str) -> None:
+    Lo que publica debe cumplir contracts/events/: si booking, iam o review cambian un
+    esquema, las pruebas de los consumidores lo detectan. Las que mandan a propósito un
+    mensaje roto (para probar la DLQ) usan `segun_contrato=False`.
+    """
+
+    def __init__(self, url: str, validar_evento: Callable[[dict[str, Any]], None]) -> None:
         self.url = url
+        self._validar = validar_evento
 
     async def __aenter__(self) -> "Bus":
         self._conexion = await aio_pika.connect_robust(self.url)
@@ -157,7 +169,9 @@ class Bus:
     async def __aexit__(self, *_: object) -> None:
         await self._conexion.close()
 
-    async def publicar(self, cuerpo: dict[str, Any]) -> None:
+    async def publicar(self, cuerpo: dict[str, Any], *, segun_contrato: bool = True) -> None:
+        if segun_contrato:
+            self._validar(cuerpo)
         await self._eventos.publish(
             aio_pika.Message(json.dumps(cuerpo).encode(), type=cuerpo.get("event_type")),
             routing_key=cuerpo.get("event_type", "prestador.aprobado"),
@@ -182,8 +196,10 @@ async def valkey(valkey_url: str) -> AsyncIterator[Valkey]:
 
 
 @pytest.fixture
-async def bus(rabbitmq_url: str) -> AsyncIterator[Bus]:
-    async with Bus(rabbitmq_url) as b:
+async def bus(
+    rabbitmq_url: str, validar_evento: Callable[[dict[str, Any]], None]
+) -> AsyncIterator[Bus]:
+    async with Bus(rabbitmq_url, validar_evento) as b:
         yield b
 
 

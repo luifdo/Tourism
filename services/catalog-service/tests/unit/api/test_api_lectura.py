@@ -330,6 +330,7 @@ class TestErrores:
         assert r.json()["error"] == "NO_ENCONTRADO"
         assert r.json()["message"].startswith("The requested resource")
 
+    @pytest.mark.sin_contrato  # un 500 no es parte del contrato; aquí se provoca a propósito
     def test_error_inesperado_no_filtra_detalles(
         self, cliente: TestClient, consultas: ConsultasFalsas
     ) -> None:

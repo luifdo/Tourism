@@ -64,6 +64,10 @@ MENSAJES: dict[str, dict[Idioma, str]] = {
         _ES: "Este envío ya se está procesando. Espera unos segundos y vuelve a intentarlo.",
         _EN: "This submission is already being processed. Wait a few seconds and try again.",
     },
+    "METODO_NO_PERMITIDO": {
+        _ES: "Esta ruta no admite el método {metodo}.",
+        _EN: "This route does not accept the {metodo} method.",
+    },
     "ERROR_INTERNO": {
         _ES: "Ocurrió un error inesperado. Intenta de nuevo; si persiste, informa el código "
         "de correlación.",

@@ -108,6 +108,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ServicioDetalle' }
+        '400': { $ref: '#/components/responses/Validacion' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
     put:
       tags: [Prestador]
@@ -157,6 +158,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ServicioEditable' }
+        '400': { $ref: '#/components/responses/Validacion' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/ProhibidoPrestador' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
@@ -181,6 +183,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ServicioEditable' }
+        '400': { $ref: '#/components/responses/Validacion' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/ProhibidoPrestador' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
@@ -202,6 +205,7 @@ paths:
       responses:
         '204':
           description: Registrada (o ya contada hoy para ese visitante).
+        '400': { $ref: '#/components/responses/Validacion' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
 
   /buscar:
@@ -346,6 +350,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ZonaEditable' }
+        '400': { $ref: '#/components/responses/Validacion' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/Prohibido' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
@@ -401,6 +406,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ZonaEditable' }
+        '400': { $ref: '#/components/responses/Validacion' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/Prohibido' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
@@ -482,6 +488,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AlertaEditable' }
+        '400': { $ref: '#/components/responses/Validacion' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/Prohibido' }
         '404': { $ref: '#/components/responses/NoEncontrado' }
@@ -707,6 +714,7 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/PaginaServiciosEditables' }
+        '400': { $ref: '#/components/responses/Validacion' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/ProhibidoPrestador' }
 
@@ -728,6 +736,7 @@ paths:
             schema:
               type: object
               required: [content_type, tamano_bytes]
+              additionalProperties: false
               properties:
                 content_type:
                   type: string
@@ -1094,7 +1103,7 @@ components:
       name: idioma_atencion
       in: query
       description: Idioma en que se atiende (ISO 639-1), sobre `atributos.comunes.idiomas_atencion`.
-      schema: { type: string, pattern: '^[a-z]{2}$', examples: [en] }
+      schema: { type: string, pattern: '^[a-z]{2}$', example: en }
     FiltroAccesible:
       name: accesible
       in: query
@@ -1160,7 +1169,7 @@ components:
       name: bbox
       in: query
       required: true
-      description: Vista del mapa como `minLon,minLat,maxLon,maxLat`.
+      description: Vista del mapa como `minLon,minLat,maxLon,maxLat`; cada mínimo menor que su máximo (si no, 400).
       style: form
       explode: false
       schema:
@@ -1172,7 +1181,7 @@ components:
       name: bbox
       in: query
       required: false
-      description: Vista del mapa como `minLon,minLat,maxLon,maxLat`.
+      description: Vista del mapa como `minLon,minLat,maxLon,maxLat`; cada mínimo menor que su máximo (si no, 400).
       style: form
       explode: false
       schema:
@@ -1195,12 +1204,12 @@ components:
       name: hasta
       in: query
       required: true
-      description: Máximo 366 días después de `desde`.
+      description: No antes de `desde` y como máximo 366 días después (si no, 400).
       schema: { type: string, format: date }
     Pagina:
       name: pagina
       in: query
-      schema: { type: integer, minimum: 1, default: 1 }
+      schema: { type: integer, minimum: 1, maximum: 10000, default: 1 }
     Tamano:
       name: tamano
       in: query
@@ -1225,8 +1234,8 @@ components:
       name: If-Match
       in: header
       required: true
-      description: Versión (`ETag`) que el usuario tenía al editar.
-      schema: { type: string }
+      description: 'Versión (`ETag`) que el usuario tenía al editar: `"3"`, `W/"3"` o `3`. Vacía o ausente, 428; con otro formato, 400.'
+      schema: { type: string, pattern: '^(W/)?"?0*[1-9][0-9]*"?$' }
 
   responses:
     Validacion:
@@ -1315,8 +1324,17 @@ components:
       required: [es]
       properties:
         es: { type: string, minLength: 1 }
-        en: { type: string, minLength: 1 }
+        en: { type: string, minLength: 1, nullable: true, description: Nulo o ausente si no hay traducción. }
       additionalProperties: false
+
+    Nulo:
+      description: |
+        Valor nulo. En OpenAPI 3.0 `nullable` no se aplica a un `$ref` (ni dentro de `allOf`),
+        así que un campo que puede ser nulo y apunta a otro esquema se escribe
+        `anyOf: [{ $ref: ... }, { $ref: '#/components/schemas/Nulo' }]`.
+      type: object
+      nullable: true
+      enum: [null]
 
     Coordenada:
       type: object
@@ -1344,6 +1362,7 @@ components:
     ZonaGuardar:
       type: object
       required: [codigo, nombre, poligono]
+      additionalProperties: false
       properties:
         codigo: { type: string, pattern: '^[a-z0-9-]{2,40}$' }
         nombre: { $ref: '#/components/schemas/TextoTraducido' }
@@ -1372,13 +1391,12 @@ components:
         categoria: { $ref: '#/components/schemas/Categoria' }
         categoria_etiqueta: { type: string, description: Nombre de la categoría en el idioma pedido. }
         zona:
-          allOf: [{ $ref: '#/components/schemas/ZonaResumen' }]
-          nullable: true
+          anyOf: [{ $ref: '#/components/schemas/ZonaResumen' }, { $ref: '#/components/schemas/Nulo' }]
           description: Nula si la ubicación no cae en ninguna zona activa.
         ubicacion: { $ref: '#/components/schemas/Coordenada' }
         tarifa_base: { type: number, minimum: 0 }
         unidad_tarifa: { $ref: '#/components/schemas/UnidadTarifa' }
-        unidad_tarifa_etiqueta: { type: string, examples: [por persona] }
+        unidad_tarifa_etiqueta: { type: string, example: por persona }
         calificacion_promedio: { type: number, minimum: 1, maximum: 5, nullable: true }
         total_resenas: { type: integer, minimum: 0 }
         imagen_principal: { type: string, format: uri, nullable: true }
@@ -1412,8 +1430,7 @@ components:
                 política del prestador (UC9). La aplica booking-service (Guía Técnica del Módulo de
                 Reservas §4.3); si booking la cambia, se cambia este texto. La política del prestador
                 puede ser más flexible, nunca más estricta.
-              examples:
-                - 'Regla de la plataforma: puedes cancelar una reserva solicitada en cualquier momento y una confirmada hasta las 23:59 del día anterior a la fecha reservada. El prestador puede cancelar una reserva confirmada indicando el motivo. La política del prestador puede ser más flexible, nunca más estricta.'
+              example: 'Regla de la plataforma: puedes cancelar una reserva solicitada en cualquier momento y una confirmada hasta las 23:59 del día anterior a la fecha reservada. El prestador puede cancelar una reserva confirmada indicando el motivo. La política del prestador puede ser más flexible, nunca más estricta.'
             alertas:
               type: array
               description: Alertas vigentes del servicio y de su zona.
@@ -1427,10 +1444,9 @@ components:
               type: object
               description: Etiqueta en el idioma pedido de cada código fijo que aparece en `atributos`.
               additionalProperties: { type: string }
-              examples: [{ SIN_SENAL: Sin señal, EFECTIVO: Efectivo }]
+              example: { SIN_SENAL: Sin señal, EFECTIVO: Efectivo }
             aviso_pagos:
-              allOf: [{ $ref: '#/components/schemas/AvisoPagos' }]
-              nullable: true
+              anyOf: [{ $ref: '#/components/schemas/AvisoPagos' }, { $ref: '#/components/schemas/Nulo' }]
               description: Nulo si el servicio no informó el bloque `pagos`.
 
     AvisoPagos:
@@ -1444,12 +1460,11 @@ components:
         recomendacion_dinero: { type: string, enum: [EFECTIVO, DIGITAL, CUALQUIERA] }
         mensaje:
           type: string
-          examples:
-            - 'Lleva efectivo: no hay señal de internet y no hay cajeros cerca (el más cercano: Parque de Minca, a 8 km). El prestador ofrece crédito: si no tienes cómo pagar, le pagas después (plazo: 3 días). Es un acuerdo con el prestador; la plataforma no lo cobra ni lo garantiza.'
+          example: 'Lleva efectivo: no hay señal de internet y no hay cajeros cerca (el más cercano: Parque de Minca, a 8 km). El prestador ofrece crédito: si no tienes cómo pagar, le pagas después (plazo: 3 días). Es un acuerdo con el prestador; la plataforma no lo cobra ni lo garantiza.'
 
     ServicioGuardar:
       type: object
-      description: La categoría no se envía; sale de `tipo`.
+      description: La categoría no se envía; sale de `tipo`. Un campo que no está aquí responde 400 (`additionalProperties` no se declara porque este esquema se reutiliza con `allOf` en la respuesta editable).
       required: [nombre, descripcion, tipo, ubicacion, tarifa_base, unidad_tarifa, capacidad_aforo_diario]
       properties:
         nombre: { $ref: '#/components/schemas/TextoTraducido' }
@@ -1472,7 +1487,7 @@ components:
     Hora:
       type: string
       pattern: '^([01]\d|2[0-3]):[0-5]\d$'
-      examples: ['14:00']
+      example: '14:00'
 
     Idiomas:
       type: array
@@ -1507,7 +1522,7 @@ components:
         mascotas: { type: boolean, nullable: true }
         apto_ninos: { type: boolean, nullable: true }
         practicas_sostenibles: { $ref: '#/components/schemas/TextoTraducido' }
-        certificacion_sostenible: { type: string, maxLength: 100, examples: [NTS-TS 002] }
+        certificacion_sostenible: { type: string, maxLength: 100, example: NTS-TS 002 }
 
     BloqueAlojamiento:
       type: object
@@ -1635,12 +1650,16 @@ components:
           type: array
           minItems: 1
           uniqueItems: true
-          items: { type: string, enum: [EFECTIVO, TARJETA, TRANSFERENCIA], description: TRANSFERENCIA incluye Nequi, Daviplata y Bre-B. }
+          items: { type: string, enum: [EFECTIVO, TARJETA, TRANSFERENCIA], description: 'TRANSFERENCIA incluye Nequi, Daviplata y Bre-B.' }
         recomendacion_dinero: { type: string, enum: [EFECTIVO, DIGITAL, CUALQUIERA] }
         credito:
           type: object
           description: El prestador cubre el gasto y el turista le paga después (al recuperar señal o pasar por un cajero).
           additionalProperties: false
+          # `plazo_dias` y `condiciones` solo con `ofrece: true` (si no, 400).
+          anyOf:
+            - { required: [ofrece], properties: { ofrece: { enum: [true] } } }
+            - { not: { anyOf: [{ required: [plazo_dias] }, { required: [condiciones] }] } }
           properties:
             ofrece: { type: boolean, default: false }
             plazo_dias: { type: integer, minimum: 1, maximum: 90, description: Requiere `ofrece`. }
@@ -1665,10 +1684,9 @@ components:
             tipo_etiqueta: { type: string, description: Nombre del tipo en el idioma pedido. }
             categoria: { $ref: '#/components/schemas/Categoria' }
             categoria_etiqueta: { type: string, description: Nombre de la categoría en el idioma pedido. }
-            unidad_tarifa_etiqueta: { type: string, examples: [por persona] }
+            unidad_tarifa_etiqueta: { type: string, example: por persona }
             zona:
-              allOf: [{ $ref: '#/components/schemas/ZonaResumen' }]
-              nullable: true
+              anyOf: [{ $ref: '#/components/schemas/ZonaResumen' }, { $ref: '#/components/schemas/Nulo' }]
             activo: { type: boolean }
             version: { type: integer, minimum: 1 }
             creado_en: { type: string, format: date-time }
@@ -1727,10 +1745,12 @@ components:
 
     PerfilGuardar:
       type: object
+      description: Un campo que no está aquí responde 400 (`additionalProperties` no se declara porque este esquema se reutiliza con `allOf` en la respuesta editable).
       properties:
-        telefono: { type: string, maxLength: 30 }
-        direccion: { type: string, maxLength: 200 }
-        politica_cancelacion: { $ref: '#/components/schemas/TextoTraducido' }
+        telefono: { type: string, maxLength: 30, nullable: true }
+        direccion: { type: string, maxLength: 200, nullable: true }
+        politica_cancelacion:
+          anyOf: [{ $ref: '#/components/schemas/TextoTraducido' }, { $ref: '#/components/schemas/Nulo' }]
 
     PerfilEditable:
       allOf:
@@ -1753,8 +1773,7 @@ components:
         mensaje: { type: string }
         servicio_id: { type: string, format: uuid, nullable: true }
         zona:
-          allOf: [{ $ref: '#/components/schemas/ZonaResumen' }]
-          nullable: true
+          anyOf: [{ $ref: '#/components/schemas/ZonaResumen' }, { $ref: '#/components/schemas/Nulo' }]
         fecha_expiracion: { type: string, format: date-time }
 
     AlertaCrear:
@@ -1764,11 +1783,12 @@ components:
         horaria, es futura y como máximo a 365 días: una alerta olvidada no queda vigente
         para siempre.
       required: [nivel, mensaje, fecha_expiracion]
+      additionalProperties: false
       properties:
         nivel: { $ref: '#/components/schemas/NivelAlerta' }
         mensaje: { $ref: '#/components/schemas/TextoTraducido' }
         servicio_id: { type: string, format: uuid }
-        zona: { type: string, description: Código de la zona. }
+        zona: { type: string, pattern: '^[a-z0-9-]{2,40}$', description: Código de la zona. }
         fecha_expiracion: { type: string, format: date-time }
 
     AlertaEditar:
@@ -1899,12 +1919,34 @@ components:
         alertas_vigentes: { type: integer }
 
     GeometriaPoligonal:
-      type: object
-      description: Geometría GeoJSON `Polygon` o `MultiPolygon` en `[lon, lat]`.
-      required: [type, coordinates]
-      properties:
-        type: { type: string, enum: [Polygon, MultiPolygon] }
-        coordinates: { type: array, items: {} }
+      description: |
+        Geometría GeoJSON `Polygon` o `MultiPolygon` en `[lon, lat]` (RFC 7946). Cada anillo
+        tiene al menos 4 posiciones y está cerrado (la última igual a la primera); el servidor
+        además exige un polígono válido (sin cruces) y responde 400 si no lo es.
+      oneOf:
+        - type: object
+          required: [type, coordinates]
+          properties:
+            type: { type: string, enum: [Polygon] }
+            coordinates: { type: array, minItems: 1, items: { $ref: '#/components/schemas/AnilloGeoJSON' } }
+        - type: object
+          required: [type, coordinates]
+          properties:
+            type: { type: string, enum: [MultiPolygon] }
+            coordinates:
+              type: array
+              minItems: 1
+              items: { type: array, minItems: 1, items: { $ref: '#/components/schemas/AnilloGeoJSON' } }
+
+    AnilloGeoJSON:
+      type: array
+      minItems: 4
+      items:
+        type: array
+        description: '`[lon, lat]`.'
+        minItems: 2
+        maxItems: 3
+        items: { type: number }
 
     PuntoGeoJSON:
       type: object
@@ -1967,8 +2009,7 @@ components:
                   nombre: { type: string }
                   indice: { type: number, nullable: true }
                   nivel:
-                    allOf: [{ $ref: '#/components/schemas/NivelSaturacion' }]
-                    nullable: true
+                    anyOf: [{ $ref: '#/components/schemas/NivelSaturacion' }, { $ref: '#/components/schemas/Nulo' }]
                   nivel_etiqueta: { type: string, nullable: true }
 
     ColeccionAlertasMapa:

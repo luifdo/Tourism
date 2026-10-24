@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.api.dependencies import get_buscar_servicios
 from app.api.i18n.idioma_peticion import idioma_peticion
-from app.api.routers.parametros import categorias, coordenada_opcional, filtros_servicio
+from app.api.routers.parametros import Pagina, categorias, coordenada_opcional, filtros_servicio
 from app.api.schemas.error_respuesta import ErrorRespuesta
 from app.api.schemas.resultado_busqueda_respuesta import ResultadoBusquedaRespuesta
 from app.application.dto.criterios_busqueda import (
@@ -40,7 +40,7 @@ async def buscar_servicios(
     lon: Annotated[float | None, Query(ge=-180, le=180)] = None,
     radio_m: Annotated[int, Query(ge=100, le=RADIO_MAXIMO_M)] = RADIO_POR_DEFECTO_M,
     orden: OrdenBusqueda = OrdenBusqueda.CALIFICACION,
-    pagina: Annotated[int, Query(ge=1)] = 1,
+    pagina: Pagina = 1,
     tamano: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> ResultadoBusquedaRespuesta:
     criterios = CriteriosBusqueda(

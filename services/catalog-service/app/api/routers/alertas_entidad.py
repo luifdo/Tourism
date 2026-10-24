@@ -14,6 +14,7 @@ from app.api.dependencies import (
     get_retirar_alerta,
 )
 from app.api.i18n.idioma_peticion import idioma_peticion
+from app.api.routers.parametros import Pagina
 from app.api.schemas.alerta_crear import AlertaCrear
 from app.api.schemas.alerta_editable_respuesta import AlertaEditableRespuesta
 from app.api.schemas.alerta_editar import AlertaEditar
@@ -133,7 +134,7 @@ async def alertas_de_la_entidad(
     idioma: IdiomaDep,
     listar: Annotated[ListarAlertasEntidad, Depends(get_listar_alertas_entidad)],
     estado: EstadoAlerta | None = None,
-    pagina: Annotated[int, Query(ge=1)] = 1,
+    pagina: Pagina = 1,
     tamano: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> PaginaAlertasEntidadRespuesta:
     resultado = await listar.execute(identidad, estado, pagina, tamano)

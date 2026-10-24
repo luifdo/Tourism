@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_serializer
 
 from app.api.i18n.etiquetas import etiqueta
 from app.api.schemas.atributos.atributos_servicio_datos import AtributosServicioDatos
@@ -37,6 +38,12 @@ class ServicioEditableRespuesta(BaseModel):
     version: int
     creado_en: datetime
     actualizado_en: datetime
+
+    @field_serializer("atributos")
+    def _atributos_sin_nulos(self, atributos: AtributosServicioDatos) -> dict[str, Any]:
+        """Los opcionales sin valor se omiten (como en la ficha pública): así el formulario
+        puede reenviar en el PUT lo mismo que recibió y cumple el esquema de entrada."""
+        return atributos.model_dump(mode="json", exclude_none=True)
 
     @classmethod
     def desde(cls, editable: ServicioEditable, idioma: Idioma) -> "ServicioEditableRespuesta":

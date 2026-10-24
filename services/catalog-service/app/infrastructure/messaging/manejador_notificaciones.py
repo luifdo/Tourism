@@ -4,6 +4,7 @@ from app.application.dto.reserva_notificada import ReservaNotificada
 from app.application.dto.resultado_consumo import ResultadoConsumo
 from app.application.use_cases.notificar_reserva import NotificarReserva
 from app.domain.entities.reserva_proyeccion import TipoEventoReserva
+from app.domain.value_objects.identidad import Rol
 from app.infrastructure.messaging.esquemas.reserva_notificacion_payload import (
     ReservaNotificacionPayload,
 )
@@ -33,7 +34,7 @@ class ManejadorNotificaciones:
                 fecha_reserva=datos.fecha_reserva,
                 numero_personas=datos.numero_personas,
                 motivo=datos.motivo,
-                cancelada_por=datos.cancelada_por,
+                cancelada_por=Rol(datos.cancelada_por) if datos.cancelada_por else None,
                 fecha_anterior=datos.fecha_anterior,
                 numero_personas_anterior=datos.numero_personas_anterior,
                 expira_en=datos.expira_en,

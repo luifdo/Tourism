@@ -29,6 +29,10 @@ dev = [
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "testcontainers[postgres,redis,rabbitmq]>=4.8",
+    "openapi-core>=0.23.1",
+    "jsonschema>=4.26.0",
+    "schemathesis>=4.32.4",
+    "pytest-cov>=7.1.0",
 ]
 
 [build-system]
@@ -55,4 +59,17 @@ testpaths = ["tests"]
 addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
-markers = ["integration: requiere Docker (PostGIS real con testcontainers)"]
+markers = [
+    "integration: requiere Docker (PostGIS real con testcontainers)",
+    "sin_contrato: la prueba se sale del contrato a propósito (no se validan sus respuestas)",
+]
+
+# Cobertura (Plan §8.1: mínimo 70 %): uv run pytest --cov
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = false
+skip_covered = true

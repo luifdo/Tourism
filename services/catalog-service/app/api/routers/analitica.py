@@ -1,7 +1,6 @@
 """Analítica del destino: demanda (UC23), capacidad de carga (UC24), tablero (UC25), mapa de
 calor (RF-07) y reporte CSV (UC38). Todo por la fecha de la visita."""
 
-from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -17,7 +16,7 @@ from app.api.dependencies import (
 from app.api.i18n.idioma_peticion import idioma_peticion
 from app.api.reportes.csv_reporte_demanda import generar_csv, nombre_archivo
 from app.api.respuesta_geojson import RespuestaGeoJSON
-from app.api.routers.parametros import bbox_opcional
+from app.api.routers.parametros import Fecha, bbox_opcional
 from app.api.schemas.capacidad_zona_respuesta import CapacidadZonaRespuesta
 from app.api.schemas.coleccion_mapa_calor import ColeccionMapaCalor
 from app.api.schemas.error_respuesta import ErrorRespuesta
@@ -58,7 +57,7 @@ async def capacidad(
     idioma: IdiomaDep,
     consultar: Annotated[ConsultarCapacidad, Depends(get_consultar_capacidad)],
     zona: Annotated[str | None, Query(pattern=r"^[a-z0-9-]{2,40}$")] = None,
-    fecha: date | None = None,
+    fecha: Fecha | None = None,
 ) -> JSONResponse:
     zonas = await consultar.execute(identidad, fecha, zona)
     solo_nivel = identidad.rol is Rol.TURISTA
@@ -82,7 +81,7 @@ async def mapa_calor(
     identidad: IdentidadDep,
     idioma: IdiomaDep,
     ver: Annotated[VerMapaCalor, Depends(get_ver_mapa_calor)],
-    fecha: date | None = None,
+    fecha: Fecha | None = None,
     vista: Annotated[str | None, Query(alias="bbox")] = None,
     zoom: Annotated[int, Query(ge=ZOOM_MINIMO, le=ZOOM_MAXIMO)] = 12,
 ) -> ColeccionMapaCalor:
@@ -99,8 +98,8 @@ async def mapa_calor(
 async def demanda(
     identidad: IdentidadDep,
     consultar: Annotated[ConsultarDemanda, Depends(get_consultar_demanda)],
-    desde: date,
-    hasta: date,
+    desde: Fecha,
+    hasta: Fecha,
     zona: Annotated[str | None, Query(pattern=r"^[a-z0-9-]{2,40}$")] = None,
     categoria: Categoria | None = None,
     agrupacion: AgrupacionDemanda = AgrupacionDemanda.DIA,
@@ -121,8 +120,8 @@ async def tablero(
     identidad: IdentidadDep,
     idioma: IdiomaDep,
     ver: Annotated[VerTablero, Depends(get_ver_tablero)],
-    desde: date,
-    hasta: date,
+    desde: Fecha,
+    hasta: Fecha,
 ) -> TableroRespuesta:
     return TableroRespuesta.desde_dto(
         await ver.execute(identidad, RangoFechas(desde, hasta)), idioma
@@ -138,8 +137,8 @@ async def tablero(
 async def reporte_demanda(
     identidad: IdentidadDep,
     exportar: Annotated[ExportarReporteDemanda, Depends(get_exportar_reporte_demanda)],
-    desde: date,
-    hasta: date,
+    desde: Fecha,
+    hasta: Fecha,
     zona: Annotated[str | None, Query(pattern=r"^[a-z0-9-]{2,40}$")] = None,
     formato: Annotated[str, Query(pattern="^csv$")] = "csv",
 ) -> StreamingResponse:

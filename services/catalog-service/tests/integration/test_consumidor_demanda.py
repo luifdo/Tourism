@@ -114,7 +114,7 @@ async def test_la_demanda_del_dia_sigue_el_ciclo_de_cada_reserva(
         bus,
         sesiones,
         reserva("confirmada", a, 1, personas=2),  # sigue contando
-        reserva("cancelada", b, 1, personas=3, cancelada_por=str(uuid4()), motivo="Lluvia"),
+        reserva("cancelada", b, 1, personas=3, cancelada_por="Prestador", motivo="Lluvia"),
         reserva("rechazada", c, 1, personas=4, motivo="Plazo de respuesta vencido"),
     )
     assert await demanda(sesiones) == 2
@@ -151,7 +151,7 @@ async def test_desordenado_y_duplicado_no_descuadran(
 ) -> None:
     await consumir(CLAVES, manejador(sesiones))
     r = uuid4()
-    cancelada = reserva("cancelada", r, 5, cancelada_por=str(uuid4()))
+    cancelada = reserva("cancelada", r, 5, cancelada_por="Turista")
     # La cancelación llega primero; la solicitud, vieja, llega después y otra vez repetida.
     solicitada = reserva("solicitada", r, 0)
     await publicar_y_esperar(bus, sesiones, cancelada, solicitada)
@@ -163,7 +163,8 @@ async def test_desordenado_y_duplicado_no_descuadran(
 
 async def test_payload_invalido_va_a_la_dlq(sesiones: Sesiones, bus: Any, consumir: Any) -> None:
     await consumir(CLAVES, manejador(sesiones))
-    await bus.publicar(reserva("solicitada", uuid4(), 0, personas=0))  # numero_personas >= 1
+    # numero_personas >= 1: roto a propósito
+    await bus.publicar(reserva("solicitada", uuid4(), 0, personas=0), segun_contrato=False)
     mensaje = await bus.de_la_dlq()
     assert mensaje.routing_key == "reserva.solicitada"
     assert await demanda(sesiones) == 0

@@ -224,7 +224,7 @@ async def test_un_mensaje_invalido_va_directo_a_la_dlq(
     sesiones: Sesiones, valkey: Valkey, bus: Any, consumir: Any, cuerpo: dict
 ) -> None:
     await consumir(CLAVES, manejador_real(sesiones, valkey))
-    await bus.publicar(cuerpo)
+    await bus.publicar(cuerpo, segun_contrato=False)  # roto a propósito
     mensaje = await bus.de_la_dlq()
     assert (mensaje.headers or {})["x-intentos"] == 0
     assert await contar(sesiones, "SELECT count(*) FROM prestador_perfil") == 0

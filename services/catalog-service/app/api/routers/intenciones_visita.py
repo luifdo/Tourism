@@ -1,12 +1,12 @@
 """Intención de visita ("Cómo llegar"): registro público y conteos para la Entidad."""
 
-from datetime import date
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request, Response, status
 
 from app.api.dependencies import get_listar_intenciones_visita, get_registrar_intencion_visita
+from app.api.routers.parametros import Fecha
 from app.api.schemas.error_respuesta import ErrorRespuesta
 from app.api.schemas.intenciones_zona_dia_respuesta import IntencionesZonaDiaRespuesta
 from app.api.seguridad.identidad_peticion import identidad_peticion
@@ -49,8 +49,8 @@ async def registrar_intencion_visita(
 async def intenciones_visita(
     identidad: Annotated[Identidad, Depends(identidad_peticion)],
     listar: Annotated[ListarIntencionesVisita, Depends(get_listar_intenciones_visita)],
-    desde: date,
-    hasta: date,
+    desde: Fecha,
+    hasta: Fecha,
     zona: Annotated[str | None, Query(pattern=r"^[a-z0-9-]{2,40}$")] = None,
 ) -> list[IntencionesZonaDiaRespuesta]:
     filas = await listar.execute(identidad, RangoFechas(desde, hasta), zona)
