@@ -98,6 +98,27 @@ def rabbitmq_url() -> Iterator[str]:
     contenedor.stop()
 
 
+@pytest.fixture(scope="session")
+def mailpit() -> Iterator[dict[str, Any]]:
+    """Servidor SMTP de prueba: recibe los correos y los muestra por su API HTTP."""
+    try:
+        from testcontainers.core.container import DockerContainer
+        from testcontainers.core.waiting_utils import wait_for_logs
+
+        contenedor = DockerContainer("axllent/mailpit:v1.21").with_exposed_ports(1025, 8025)
+        contenedor.start()
+        wait_for_logs(contenedor, "accessible via http", timeout=30)
+    except Exception as exc:
+        pytest.skip(f"Docker no disponible: {exc}")
+    host = contenedor.get_container_host_ip()
+    yield {
+        "host": host,
+        "smtp": int(contenedor.get_exposed_port(1025)),
+        "api": f"http://{host}:{contenedor.get_exposed_port(8025)}/api/v1",
+    }
+    contenedor.stop()
+
+
 @pytest.fixture
 def alembic_cfg(database_url: str) -> Config:
     return alembic_config()

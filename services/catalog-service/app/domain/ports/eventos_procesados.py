@@ -11,3 +11,8 @@ class EventosProcesados(Protocol):
         Devuelve False si ya estaba registrado (duplicado: se reconoce y se descarta).
         """
         ...
+
+    async def ya_procesado(self, event_id: UUID, consumidor: str) -> bool:
+        """Para efectos que no son transaccionales (un correo): se consulta antes de enviar y
+        se registra después, así una caída entre ambos reenvía en lugar de perder."""
+        ...

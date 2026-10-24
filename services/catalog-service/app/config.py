@@ -36,6 +36,19 @@ class Settings(BaseSettings):
     # Intención de visita: secreto del que sale la sal diaria del hash del IP. En producción
     # va en un Secret de Kubernetes; cambiarlo solo hace que hoy se cuente otra vez a todos.
     intencion_visita_secreto: str = "desarrollo-cambiar-en-produccion"
+
+    # Correos de reservas (worker). Contacto de usuarios en iam por su ruta interna
+    # (contracts/openapi/iam-interno.yaml); SMTP con STARTTLS en producción y Mailpit
+    # (docker-compose.dev.yml) en desarrollo.
+    iam_url_interna: str = "http://localhost:8001"
+    iam_timeout_seconds: float = 3.0
+    smtp_host: str = "localhost"
+    smtp_port: int = 1026
+    smtp_usuario: str = ""
+    smtp_clave: str = ""
+    smtp_starttls: bool = False
+    smtp_timeout_seconds: float = 10.0
+    smtp_remitente: str = "Turismo Santa Marta <no-responder@turismo-santamarta.local>"
     # Mensajes que cada consumidor procesa a la vez (prefetch de RabbitMQ).
     consumidor_prefetch: int = 10
 

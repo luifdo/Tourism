@@ -240,7 +240,7 @@ Las peticiones de la PWA interactúan exclusivamente con el **API Gateway (Traef
 
 Convenciones:
 * **Identidad:** En las rutas protegidas, Traefik consulta `GET /api/iam/auth/verificar` (ForwardAuth). Si la respuesta es 200, reenvía la petición agregando `X-Usuario-Id` y `X-Usuario-Rol`; los servicios confían en esos encabezados porque las políticas de red solo permiten tráfico desde Traefik y desde el Módulo 5 (Sección 7.4). Cada servicio verifica el rol requerido por su endpoint (RBAC) y responde 403 si no corresponde.
-* **Llamadas entre servicios:** Solo el Módulo 5 llama a otros servicios (sus herramientas), con el `X-Usuario-Id` original de la petición.
+* **Llamadas entre servicios:** Solo el Módulo 5 llama a otros servicios (sus herramientas), con el `X-Usuario-Id` original de la petición. **Única excepción:** el worker del Módulo 2 consulta a iam los datos de contacto de un usuario (`GET /internal/usuarios/{id}/contacto`, `contracts/openapi/iam-interno.yaml`) para enviar los correos de reservas (UC36), porque los eventos solo llevan identificadores y los datos personales no viajan por el bus (Sección 4.2). Es una ruta interna, sin gateway, y si iam no responde el correo se reintenta sin afectar a los usuarios.
 * **Errores:** Formato común `{ "error": "<CODIGO>", "message": "<texto>", "correlation_id": "<id>" }`.
 * **Trazabilidad y Correlación:** Cada petición entrante en el gateway recibe un identificador en la cabecera `X-Correlation-ID`, que se propaga a las llamadas internas y a los eventos y se registra en los logs de todos los servicios.
 * **Idempotencia de formularios:** Los `POST`/`PUT` que la PWA puede reintentar aceptan el encabezado `Idempotency-Key` (Sección 6.8).
