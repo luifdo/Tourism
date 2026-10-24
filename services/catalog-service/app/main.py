@@ -16,6 +16,7 @@ from app.api.routers import (
     geocodificacion,
     health,
     imagenes,
+    intenciones_visita,
     mapa,
     perfil_prestador,
     servicios,
@@ -29,6 +30,7 @@ from app.infrastructure.cache.cache_versionada import CacheVersionada
 from app.infrastructure.cache.consulta_capacidad_en_cache import ConsultaCapacidadEnCache
 from app.infrastructure.cache.consulta_mapa_en_cache import ConsultaMapaEnCache
 from app.infrastructure.cache.consulta_servicios_en_cache import ConsultaServiciosEnCache
+from app.infrastructure.cache.deduplicador_visitas_valkey import DeduplicadorVisitasValkey
 from app.infrastructure.cache.geocodificador_en_cache import GeocodificadorEnCache
 from app.infrastructure.cache.idempotencia_valkey import IdempotenciaValkey
 from app.infrastructure.clients.limitador_por_segundo import LimitadorPorSegundo
@@ -40,6 +42,9 @@ from app.infrastructure.persistence.consultas.sql_consulta_mapa import SqlConsul
 from app.infrastructure.persistence.consultas.sql_consulta_prestador import SqlConsultaPrestador
 from app.infrastructure.persistence.consultas.sql_consulta_servicios import SqlConsultaServicios
 from app.infrastructure.persistence.consultas.sql_consulta_zonas import SqlConsultaZonas
+from app.infrastructure.persistence.consultas.sql_contador_intenciones import (
+    SqlContadorIntenciones,
+)
 from app.infrastructure.persistence.database import build_engine, build_session_factory
 from app.infrastructure.persistence.unidad_de_trabajo import SqlUnidadDeTrabajo
 from app.infrastructure.reloj import RelojSistema
@@ -75,6 +80,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.consulta_alertas = SqlConsultaAlertas(sesiones)
         app.state.consulta_mapa = ConsultaMapaEnCache(SqlConsultaMapa(sesiones), valkey)
         app.state.consulta_prestador = SqlConsultaPrestador(sesiones)
+        app.state.contador_intenciones = SqlContadorIntenciones(sesiones)
+        app.state.deduplicador_visitas = DeduplicadorVisitasValkey(
+            valkey, settings.intencion_visita_secreto
+        )
         app.state.consulta_capacidad = ConsultaCapacidadEnCache(
             SqlConsultaCapacidad(sesiones, reloj), valkey
         )
@@ -117,6 +126,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         alertas_entidad,
         mapa,
         analitica,
+        intenciones_visita,
         servicios_prestador,
         perfil_prestador,
         imagenes,

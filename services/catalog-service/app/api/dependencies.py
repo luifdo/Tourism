@@ -18,6 +18,8 @@ from app.application.ports.consulta_mapa import ConsultaMapa
 from app.application.ports.consulta_prestador import ConsultaPrestador
 from app.application.ports.consulta_servicios import ConsultaServicios
 from app.application.ports.consulta_zonas import ConsultaZonas
+from app.application.ports.contador_intenciones import ContadorIntenciones
+from app.application.ports.deduplicador_visitas import DeduplicadorVisitas
 from app.application.ports.geocodificador import Geocodificador
 from app.application.ports.invalidador_cache import InvalidadorCache
 from app.application.use_cases.acceso_prestador import FabricaUnidadDeTrabajo
@@ -37,12 +39,14 @@ from app.application.use_cases.escritura_zona import EscrituraZona
 from app.application.use_cases.geocodificar_direccion import GeocodificarDireccion
 from app.application.use_cases.listar_alertas import ListarAlertas
 from app.application.use_cases.listar_alertas_entidad import ListarAlertasEntidad
+from app.application.use_cases.listar_intenciones_visita import ListarIntencionesVisita
 from app.application.use_cases.listar_servicios_prestador import ListarServiciosPrestador
 from app.application.use_cases.listar_zonas import ListarZonas
 from app.application.use_cases.obtener_perfil import ObtenerPerfil
 from app.application.use_cases.obtener_servicio import ObtenerServicio
 from app.application.use_cases.obtener_zona import ObtenerZona
 from app.application.use_cases.publicar_alerta import PublicarAlerta
+from app.application.use_cases.registrar_intencion_visita import RegistrarIntencionVisita
 from app.application.use_cases.registrar_servicio import RegistrarServicio
 from app.application.use_cases.retirar_alerta import RetirarAlerta
 from app.application.use_cases.solicitar_subida_imagen import SolicitarSubidaImagen
@@ -272,3 +276,26 @@ def get_ver_mapa_calor(
     capacidad: Annotated[ConsultarCapacidad, Depends(get_consultar_capacidad)],
 ) -> VerMapaCalor:
     return VerMapaCalor(mapa, capacidad)
+
+
+def get_contador_intenciones(request: Request) -> ContadorIntenciones:
+    return request.app.state.contador_intenciones
+
+
+def get_deduplicador_visitas(request: Request) -> DeduplicadorVisitas:
+    return request.app.state.deduplicador_visitas
+
+
+Contador = Annotated[ContadorIntenciones, Depends(get_contador_intenciones)]
+
+
+def get_registrar_intencion_visita(
+    deduplicador: Annotated[DeduplicadorVisitas, Depends(get_deduplicador_visitas)],
+    contador: Contador,
+    reloj: RelojDep,
+) -> RegistrarIntencionVisita:
+    return RegistrarIntencionVisita(deduplicador, contador, reloj)
+
+
+def get_listar_intenciones_visita(contador: Contador) -> ListarIntencionesVisita:
+    return ListarIntencionesVisita(contador)

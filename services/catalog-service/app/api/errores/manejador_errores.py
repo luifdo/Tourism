@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from app.api.i18n.mensajes_error import mensaje_codigo, mensaje_error, mensaje_validacion
 from app.api.schemas.error_respuesta import ErrorRespuesta
+from app.api.seguridad.ip_origen import ip_origen
 from app.application.use_cases.registrar_acceso_denegado import RegistrarAccesoDenegado
 from app.domain.errors import ErrorDominio, RolNoPermitido, VersionDistinta
 from app.domain.value_objects.idioma import Idioma
@@ -72,7 +73,7 @@ async def _auditar_acceso_denegado(request: Request, exc: RolNoPermitido) -> Non
             permitidos=list(exc.detalle.get("permitidos", [])),
             metodo=request.method,
             ruta=request.url.path,
-            ip_origen=_ip_origen(request),
+            ip_origen=ip_origen(request),
         )
     except Exception:
         logger.exception("No se pudo auditar el acceso denegado a %s", request.url.path)
@@ -83,14 +84,6 @@ def _uuid_o_none(valor: str | None) -> UUID | None:
         return UUID(valor) if valor else None
     except ValueError:
         return None
-
-
-def _ip_origen(request: Request) -> str | None:
-    """La IP del cliente según Traefik (`X-Forwarded-For`, la primera), o la de la conexión."""
-    reenviada = request.headers.get("x-forwarded-for")
-    if reenviada:
-        return reenviada.split(",")[0].strip()
-    return request.client.host if request.client else None
 
 
 async def manejar_validacion(request: Request, exc: Exception) -> JSONResponse:

@@ -99,6 +99,8 @@ El servicio atiende bajo `/api/catalog` (el mismo prefijo del Gateway) y `/healt
 | `POST /api/catalog/alertas/{id}/desactivar` | UC26 | Entidad o Admin; la retira (no se borra); repetir no cambia nada ni se audita; audita `ALERTA_RETIRADA` |
 | `GET /api/catalog/analitica/capacidad` | UC24 | Entidad, Admin y Turista (este solo ve zona, fecha y nivel); índice por zona de un día (hoy por defecto), servicios con bandera ≥ 0,85, ordenado de mayor a menor; se calcula al consultar con caché de 5 min (`calculado_en`) |
 | `GET /api/catalog/analitica/mapa-calor` | RF-07 | Entidad y Admin; polígonos de las zonas con su índice y nivel (GeoJSON) |
+| `POST /api/catalog/servicios/{id}/intencion-visita` | Mapa | Pública; la PWA la llama en "Cómo llegar". Cuenta una vez por visitante, servicio y día: en Valkey solo queda un HMAC del IP con sal diaria (derivada de `INTENCION_VISITA_SECRETO` y la fecha), durante 24 h; en la base, solo el conteo por servicio y día (migración 0009). Si Valkey no responde, cuenta igual. Servicio apagado o inexistente: 404 sin contar. No entra en la saturación |
+| `GET /api/catalog/analitica/intenciones-visita` | Analítica | Entidad y Admin; conteos por zona (la actual de cada servicio) y día, `desde`/`hasta` (hasta 366 días) y `zona` opcional |
 | `GET /api/catalog/entidad/alertas` | UC26 | Entidad o Admin; panel con todas las alertas o las de un `estado` (`VIGENTE`, `VENCIDA`, `RETIRADA`), recientes primero, con mensaje en ambos idiomas y versión |
 | `GET /api/catalog/mapa/servicios` | UC16 | Pública; GeoJSON recortado a `bbox`; mismos filtros de tipo y atributos que `/buscar`; con zoom < 13 agrupa en el servidor (caché de 300 s) |
 | `GET /api/catalog/mapa/zonas` | UC16 | Pública; polígonos simplificados según el zoom |

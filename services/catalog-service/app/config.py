@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     outbox_espera_maxima_segundos: float = 30.0
     outbox_retencion_dias: int = 7
     worker_metrics_port: int = 9102
+
+    # Intención de visita: secreto del que sale la sal diaria del hash del IP. En producción
+    # va en un Secret de Kubernetes; cambiarlo solo hace que hoy se cuente otra vez a todos.
+    intencion_visita_secreto: str = "desarrollo-cambiar-en-produccion"
     # Mensajes que cada consumidor procesa a la vez (prefetch de RabbitMQ).
     consumidor_prefetch: int = 10
 
