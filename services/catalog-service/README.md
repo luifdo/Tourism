@@ -16,6 +16,7 @@ Catálogo de atractivos, actividades y perfiles de prestador; búsqueda multicri
 | Prefijo en el Gateway (Traefik) | `/api/catalog` |
 | Réplicas en k3s | 2 (HPA hasta 6) |
 | Contrato REST | [`contracts/openapi/catalog.yaml`](../../contracts/openapi/) |
+| Coordinación con otros módulos | [`Coordinacion_Modulo_Catalogo.md`](./Coordinacion_Modulo_Catalogo.md): qué espera el catálogo de cada módulo y qué les ofrece |
 
 ## Eventos
 

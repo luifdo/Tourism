@@ -17,7 +17,6 @@
 | 3 | [Registro de Decisiones Arquitectónicas (ADR)](./Registro_Decisiones_Arquitectonicas.md) | Metodología, estilo, tipo de base de datos, estrategia de conectividad (PWA), plataforma de despliegue (k3s), lenguaje, gateway, mensajería, observabilidad e IA. | Fase 3: Diseño Arquitectónico |
 | 4 | [Plan de Implementación](./Plan_de_Implementacion.md) | Arquitectura interna por módulo, stack, contratos REST y de eventos, DDL, flujos clave, despliegue en k3s y estrategia de pruebas. | Fases 3 y 4 |
 | 5 | [Guía Técnica del Módulo 5 (IA)](./Guia_Tecnica_Modulo_IA.md) | Guion de trabajo interno del chatbot con Gemini y tools: tools, validaciones, pruebas y dependencias con otros módulos. | Apoyo al equipo |
-| 6 | [Coordinación con el Módulo 2 (Catálogo)](./Coordinacion_Modulo_Catalogo.md) | Qué espera catalog-service de cada módulo (eventos, rutas, encabezados, NetworkPolicy) y qué ofrece a cambio. | Fase 4: Implementación |
 
 ## Orden de lectura recomendado
 

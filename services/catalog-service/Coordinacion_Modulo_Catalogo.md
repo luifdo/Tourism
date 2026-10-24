@@ -6,7 +6,7 @@
 
 ## 1. Estado del Módulo 2
 
-catalog-service está terminado para el prototipo: API REST completa según [`catalog.yaml`](../../contracts/openapi/catalog.yaml), worker de eventos, correos de reservas, analítica para la Entidad, despliegue en compose y en Kubernetes, y pruebas de contrato y de carga. Detalle técnico y guía de uso en el [README del servicio](../../services/catalog-service/README.md).
+catalog-service está terminado para el prototipo: API REST completa según [`catalog.yaml`](../../contracts/openapi/catalog.yaml), worker de eventos, correos de reservas, analítica para la Entidad, despliegue en compose y en Kubernetes, y pruebas de contrato y de carga. Detalle técnico y guía de uso en el [README del servicio](./README.md).
 
 Mientras los demás módulos no existan, catalog **no se cae**: los eventos que no llegan simplemente no actualizan nada y las rutas protegidas funcionan con los encabezados de identidad que pondrá Traefik. Un correo cuyo destinatario no se puede consultar en iam se reintenta tres veces (a los 1, 5 y 25 s) y luego queda en la cola de errores `turismo.dead-letter`, desde donde se puede reprocesar.
 
