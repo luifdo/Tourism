@@ -757,6 +757,10 @@ paths:
     get:
       tags: [Prestador]
       summary: Métricas de la oferta del prestador (UC22)
+      description: |
+        Rol `Prestador`; todos sus servicios, apagados incluidos. El rango es por la fecha de la
+        visita y cada reserva cuenta en su estado actual. La calificación es la de siempre
+        (todas las reseñas visibles). Un perfil suspendido también puede verlas.
       operationId: metricasPrestador
       parameters:
         - $ref: '#/components/parameters/Desde'
@@ -821,7 +825,11 @@ paths:
     get:
       tags: [Analítica]
       summary: Indicadores agregados de demanda (UC23)
-      description: Roles `Entidad` y `Admin`.
+      description: |
+        Roles `Entidad` y `Admin`. Personas que vienen al destino (o a `zona`) por fecha de la
+        visita, según el estado actual de su reserva (una reserva solicitada y luego
+        confirmada cuenta una vez, como confirmada). Las semanas empiezan el lunes y los meses
+        el día 1; los periodos sin reservas salen en 0. Sin `zona`, el total del destino.
       operationId: demanda
       parameters:
         - $ref: '#/components/parameters/Desde'
@@ -843,13 +851,14 @@ paths:
                 type: object
                 required: [agrupacion, serie]
                 properties:
-                  agrupacion: { type: string }
+                  agrupacion: { type: string, enum: [dia, semana, mes] }
                   serie:
                     type: array
                     items: { $ref: '#/components/schemas/PuntoDemanda' }
         '400': { $ref: '#/components/responses/Validacion' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
 
   /analitica/capacidad:
     get:
@@ -863,8 +872,9 @@ paths:
         servicios no salen. Ordenadas de mayor a menor índice.
 
         Índice = personas en reservas activas (`SOLICITADA` y `CONFIRMADA`) ÷ capacidad de
-        carga oficial. Niveles: `BAJO` < 0,60; `MEDIO` de 0,60 a < 0,85; `ALTO` ≥ 0,85
-        (bandera de advertencia).
+        carga recomendada. Niveles: `BAJO` < 0,60; `MEDIO` de 0,60 a < 0,85; `ALTO` ≥ 0,85
+        (bandera de advertencia). La capacidad es una recomendación, no un tope: el turista
+        puede ir aunque se supere, así que el índice puede pasar de 1 (1,2 = 120 %).
       operationId: capacidad
       parameters:
         - $ref: '#/components/parameters/AcceptLanguage'
@@ -947,7 +957,10 @@ paths:
     get:
       tags: [Analítica]
       summary: Tablero de planificación (UC25)
-      description: Roles `Entidad` y `Admin`. Reúne los indicadores de UC23 y UC24 para un rango.
+      description: |
+        Roles `Entidad` y `Admin`. Reúne los indicadores de UC23 y UC24: totales del rango (por
+        fecha de la visita), capacidad de hoy por zona, las 5 zonas con más personas (reservas
+        no canceladas) y sus intenciones de visita, y las alertas vigentes ahora.
       operationId: tablero
       parameters:
         - $ref: '#/components/parameters/AcceptLanguage'
@@ -1810,7 +1823,7 @@ components:
         personas_finalizadas: { type: integer }
         ocupacion:
           type: number
-          description: Personas finalizadas ÷ (capacidad diaria × días del rango).
+          description: Personas finalizadas ÷ (capacidad diaria × días del rango). Puede pasar de 1, porque el aforo es la capacidad recomendada, no un tope.
         calificacion_promedio: { type: number, nullable: true }
         total_resenas: { type: integer }
         intenciones_visita: { type: integer }
@@ -1838,8 +1851,8 @@ components:
         nivel: { $ref: '#/components/schemas/NivelSaturacion' }
         nivel_etiqueta: { type: string, description: Nivel en el idioma pedido. }
         personas_activas: { type: integer }
-        capacidad: { type: integer }
-        indice: { type: number, minimum: 0 }
+        capacidad: { type: integer, description: Capacidad de carga recomendada (suma del aforo diario de los servicios de la zona). }
+        indice: { type: number, minimum: 0, description: Puede pasar de 1. }
         calculado_en: { type: string, format: date-time }
         servicios_con_bandera:
           type: array
@@ -1870,7 +1883,7 @@ components:
             required: [zona, personas]
             properties:
               zona: { $ref: '#/components/schemas/ZonaResumen' }
-              personas: { type: integer }
+              personas: { type: integer, description: Personas en reservas no canceladas del rango. }
               intenciones_visita: { type: integer }
         alertas_vigentes: { type: integer }
 

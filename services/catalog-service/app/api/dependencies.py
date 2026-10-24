@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app.application.ports.almacen_idempotencia import AlmacenIdempotencia
 from app.application.ports.almacen_imagenes import AlmacenImagenes
 from app.application.ports.consulta_alertas import ConsultaAlertas
+from app.application.ports.consulta_analitica import ConsultaAnalitica
 from app.application.ports.consulta_capacidad import ConsultaCapacidad
 from app.application.ports.consulta_mapa import ConsultaMapa
 from app.application.ports.consulta_prestador import ConsultaPrestador
@@ -27,6 +28,7 @@ from app.application.use_cases.buscar_servicios import BuscarServicios
 from app.application.use_cases.cambiar_estado_servicio import CambiarEstadoServicio
 from app.application.use_cases.check_health import CheckHealth
 from app.application.use_cases.consultar_capacidad import ConsultarCapacidad
+from app.application.use_cases.consultar_demanda import ConsultarDemanda
 from app.application.use_cases.crear_zona import CrearZona
 from app.application.use_cases.desactivar_zona import DesactivarZona
 from app.application.use_cases.editar_alerta import EditarAlerta
@@ -42,6 +44,7 @@ from app.application.use_cases.listar_alertas_entidad import ListarAlertasEntida
 from app.application.use_cases.listar_intenciones_visita import ListarIntencionesVisita
 from app.application.use_cases.listar_servicios_prestador import ListarServiciosPrestador
 from app.application.use_cases.listar_zonas import ListarZonas
+from app.application.use_cases.obtener_metricas_prestador import ObtenerMetricasPrestador
 from app.application.use_cases.obtener_perfil import ObtenerPerfil
 from app.application.use_cases.obtener_servicio import ObtenerServicio
 from app.application.use_cases.obtener_zona import ObtenerZona
@@ -53,6 +56,7 @@ from app.application.use_cases.solicitar_subida_imagen import SolicitarSubidaIma
 from app.application.use_cases.ver_alertas_en_mapa import VerAlertasEnMapa
 from app.application.use_cases.ver_mapa_calor import VerMapaCalor
 from app.application.use_cases.ver_servicios_en_mapa import VerServiciosEnMapa
+from app.application.use_cases.ver_tablero import VerTablero
 from app.application.use_cases.ver_zonas_en_mapa import VerZonasEnMapa
 from app.config import Settings, get_settings
 from app.domain.ports.reloj import Reloj
@@ -299,3 +303,31 @@ def get_registrar_intencion_visita(
 
 def get_listar_intenciones_visita(contador: Contador) -> ListarIntencionesVisita:
     return ListarIntencionesVisita(contador)
+
+
+def get_consulta_analitica(request: Request) -> ConsultaAnalitica:
+    return request.app.state.consulta_analitica
+
+
+Analitica = Annotated[ConsultaAnalitica, Depends(get_consulta_analitica)]
+
+
+def get_obtener_metricas_prestador(
+    prestador: Prestador, analitica: Analitica
+) -> ObtenerMetricasPrestador:
+    return ObtenerMetricasPrestador(prestador, analitica)
+
+
+def get_consultar_demanda(
+    analitica: Analitica, zonas: Annotated[ConsultaZonas, Depends(get_consulta_zonas)]
+) -> ConsultarDemanda:
+    return ConsultarDemanda(analitica, zonas)
+
+
+def get_ver_tablero(
+    analitica: Analitica,
+    capacidad: Annotated[ConsultarCapacidad, Depends(get_consultar_capacidad)],
+    alertas: Annotated[ConsultaAlertas, Depends(get_consulta_alertas)],
+    reloj: RelojDep,
+) -> VerTablero:
+    return VerTablero(analitica, capacidad, alertas, reloj)

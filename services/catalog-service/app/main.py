@@ -18,6 +18,7 @@ from app.api.routers import (
     imagenes,
     intenciones_visita,
     mapa,
+    metricas_prestador,
     perfil_prestador,
     servicios,
     servicios_prestador,
@@ -37,6 +38,7 @@ from app.infrastructure.clients.limitador_por_segundo import LimitadorPorSegundo
 from app.infrastructure.clients.nominatim_geocodificador import NominatimGeocodificador
 from app.infrastructure.observabilidad.configurar_logs import configurar_logs
 from app.infrastructure.persistence.consultas.sql_consulta_alertas import SqlConsultaAlertas
+from app.infrastructure.persistence.consultas.sql_consulta_analitica import SqlConsultaAnalitica
 from app.infrastructure.persistence.consultas.sql_consulta_capacidad import SqlConsultaCapacidad
 from app.infrastructure.persistence.consultas.sql_consulta_mapa import SqlConsultaMapa
 from app.infrastructure.persistence.consultas.sql_consulta_prestador import SqlConsultaPrestador
@@ -81,6 +83,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         app.state.consulta_mapa = ConsultaMapaEnCache(SqlConsultaMapa(sesiones), valkey)
         app.state.consulta_prestador = SqlConsultaPrestador(sesiones)
         app.state.contador_intenciones = SqlContadorIntenciones(sesiones)
+        app.state.consulta_analitica = SqlConsultaAnalitica(sesiones)
         app.state.deduplicador_visitas = DeduplicadorVisitasValkey(
             valkey, settings.intencion_visita_secreto
         )
@@ -127,6 +130,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         mapa,
         analitica,
         intenciones_visita,
+        metricas_prestador,
         servicios_prestador,
         perfil_prestador,
         imagenes,
