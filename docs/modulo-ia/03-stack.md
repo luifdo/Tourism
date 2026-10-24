@@ -14,9 +14,10 @@
 | Métricas | `prometheus-fastapi-instrumentator` | Expone `/metrics`, que exige RNF-12. |
 | Proveedor de IA | Por definir; el primero previsto es Gemini (SDK `google-genai`, Plan §4) | El servicio no depende de un proveedor: se conecta mediante una interfaz propia y cualquiera se puede cambiar o agregar. |
 | Pruebas | `pytest` | Indicado en el Plan §8. |
-| Dependencias | `pip` + `requirements.txt` | Lo más simple para empezar. |
+| Dependencias | `uv` (`pyproject.toml` + `uv.lock`) | Es lo que usan catalog e IAM. `uv` instala las dependencias y `uv.lock` fija las versiones exactas, así el contenedor y todo el equipo usan las mismas. |
+| Lint | `ruff` | Igual que catalog, con la misma configuración. |
 
-Las versiones exactas se fijan en `requirements.txt` cuando se cree el servicio.
+Las versiones exactas están en `uv.lock`. En la Fase 0 solo se instalan FastAPI, Uvicorn y el instrumentador de Prometheus; SQLAlchemy, el cliente de Valkey, `httpx` y el SDK del proveedor se agregan en las fases que los necesitan.
 
 ---
 [← Arquitectura local](./02-arquitectura-local.md) · [Estructura de carpetas →](./04-estructura.md)

@@ -17,7 +17,9 @@
 
 No se guarda el texto de las conversaciones (privacidad, Ley 1581).
 
-En nuestro compose, un script en `docker-entrypoint-initdb.d` crea la base y la tabla la primera vez que se inicia el volumen. Más adelante se puede sustituir por migraciones (Alembic). Cuando el servicio se una al resto, `recommendation_db` deberá agregarse al init SQL de `infra/`, que hoy no la incluye.
+En nuestro compose, un script en `docker-entrypoint-initdb.d` crea la base y la tabla la primera vez que se inicia el volumen. Más adelante se puede sustituir por migraciones (Alembic). `recommendation_db` ya está en `infra/postgres/init/01-create-databases.sql` (la agregó @luifdo en `develop`), así que al integrar con el resto no hay que añadirla. La tabla `recomendacion_log` sí la creamos nosotros.
+
+El esquema es interno del servicio y puede ampliarse (por ejemplo, latencia, tokens consumidos, proveedor aparte, o separar conversación y recomendación). Si cambia, se actualizan el modelo de datos del SRS y la tabla del Plan. Se decide en la Fase 1.
 
 ---
 [← Variables de entorno](./06-variables-entorno.md) · [Simulación y proveedor de IA →](./08-simulacion.md)

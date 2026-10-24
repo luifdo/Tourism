@@ -22,7 +22,7 @@ Se mantiene la estructura hexagonal que ya tiene el proyecto en `services/recomm
 | Agregar `src/infrastructure/llm/` | Adaptadores del proveedor de IA |
 | Agregar `src/infrastructure/tools/` | Clientes HTTP hacia catalog, booking y review |
 | Agregar `mocks/` | Contenedor `mock-plataforma` |
-| Agregar `Dockerfile`, `docker-compose.yml`, `requirements.txt` | Empaquetado |
+| Agregar `Dockerfile`, `docker-compose.yml`, `pyproject.toml` y `uv.lock` | Empaquetado y dependencias (`uv`, como catalog e IAM) |
 | Quitar `src/infrastructure/messaging/` | El módulo no usa RabbitMQ |
 
 Detalle en [04-estructura.md](./04-estructura.md).
@@ -44,13 +44,15 @@ Detalle en [04-estructura.md](./04-estructura.md).
 
 ## Fase 0: Contrato y andamiaje
 
+> **Estado: construida y verificada** (`pytest` 3 pruebas en verde con 100 % de cobertura, `ruff` sin errores, contenedor `healthy`, `/health` y `/metrics` responden, usuario sin privilegios). **Falta** la revisión del contrato por el equipo: `contracts/` es de @luifdo y el criterio de cierre la exige.
+
 **Objetivo.** Tener el contrato acordado y un servicio vacío que arranca en un contenedor.
 
 **Qué se hace**
 * Escribir `contracts/openapi/recommendation.yaml`: `POST /chat` con su petición y su respuesta (`conversacion_id`, `respuesta`, `recomendaciones[]`), `GET /health`, `GET /metrics` y el formato común de errores. Sigue las convenciones de [`contracts/openapi/README.md`](../../contracts/openapi/README.md).
 * Crear la estructura de carpetas (ver arriba) y `src/main.py` con la app FastAPI.
 * Implementar `GET /health` y `GET /metrics`.
-* Escribir `requirements.txt`, `Dockerfile` y `.dockerignore` ([05-dockerfile.md](./05-dockerfile.md)).
+* Escribir `pyproject.toml`, `uv.lock`, `Dockerfile` y `.dockerignore` ([05-dockerfile.md](./05-dockerfile.md)).
 * Escribir `docker-compose.yml` del servicio y corregir `.env.example` ([06-variables-entorno.md](./06-variables-entorno.md)).
 
 **Carpetas que toca:** `contracts/openapi/`, raíz de `services/recommendation-service/`, `src/`.
@@ -72,7 +74,7 @@ Detalle en [04-estructura.md](./04-estructura.md).
 **Objetivo.** El servicio guarda y recupera lo que necesita: el registro de recomendaciones y las sesiones de chat.
 
 **Qué se hace**
-* Script de inicialización que crea `recommendation_db` y la tabla `recomendacion_log` ([07-base-de-datos.md](./07-base-de-datos.md)).
+* Script de inicialización que crea la tabla `recomendacion_log` en `recommendation_db` (la base ya existe en el init SQL de `infra/`; en nuestro compose la creamos con nuestra propia instancia) ([07-base-de-datos.md](./07-base-de-datos.md)).
 * Puerto y adaptador del registro de recomendaciones (SQLAlchemy sobre PostgreSQL), en `application/ports/` y `infrastructure/persistence/`.
 * Puerto y adaptador de sesiones sobre Valkey: guarda los últimos 10 mensajes por conversación con TTL de 24 horas.
 * Entidades del dominio: conversación, mensaje y recomendación.
@@ -98,7 +100,9 @@ Detalle en [04-estructura.md](./04-estructura.md).
 * Contenedor `mock-plataforma` con datos fijos de Santa Marta ([08-simulacion.md](./08-simulacion.md)). Booking sigue `booking.yaml`. Las rutas de catalog y review se definen aquí y se acuerdan con @luifdo.
 * Puerto y clientes HTTP (`httpx`) para cada tool, en `infrastructure/tools/`:
   `buscar_servicios`, `detalle_servicio`, `consultar_disponibilidad`, `historial_turista`, `resenas_servicio`, `presion_capacidad_carga` y `alertas_oficiales`.
-* `historial_turista` toma el turista del encabezado `X-Usuario-Id`, no de un parámetro.
+* `historial_turista` toma el turista del encabezado `X-Usuario-Id`, no de un parámetro. `presion_capacidad_carga` también reenvía la identidad y recibe solo el nivel (`BAJO`, `MEDIO`, `ALTO`).
+* Las tools reenvían `Accept-Language` (catalog y review responden según el idioma) y usan las rutas de los contratos reales (ver [08-simulacion.md](./08-simulacion.md)).
+* `buscar_servicios` aprovecha los filtros del contrato de catalog (tipo, atributos, fecha, personas) y se usa `aviso_pagos.mensaje` de la ficha para avisar de efectivo o falta de señal.
 * Manejo de errores: tiempo máximo, servicio caído, respuesta inesperada.
 * Declaración de las tools (nombre, descripción y parámetros) en un formato propio, independiente del proveedor.
 
@@ -226,11 +230,13 @@ Detalle en [04-estructura.md](./04-estructura.md).
 **Objetivo.** Dejar el servicio listo para integrarse con el resto de la plataforma.
 
 **Qué se hace**
-* Manifiestos de Kubernetes en `k8s/`: Deployment (mínimo una réplica, `RollingUpdate` con `maxUnavailable: 0` y `maxSurge: 1`), Service, HPA (hasta 3 réplicas, objetivo del 75 % de CPU), sondas de `/health`, `Secret` para la clave y `ConfigMap` para el modelo.
+* Manifiestos de Kubernetes en `k8s/`, a partir de la plantilla `templates/service-template/k8s/` (existe en la rama `feature/catalog-service`, aún no en `develop`): Deployment (mínimo una réplica, `RollingUpdate` con `maxUnavailable: 0` y `maxSurge: 1`), Service, HPA (hasta 3 réplicas, objetivo del 75 % de CPU), sondas de `/health`, `Secret` para la clave y `ConfigMap` para el modelo.
+* Los pods llevan la etiqueta `app.kubernetes.io/name: recommendation-service` en el namespace `turismo-app`: catalog solo acepta llamadas internas de pods con esa etiqueta.
 * NetworkPolicy que permita al servicio llamar a catalog, booking y review.
+* `startupProbe` además de las sondas de `/health` (una app FastAPI tarda de 10 a 20 s en arrancar).
 * Pipeline de CI que ejecuta las pruebas, construye la imagen y la publica en GitHub Container Registry con la etiqueta del commit.
-* Integración: apuntar las URLs a los servicios reales y agregar `recommendation_db` al init SQL de `infra/` (cambios que revisa @luifdo).
-* Pasar lo estable a una rama que pueda abrir PR hacia `develop`.
+* Integración: apuntar las URLs a los servicios reales. `recommendation_db` ya está en el init SQL de `infra/`.
+* Pasar lo estable a una rama `feature/recommendation-<tarea>` creada desde `develop` para abrir el PR (el equipo usa Git Flow: las features salen de `develop` y vuelven por PR; `main` solo recibe desde `release/*`).
 
 **Pruebas**
 * Los manifiestos se aplican en un clúster de prueba y el pod queda listo.
