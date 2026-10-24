@@ -11,6 +11,8 @@ Noviembre de 2026, por fecha de la visita:
 """
 
 import asyncio
+import csv
+import io
 from collections.abc import Awaitable, Callable, Iterator
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal
@@ -288,5 +290,66 @@ def test_tablero(cliente: TestClient, datos: dict) -> None:
     turista = {"X-Usuario-Id": str(uuid4()), "X-Usuario-Rol": "Turista"}
     assert (
         cliente.get("/api/catalog/analitica/tablero", params=NOVIEMBRE, headers=turista).status_code
+        == 403
+    )
+
+
+def test_reporte_csv_cuadra_con_el_tablero_y_se_audita(
+    cliente: TestClient, datos: dict, database_url: str
+) -> None:
+    r = cliente.get("/api/catalog/analitica/reportes/demanda", params=NOVIEMBRE, headers=ENTIDAD)
+    assert r.status_code == 200 and r.headers["content-type"].startswith("text/csv")
+    assert (
+        r.headers["content-disposition"]
+        == 'attachment; filename="demanda_2026-11-01_2026-11-30.csv"'
+    )
+    assert r.content.startswith("﻿".encode())
+    encabezado, *filas = list(
+        csv.reader(io.StringIO(r.content.decode("utf-8").removeprefix("﻿")), delimiter=";")
+    )
+    assert encabezado[0:3] == ["Fecha", "Zona", "Servicio"]
+    # Una fila por servicio y día con actividad, en orden de fecha.
+    assert [(f[0], f[2]) for f in filas] == [
+        ("2026-11-02", "Pozo Azul"),
+        ("2026-11-03", "Pozo Azul"),
+        ("2026-11-04", "Restaurante"),
+        ("2026-11-05", "Playa Grande"),
+        ("2026-11-09", "Pozo Azul"),
+        ("2026-11-10", "Pozo Azul"),
+    ]
+    dia_3 = filas[1]
+    assert dia_3[1] == "Minca" and dia_3[3] == "Naturaleza" and dia_3[4] == "Reserva o parque"
+    assert dia_3[5:13] == ["0", "0", "8", "3", "8", "10", "0,80", "0"]
+    # Los totales cuadran con el tablero: 32 solicitadas, 15 confirmadas, 12 finalizadas, 3
+    # canceladas.
+    totales = [sum(int(f[i]) for f in filas) for i in (5, 6, 7, 8)]
+    assert totales == [32, 15, 12, 3]
+    assert sum(int(f[12]) for f in filas) == 5  # intenciones: 3 en Minca y 2 en Taganga
+
+    async def acciones(sesiones: async_sessionmaker[AsyncSession]) -> list[dict]:
+        async with sesiones() as session:
+            return list(
+                await session.scalars(
+                    text(
+                        "SELECT sobre->'payload' FROM outbox"
+                        " WHERE sobre->'payload'->>'accion' = 'EXPORT'"
+                    )
+                )
+            )
+
+    [auditoria] = en_la_base(database_url, acciones)
+    assert auditoria["usuario_id"] == ENTIDAD["X-Usuario-Id"]
+    assert auditoria["detalles"]["desde"] == "2026-11-01"
+
+    solo_taganga = cliente.get(
+        "/api/catalog/analitica/reportes/demanda",
+        params=NOVIEMBRE | {"zona": "taganga"},
+        headers=ENTIDAD,
+    )
+    assert len(solo_taganga.content.decode("utf-8").strip().splitlines()) == 2  # encabezado + 1
+    assert (
+        cliente.get(
+            "/api/catalog/analitica/reportes/demanda", params=NOVIEMBRE, headers=datos["sierra"]
+        ).status_code
         == 403
     )

@@ -981,12 +981,22 @@ paths:
       tags: [Analítica]
       summary: Exportar el reporte de demanda (UC38)
       description: |
-        Roles `Entidad` y `Admin`. Publica `auditoria.registrada` con acción `EXPORT`.
-        Encabezados de columnas en el idioma pedido. El formato PDF se agregará en una
-        versión posterior del contrato.
+        Roles `Entidad` y `Admin`. Publica `auditoria.registrada` con acción `EXPORT` (usuario
+        y filtros) antes de entregar el archivo. Es un reporte interno para el personal de la
+        Entidad en Santa Marta: **siempre en español**, con formato para Excel en español
+        (separador `;`, coma decimal, UTF-8 con BOM).
+
+        Una fila por servicio y día con actividad (reservas o intenciones de visita), por fecha
+        de la visita y estado actual de la reserva. Columnas: Fecha; Zona; Servicio; Categoría;
+        Tipo; Personas solicitadas; Personas confirmadas; Personas finalizadas; Personas
+        canceladas (incluye rechazadas); Total de personas (solicitadas + confirmadas +
+        finalizadas); Capacidad recomendada (personas); Índice de saturación (total ÷
+        capacidad, puede pasar de 1); Intenciones de visita. Un texto que empiece por `=`, `+`,
+        `-` o `@` se escribe con un apóstrofo delante (evita la inyección de fórmulas).
+
+        El formato PDF se agregará en una versión posterior del contrato (RF-13 es *Could*).
       operationId: exportarDemanda
       parameters:
-        - $ref: '#/components/parameters/AcceptLanguage'
         - $ref: '#/components/parameters/Desde'
         - $ref: '#/components/parameters/Hasta'
         - $ref: '#/components/parameters/ZonaQuery'
@@ -1008,6 +1018,7 @@ paths:
         '400': { $ref: '#/components/responses/Validacion' }
         '401': { $ref: '#/components/responses/NoAutenticado' }
         '403': { $ref: '#/components/responses/Prohibido' }
+        '404': { $ref: '#/components/responses/NoEncontrado' }
 
   # ---------- Operación ----------
   /health:

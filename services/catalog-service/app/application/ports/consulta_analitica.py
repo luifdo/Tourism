@@ -1,8 +1,10 @@
+from collections.abc import AsyncIterator
 from typing import Protocol
 from uuid import UUID
 
 from app.application.dto.agrupacion_demanda import AgrupacionDemanda
 from app.application.dto.fila_metricas_servicio import FilaMetricasServicio
+from app.application.dto.fila_reporte_demanda import FilaReporteDemanda
 from app.application.dto.punto_demanda import PuntoDemanda
 from app.application.dto.rango_fechas import RangoFechas
 from app.application.dto.zona_demandada import ZonaDemandada
@@ -36,4 +38,11 @@ class ConsultaAnalitica(Protocol):
 
     async def zonas_mas_demandadas(self, rango: RangoFechas, limite: int) -> list[ZonaDemandada]:
         """Por personas en reservas no canceladas; sin personas ni intenciones, no salen."""
+        ...
+
+    def filas_reporte_demanda(
+        self, rango: RangoFechas, zona: str | None
+    ) -> AsyncIterator[FilaReporteDemanda]:
+        """Una fila por servicio y día con actividad, por fecha, zona y nombre; se lee en
+        streaming para que un rango de un año no cargue todo en memoria."""
         ...

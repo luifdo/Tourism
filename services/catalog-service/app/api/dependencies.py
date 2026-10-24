@@ -38,6 +38,7 @@ from app.application.use_cases.editar_zona import EditarZona
 from app.application.use_cases.escritura_alerta import EscrituraAlerta
 from app.application.use_cases.escritura_servicio import EscrituraServicio
 from app.application.use_cases.escritura_zona import EscrituraZona
+from app.application.use_cases.exportar_reporte_demanda import ExportarReporteDemanda
 from app.application.use_cases.geocodificar_direccion import GeocodificarDireccion
 from app.application.use_cases.listar_alertas import ListarAlertas
 from app.application.use_cases.listar_alertas_entidad import ListarAlertasEntidad
@@ -331,3 +332,12 @@ def get_ver_tablero(
     reloj: RelojDep,
 ) -> VerTablero:
     return VerTablero(analitica, capacidad, alertas, reloj)
+
+
+def get_exportar_reporte_demanda(
+    analitica: Analitica,
+    zonas: Annotated[ConsultaZonas, Depends(get_consulta_zonas)],
+    uow: Uow,
+    reloj: RelojDep,
+) -> ExportarReporteDemanda:
+    return ExportarReporteDemanda(analitica, zonas, uow, reloj)

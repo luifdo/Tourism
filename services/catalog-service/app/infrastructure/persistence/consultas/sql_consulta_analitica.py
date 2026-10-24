@@ -5,6 +5,7 @@ Todo por la fecha de la visita (`reserva_proyeccion.fecha_reserva`), con los ín
 (prestadores y Entidad) y es rápida.
 """
 
+from collections.abc import AsyncIterator
 from typing import Any
 from uuid import UUID
 
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.application.dto.agrupacion_demanda import AgrupacionDemanda
 from app.application.dto.fila_metricas_servicio import FilaMetricasServicio
+from app.application.dto.fila_reporte_demanda import FilaReporteDemanda
 from app.application.dto.punto_demanda import PuntoDemanda
 from app.application.dto.rango_fechas import RangoFechas
 from app.application.dto.reservas_por_estado import ReservasPorEstado
@@ -20,6 +22,7 @@ from app.application.dto.zona_demandada import ZonaDemandada
 from app.application.dto.zona_resumen import ZonaResumen
 from app.domain.value_objects.catalogos import Categoria
 from app.domain.value_objects.texto_traducido import TextoTraducido
+from app.domain.value_objects.tipo_servicio import TipoServicio
 
 _UNIDAD = {
     AgrupacionDemanda.DIA: "day",
@@ -105,6 +108,38 @@ _ZONAS_MAS_DEMANDADAS = """
 """
 
 
+# Días con reservas o con intenciones de visita, por servicio.
+_REPORTE_DEMANDA = f"""
+    WITH reservas AS (
+        SELECT r.servicio_id, r.fecha_reserva AS fecha, {_PERSONAS}
+        FROM reserva_proyeccion r
+        WHERE r.fecha_reserva BETWEEN :desde AND :hasta
+        GROUP BY 1, 2
+    ), intenciones AS (
+        SELECT servicio_id, fecha, conteo
+        FROM intencion_visita_dia
+        WHERE fecha BETWEEN :desde AND :hasta
+    ), dias AS (
+        SELECT coalesce(r.servicio_id, i.servicio_id) AS servicio_id,
+               coalesce(r.fecha, i.fecha) AS fecha,
+               coalesce(r.solicitadas, 0) AS solicitadas,
+               coalesce(r.confirmadas, 0) AS confirmadas,
+               coalesce(r.finalizadas, 0) AS finalizadas,
+               coalesce(r.canceladas, 0) AS canceladas,
+               coalesce(i.conteo, 0) AS intenciones
+        FROM reservas r
+        FULL JOIN intenciones i ON i.servicio_id = r.servicio_id AND i.fecha = r.fecha
+    )
+    SELECT d.*, z.nombre ->> 'es' AS zona, s.nombre ->> 'es' AS servicio, s.categoria, s.tipo,
+           s.capacidad_aforo_diario
+    FROM dias d
+    JOIN atractivo_servicio s ON s.id = d.servicio_id
+    LEFT JOIN zona z ON z.id = s.zona_id
+    WHERE true {{filtro}}
+    ORDER BY d.fecha, z.nombre ->> 'es' NULLS LAST, s.nombre ->> 'es', s.id
+"""
+
+
 def _rango(rango: RangoFechas) -> dict[str, Any]:
     return {"desde": rango.desde, "hasta": rango.hasta}
 
@@ -187,3 +222,28 @@ class SqlConsultaAnalitica:
             )
             for f in filas
         ]
+
+    async def filas_reporte_demanda(
+        self, rango: RangoFechas, zona: str | None
+    ) -> AsyncIterator[FilaReporteDemanda]:
+        parametros = _rango(rango)
+        filtro = ""
+        if zona is not None:
+            filtro, parametros["zona"] = "AND z.codigo = :zona", zona
+        sql = text(_REPORTE_DEMANDA.format(filtro=filtro))
+        async with self._sesiones() as session:
+            filas = await session.stream(sql, parametros)
+            async for f in filas:
+                yield FilaReporteDemanda(
+                    fecha=f.fecha,
+                    zona=f.zona,
+                    servicio=f.servicio,
+                    categoria=Categoria(f.categoria),
+                    tipo=TipoServicio(f.tipo),
+                    personas_solicitadas=f.solicitadas,
+                    personas_confirmadas=f.confirmadas,
+                    personas_finalizadas=f.finalizadas,
+                    personas_canceladas=f.canceladas,
+                    capacidad_recomendada=f.capacidad_aforo_diario,
+                    intenciones_visita=f.intenciones,
+                )

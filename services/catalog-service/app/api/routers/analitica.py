@@ -1,19 +1,21 @@
-"""Analítica del destino: demanda (UC23), capacidad de carga (UC24), tablero (UC25) y mapa de
-calor (RF-07). Todo por la fecha de la visita."""
+"""Analítica del destino: demanda (UC23), capacidad de carga (UC24), tablero (UC25), mapa de
+calor (RF-07) y reporte CSV (UC38). Todo por la fecha de la visita."""
 
 from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app.api.dependencies import (
     get_consultar_capacidad,
     get_consultar_demanda,
+    get_exportar_reporte_demanda,
     get_ver_mapa_calor,
     get_ver_tablero,
 )
 from app.api.i18n.idioma_peticion import idioma_peticion
+from app.api.reportes.csv_reporte_demanda import generar_csv, nombre_archivo
 from app.api.respuesta_geojson import RespuestaGeoJSON
 from app.api.routers.parametros import bbox_opcional
 from app.api.schemas.capacidad_zona_respuesta import CapacidadZonaRespuesta
@@ -27,6 +29,7 @@ from app.application.dto.escala_mapa import ZOOM_MAXIMO, ZOOM_MINIMO, EscalaMapa
 from app.application.dto.rango_fechas import RangoFechas
 from app.application.use_cases.consultar_capacidad import ConsultarCapacidad
 from app.application.use_cases.consultar_demanda import ConsultarDemanda
+from app.application.use_cases.exportar_reporte_demanda import ExportarReporteDemanda
 from app.application.use_cases.ver_mapa_calor import VerMapaCalor
 from app.application.use_cases.ver_tablero import VerTablero
 from app.domain.value_objects.catalogos import Categoria
@@ -123,4 +126,27 @@ async def tablero(
 ) -> TableroRespuesta:
     return TableroRespuesta.desde_dto(
         await ver.execute(identidad, RangoFechas(desde, hasta)), idioma
+    )
+
+
+@router.get(
+    "/reportes/demanda",
+    summary="Exportar el reporte de demanda (UC38)",
+    response_class=StreamingResponse,
+    responses=_ERRORES | {200: {"content": {"text/csv": {}}}, 404: {"model": ErrorRespuesta}},
+)
+async def reporte_demanda(
+    identidad: IdentidadDep,
+    exportar: Annotated[ExportarReporteDemanda, Depends(get_exportar_reporte_demanda)],
+    desde: date,
+    hasta: date,
+    zona: Annotated[str | None, Query(pattern=r"^[a-z0-9-]{2,40}$")] = None,
+    formato: Annotated[str, Query(pattern="^csv$")] = "csv",
+) -> StreamingResponse:
+    filas = await exportar.execute(identidad, RangoFechas(desde, hasta), zona)
+    archivo = nombre_archivo(desde.isoformat(), hasta.isoformat())
+    return StreamingResponse(
+        generar_csv(filas),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{archivo}"'},
     )
