@@ -1,0 +1,12 @@
+# Entorno local del Módulo 5. Desde esta carpeta:
+#   cp .env.example .env
+#   docker compose up --build
+# Por ahora levanta solo el servicio; PostgreSQL, Valkey y el mock se agregan en las fases 1 y 2.
+
+name: recommendation
+
+services:
+  recommendation-service:
+    build: .
+    env_file: .env
+    ports: ["8005:8005"]

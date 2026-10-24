@@ -1,0 +1,46 @@
+[project]
+name = "recommendation-service"
+version = "0.1.0"
+description = "Módulo 5: IA & Recomendación de la Plataforma Digital de Turismo — Santa Marta"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "prometheus-fastapi-instrumentator>=7.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8",
+    "pytest>=8.3",
+    "pytest-cov>=7.1.0",
+    "httpx>=0.28",
+    "pyyaml>=6.0",
+]
+
+[tool.uv]
+# Servicio, no biblioteca: uv instala solo las dependencias y el código se copia tal cual.
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "N", "SIM", "ASYNC"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "--import-mode=importlib"
+
+# Cobertura (Plan §8.1: mínimo 70 %): uv run pytest --cov
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = false
+skip_covered = true
