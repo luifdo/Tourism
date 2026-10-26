@@ -31,3 +31,11 @@ npm run build && npm run preview   # prueba de la PWA y del modo sin conexión (
 * `src/lib/api.js` implementa el cliente de `contracts/openapi/booking.yaml` (`Idempotency-Key` al solicitar, `If-Match` al modificar, errores con el formato `Error`).
 * Mientras no exista el Gateway, `VITE_API_MOCK=true` (archivo `.env`, copiado de `.env.example`; si falta, por defecto es simulado) usa `src/lib/mockBookings.js`, un servicio simulado en el navegador que respeta las reglas del contrato y de la Guía Técnica del Módulo 3. Para usar el Gateway real: `VITE_API_MOCK=false`.
 * Pendiente con el backend real: la ficha del servicio sale de `src/data/mock.js` (reemplazar por `GET /api/catalog/servicios/{id}`) y falta el login (UC2) para obtener el JWT.
+
+## Instalación como app (PWA)
+
+* `vite.config.js` define el manifest: `standalone`, `scope`/`start_url`/`id` bajo la ruta de despliegue, íconos `any` (192 y 512) y `maskable` (512), y accesos directos a *Mis reservas* y *Explorar*.
+* `index.html`: `viewport-fit=cover`, `theme-color`, metadatos de iOS (`apple-mobile-web-app-*`) y `apple-touch-icon` (180 px, opaco).
+* Android/Chrome/Edge: aparece el botón **Instalar app** en la barra (`InstallButton.vue`). iOS Safari: *Compartir → Añadir a pantalla de inicio*.
+* El video del hero no se guarda sin conexión; en su lugar se precarga `hero-poster.jpg` (primer cuadro exacto).
+* Los íconos se generaron a partir de `public/brand/logo-dark.png`.

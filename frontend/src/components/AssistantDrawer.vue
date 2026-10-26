@@ -6,7 +6,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <div class="fixed bottom-[clamp(16px,2.5vw,28px)] right-[clamp(16px,2.5vw,32px)] z-[60] flex flex-col items-end gap-3.5">
+  <div class="fixed right-[clamp(16px,2.5vw,32px)] z-[60] flex flex-col items-end gap-3.5" style="bottom: calc(env(safe-area-inset-bottom) + clamp(16px, 2.5vw, 28px))">
     <section
       v-if="isOpen"
       class="flex max-h-[min(560px,calc(100vh-140px))] w-[min(380px,calc(100vw-32px))] flex-col overflow-hidden rounded-panel bg-white/95 shadow-[0_30px_70px_-20px_rgba(0,103,152,.6)] backdrop-blur-xl"

@@ -33,8 +33,22 @@
   --shadow-cta: 0 18px 36px -18px rgba(0, 103, 152, 0.65);
 }
 
-:root { --nav-h: 76px; }
+:root { --nav-h: 76px; --ticker-h: 34px; }
 html { scroll-behavior: smooth; scroll-padding-top: var(--nav-h); }
+/* Como app instalada: sin parpadeo al tocar, sin rebote al final de la página y respeta el notch */
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+body { overscroll-behavior-y: none; }
+button, a, input, select, textarea { touch-action: manipulation; }
+
+/* El hero llena exactamente lo que queda de pantalla bajo la cinta y la barra (así su difuminado termina dentro de la vista) */
+.hero-pin {
+  position: sticky;
+  top: var(--nav-h);
+  min-height: 540px;
+  height: calc(100vh - var(--nav-h) - var(--ticker-h));
+  height: calc(100svh - var(--nav-h) - var(--ticker-h));
+}
+
 body { margin: 0; font-family: var(--font-sans); color: var(--color-ink); background: #fff; }
 .kicker { font-family: var(--font-mono); font-weight: 600; font-size: 12px; letter-spacing: .22em; text-transform: uppercase; color: var(--color-teal); }
 .glass { background: rgba(255,255,255,.85); backdrop-filter: blur(8px); border: 1px solid rgba(0,103,152,.1); }

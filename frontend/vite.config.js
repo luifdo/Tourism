@@ -21,16 +21,25 @@ export default defineConfig({
         theme_color: '#021F39',
         background_color: '#FAF6ED',
         display: 'standalone',
+        id: base,
         start_url: base,
         scope: base,
+        orientation: 'any',
+        categories: ['travel', 'lifestyle'],
+        display_override: ['standalone', 'minimal-ui'],
         icons: [
           { src: `${base}icons/icon-192.png`, sizes: '192x192', type: 'image/png' },
-          { src: `${base}icons/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+          { src: `${base}icons/icon-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: `${base}icons/maskable-512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+        ],
+        shortcuts: [
+          { name: 'Mis reservas', short_name: 'Reservas', url: `${base}mis-reservas`, icons: [{ src: `${base}icons/icon-192.png`, sizes: '192x192', type: 'image/png' }] },
+          { name: 'Explorar experiencias', short_name: 'Explorar', url: `${base}#catalogo`, icons: [{ src: `${base}icons/icon-192.png`, sizes: '192x192', type: 'image/png' }] },
         ],
       },
       workbox: {
         // La aplicación se sirve "cache first"; el video del hero (5 MB) no se guarda sin conexión
-        globPatterns: ['**/*.{js,css,html,png,svg,webmanifest}'],
+        globPatterns: ['**/*.{js,css,html,png,jpg,svg,webmanifest}'],
         globIgnores: ['**/*.mp4'],
         navigateFallback: `${base}index.html`,
         navigateFallbackDenylist: [/\/api\//],

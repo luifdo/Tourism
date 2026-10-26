@@ -5,7 +5,7 @@ const { t } = useI18n()
 </script>
 
 <template>
-  <footer class="bg-navy-darkest px-[clamp(20px,6vw,96px)] py-14 text-white">
+  <footer class="bg-navy-darkest px-[clamp(20px,6vw,96px)] pt-14 text-white" style="padding-bottom: calc(3.5rem + env(safe-area-inset-bottom))">
     <div class="mx-auto flex max-w-[1200px] flex-wrap items-center justify-between gap-6">
       <div class="max-w-xl">
         <BrandLogo dark large />

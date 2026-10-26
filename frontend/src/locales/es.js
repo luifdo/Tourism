@@ -2,7 +2,7 @@ export default {
   brand: { name: 'Samaland', alt: 'adventure', tag: 'Turismo regenerativo' },
   nav: {
     catalog: 'Explorador de experiencias', map: 'Mapa biocultural y aforos', routes: 'Rutas ancestrales', ethics: 'Compromiso ético',
-    reservations: 'Mis reservas', assistant: 'Asistente IA', login: 'Iniciar sesión', register: 'Registrarse', menu: 'Menú',
+    reservations: 'Mis reservas', install: 'Instalar app', installShort: 'Instalar', assistant: 'Asistente IA', login: 'Iniciar sesión', register: 'Registrarse', menu: 'Menú',
   },
   ticker: { badge: 'Bien público digital', text: 'Sin comisiones comerciales intermedias · Proyecto de la Universidad del Magdalena', live: 'Aforos en vivo' },
   hero: {

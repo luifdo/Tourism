@@ -5,8 +5,8 @@ import { useI18n } from 'vue-i18n'
 const { t, tm, rt } = useI18n()
 
 const base = import.meta.env.BASE_URL
-// Difuminado de los bordes del video: 96 px arriba y 140 px abajo
-const fade = 'linear-gradient(to bottom, transparent 0, #000 96px, #000 calc(100% - 140px), transparent 100%)'
+// Difuminado de los bordes del video: 56 px arriba y 120 px abajo
+const fade = 'linear-gradient(to bottom, transparent 0, #000 56px, #000 calc(100% - 120px), transparent 100%)'
 const story = ref(null)
 const video = ref(null)
 const p = ref(0) // progreso 0..1 del scroll dentro del hero
@@ -60,17 +60,17 @@ onBeforeUnmount(() => {
   <!-- Con movimiento reducido: sin altura extra, video detenido (WCAG) -->
   <section ref="story" :style="{ height: reduced ? 'auto' : '320vh' }" aria-label="Inicio">
     <!-- Fondo crema -> blanco: el video se difumina hacia el color de la barra (arriba) y de la sección siguiente (abajo) -->
-    <div class="sticky overflow-hidden" :style="{ top: 'var(--nav-h)', height: 'calc(100vh - var(--nav-h))', minHeight: '560px', background: 'linear-gradient(180deg, #FAF6ED 0%, #FFFFFF 100%)' }">
+    <div class="hero-pin overflow-hidden" style="background: linear-gradient(180deg, #FAF6ED 0%, #FFFFFF 100%)">
       <div class="absolute inset-0" :style="{ maskImage: fade, WebkitMaskImage: fade }">
         <video
-          ref="video" :src="`${base}video/hero.mp4`" muted playsinline preload="auto" aria-hidden="true" tabindex="-1"
+          ref="video" :src="`${base}video/hero.mp4`" :poster="`${base}video/hero-poster.jpg`" muted playsinline preload="auto" aria-hidden="true" tabindex="-1"
           class="absolute inset-0 size-full object-cover"
         />
         <!-- Sin velo sobre el video: solo un degradado azul suave a la izquierda para leer el texto -->
         <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,31,57,.55)_0%,rgba(2,31,57,.25)_40%,rgba(2,31,57,0)_70%),linear-gradient(0deg,rgba(2,31,57,.35)_0%,rgba(2,31,57,0)_35%)]" />
       </div>
 
-      <div class="relative mx-auto flex h-full max-w-[1400px] flex-col justify-center gap-[clamp(10px,2.4vh,28px)] px-[clamp(20px,5vw,64px)] pb-[72px] pt-4 sm:pb-24 sm:pt-6">
+      <div class="relative mx-auto flex h-full max-w-[1400px] flex-col justify-center gap-[clamp(10px,2.4vh,28px)] px-[clamp(20px,5vw,64px)] pb-[76px] pt-9 sm:pb-24 sm:pt-6">
         <p class="kicker inline-flex w-fit items-center gap-2 rounded-full border border-sand/40 bg-white/85 px-3 py-1 text-[10px] tracking-[.12em] text-ink-control sm:px-4 sm:py-1.5 sm:text-[11px] sm:tracking-[.22em]">
           <span class="size-1.5 rounded-full bg-teal" />{{ t('hero.eyebrow') }}
         </p>
@@ -100,13 +100,13 @@ onBeforeUnmount(() => {
         </form>
 
         <ul class="mt-[clamp(4px,2vh,24px)] grid grid-cols-2 gap-3 lg:grid-cols-4 [@media(max-height:760px)]:hidden">
-          <li v-for="(s, i) in stats" :key="s.k" class="glass rounded-card p-4 shadow-card">
+          <li v-for="(s, i) in stats" :key="s.k" class="glass rounded-card p-3 shadow-card sm:p-4">
             <div class="flex items-center justify-between">
               <span class="font-mono text-[10px] uppercase tracking-[.14em] text-muted">{{ s.k }}</span>
               <svg class="text-teal" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="icons[i]" /></svg>
             </div>
-            <p class="mt-1.5 text-[clamp(26px,3vw,40px)] font-bold leading-none tracking-tight text-navy-darkest">{{ s.n }}</p>
-            <p class="mt-2 text-[13px] leading-snug text-muted">{{ s.l }}</p>
+            <p class="mt-1 text-[clamp(22px,3vw,40px)] font-bold leading-none tracking-tight text-navy-darkest sm:mt-1.5">{{ s.n }}</p>
+            <p class="mt-2 hidden text-[13px] leading-snug text-muted sm:block">{{ s.l }}</p>
           </li>
         </ul>
       </div>

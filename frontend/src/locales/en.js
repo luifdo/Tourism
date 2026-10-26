@@ -2,7 +2,7 @@ export default {
   brand: { name: 'Samaland', alt: 'adventure', tag: 'Regenerative tourism' },
   nav: {
     catalog: 'Experience explorer', map: 'Biocultural map & capacity', routes: 'Ancestral routes', ethics: 'Ethical commitment',
-    reservations: 'My bookings', assistant: 'AI Assistant', login: 'Log in', register: 'Sign up', menu: 'Menu',
+    reservations: 'My bookings', install: 'Install app', installShort: 'Install', assistant: 'AI Assistant', login: 'Log in', register: 'Sign up', menu: 'Menu',
   },
   ticker: { badge: 'Digital public good', text: 'No commercial intermediaries\' fees · A Universidad del Magdalena project', live: 'Live capacity' },
   hero: {

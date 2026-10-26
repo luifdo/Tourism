@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BrandLogo from './BrandLogo.vue'
+import InstallButton from './InstallButton.vue'
 
 const { t, locale } = useI18n()
 const menu = ref(false)
@@ -16,7 +17,7 @@ const links = [['catalog', '#catalogo'], ['map', '#mapa'], ['routes', '#rutas'],
 
 <template>
   <!-- Cinta superior (se desplaza con la página) -->
-  <div class="flex items-center justify-between gap-4 border-b border-sand/30 bg-cream px-[clamp(16px,3vw,32px)] py-2 font-mono text-[11px] text-ink-control">
+  <div class="flex items-center justify-between gap-4 bg-cream px-[clamp(16px,3vw,32px)] font-mono text-[11px] text-ink-control" style="height: var(--ticker-h)">
     <p class="flex min-w-0 items-center gap-2.5 truncate">
       <i class="size-1.5 shrink-0 rounded-full bg-teal" />
       <b class="shrink-0 font-semibold uppercase tracking-wider text-navy-darkest">{{ t('ticker.badge') }}</b>
@@ -45,6 +46,7 @@ const links = [['catalog', '#catalogo'], ['map', '#mapa'], ['routes', '#rutas'],
       </div>
 
       <div class="flex items-center gap-3">
+        <InstallButton />
         <RouterLink :to="{ name: 'my-bookings' }" class="flex items-center gap-1.5 text-[13px] font-medium text-navy transition-colors hover:text-teal">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" /><path d="M9 8h6M9 12h6" /></svg>
           <span class="hidden sm:inline">{{ t('nav.reservations') }}</span>
