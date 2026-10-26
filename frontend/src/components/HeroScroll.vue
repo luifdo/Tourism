@@ -5,8 +5,6 @@ import { useI18n } from 'vue-i18n'
 const { t, tm, rt } = useI18n()
 
 const base = import.meta.env.BASE_URL
-// Difuminado de los bordes del video: 56 px arriba y 120 px abajo
-const fade = 'linear-gradient(to bottom, transparent 0, #000 56px, #000 calc(100% - 120px), transparent 100%)'
 const story = ref(null)
 const video = ref(null)
 const p = ref(0) // progreso 0..1 del scroll dentro del hero
@@ -44,7 +42,22 @@ function tick() {
   raf = Math.abs(target - cur) > 0.0005 ? requestAnimationFrame(tick) : 0
 }
 
+// iOS no carga un video que nunca se reprodujo (ignora preload): se "despierta" una vez, en silencio, y se pausa
+let woke = false
+function wake() {
+  const v = video.value
+  if (woke || !v || reduced) return
+  woke = true
+  v.muted = true
+  const pr = v.play()
+  if (pr && pr.then) pr.then(() => { v.pause(); v.currentTime = cur * (v.duration || 0) }).catch(() => { woke = false })
+  else v.pause()
+}
+
 onMounted(() => {
+  wake()
+  window.addEventListener('touchstart', wake, { passive: true, once: true })
+  window.addEventListener('pointerdown', wake, { passive: true, once: true })
   window.addEventListener('scroll', onScroll, { passive: true })
   window.addEventListener('resize', onScroll)
   onScroll()
@@ -59,22 +72,22 @@ onBeforeUnmount(() => {
 <template>
   <!-- Con movimiento reducido: sin altura extra, video detenido (WCAG) -->
   <section ref="story" :style="{ height: reduced ? 'auto' : '320vh' }" aria-label="Inicio">
-    <!-- Fondo crema -> blanco: el video se difumina hacia el color de la barra (arriba) y de la sección siguiente (abajo) -->
-    <div class="hero-pin overflow-hidden" style="background: linear-gradient(180deg, #FAF6ED 0%, #FFFFFF 100%)">
-      <div class="absolute inset-0" :style="{ maskImage: fade, WebkitMaskImage: fade }">
-        <video
-          ref="video" :src="`${base}video/hero.mp4`" :poster="`${base}video/hero-poster.jpg`" muted playsinline preload="auto" aria-hidden="true" tabindex="-1"
-          class="absolute inset-0 size-full object-cover"
-        />
-        <!-- Sin velo sobre el video: solo un degradado azul suave a la izquierda para leer el texto -->
-        <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,31,57,.55)_0%,rgba(2,31,57,.25)_40%,rgba(2,31,57,0)_70%),linear-gradient(0deg,rgba(2,31,57,.35)_0%,rgba(2,31,57,0)_35%)]" />
-      </div>
+    <div class="hero-pin overflow-hidden bg-cream">
+      <video
+        ref="video" :src="`${base}video/hero.mp4`" :poster="`${base}video/hero-poster.jpg`" muted playsinline preload="auto" aria-hidden="true" tabindex="-1"
+        class="absolute inset-0 size-full object-cover"
+      />
+      <!-- Sin velo sobre el video: solo un degradado azul suave a la izquierda para leer el texto -->
+      <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,31,57,.55)_0%,rgba(2,31,57,.25)_40%,rgba(2,31,57,0)_70%),linear-gradient(0deg,rgba(2,31,57,.35)_0%,rgba(2,31,57,0)_35%)]" />
+      <!-- Difuminado de los bordes con degradados simples (sin máscara: Safari deja de repintar un video enmascarado) -->
+      <div class="pointer-events-none absolute inset-x-0 top-0 h-14 bg-gradient-to-b from-cream to-cream/0" />
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white to-white/0" />
 
       <div class="relative mx-auto flex h-full max-w-[1400px] flex-col justify-center gap-[clamp(10px,2.4vh,28px)] px-[clamp(20px,5vw,64px)] pb-[76px] pt-9 sm:pb-24 sm:pt-6">
         <p class="kicker inline-flex w-fit items-center gap-2 rounded-full border border-sand/40 bg-white/85 px-3 py-1 text-[10px] tracking-[.12em] text-ink-control sm:px-4 sm:py-1.5 sm:text-[11px] sm:tracking-[.22em]">
           <span class="size-1.5 rounded-full bg-teal" />{{ t('hero.eyebrow') }}
         </p>
-        <h1 class="max-w-[14ch] text-[clamp(32px,6.4vw,92px)] font-extrabold leading-[.98] tracking-[-.035em] text-white text-balance">{{ t('hero.title') }}</h1>
+        <h1 class="max-w-[14ch] text-[clamp(32px,min(6.4vw,10.5vh),92px)] font-extrabold leading-[.98] tracking-[-.035em] text-white text-balance">{{ t('hero.title') }}</h1>
         <p class="max-w-[58ch] line-clamp-3 text-[clamp(14px,1.5vw,21px)] leading-relaxed text-white/90 sm:line-clamp-none">{{ t('hero.lead') }}</p>
 
         <form class="flex w-full max-w-[860px] flex-wrap items-center gap-2 rounded-[28px] border border-sand/30 bg-white p-2 shadow-elevated sm:flex-nowrap sm:rounded-full" @submit.prevent>
@@ -99,7 +112,7 @@ onBeforeUnmount(() => {
           </button>
         </form>
 
-        <ul class="mt-[clamp(4px,2vh,24px)] grid grid-cols-2 gap-3 lg:grid-cols-4 [@media(max-height:760px)]:hidden">
+        <ul class="mt-[clamp(4px,2vh,24px)] grid grid-cols-2 gap-3 lg:grid-cols-4 [@media(max-height:920px)]:hidden">
           <li v-for="(s, i) in stats" :key="s.k" class="glass rounded-card p-3 shadow-card sm:p-4">
             <div class="flex items-center justify-between">
               <span class="font-mono text-[10px] uppercase tracking-[.14em] text-muted">{{ s.k }}</span>

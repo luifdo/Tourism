@@ -40,13 +40,13 @@ html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%;
 body { overscroll-behavior-y: none; }
 button, a, input, select, textarea { touch-action: manipulation; }
 
-/* El hero llena exactamente lo que queda de pantalla bajo la cinta y la barra (así su difuminado termina dentro de la vista) */
+/* El hero llena la pantalla bajo la barra fija (svh: sin saltos cuando el navegador móvil esconde su barra) */
 .hero-pin {
   position: sticky;
   top: var(--nav-h);
   min-height: 540px;
-  height: calc(100vh - var(--nav-h) - var(--ticker-h));
-  height: calc(100svh - var(--nav-h) - var(--ticker-h));
+  height: calc(100vh - var(--nav-h));
+  height: calc(100svh - var(--nav-h));
 }
 
 body { margin: 0; font-family: var(--font-sans); color: var(--color-ink); background: #fff; }
