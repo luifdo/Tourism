@@ -9,3 +9,25 @@ Aplicación web progresiva en **Vue.js 3 + Workbox**: responsiva, bilingüe (ES/
 * **Requieren conexión:** solicitar y confirmar reservas.
 
 Detalle en el [Plan de Implementación](../Documents/Pages/Plan_de_Implementacion.md) §6.8.
+
+## Ejecución
+
+```bash
+npm install
+npm run dev        # desarrollo (el Service Worker solo corre en el build)
+npm run build && npm run preview   # prueba de la PWA y del modo sin conexión (puerto 4173)
+```
+
+## Operación sin conexión (RNF-13)
+
+* `vite.config.js`: Workbox precarga la aplicación (sin el video del hero) y guarda el catálogo (`/api/catalog/`, *stale-while-revalidate*) y solo las teselas OSM ya vistas.
+* `src/lib/offlineQueue.js`: cola en IndexedDB para formularios diferidos. Cada envío lleva `Idempotency-Key`, las ediciones llevan `If-Match`; un 409 queda como conflicto y un 401 pide iniciar sesión. `clearLocalData()` debe llamarse al cerrar sesión.
+* `src/lib/useCatalog.js`: catálogo en vivo, o última copia guardada con su fecha, o datos de ejemplo.
+* Solicitar y confirmar reservas requieren conexión y se deshabilitan sin ella.
+
+## Reservas (UC10–UC13)
+
+* Rutas: `/servicios/:id` (ficha + reserva en 4 pasos) y `/mis-reservas`.
+* `src/lib/api.js` implementa el cliente de `contracts/openapi/booking.yaml` (`Idempotency-Key` al solicitar, `If-Match` al modificar, errores con el formato `Error`).
+* Mientras no exista el Gateway, `VITE_API_MOCK=true` (archivo `.env`, copiado de `.env.example`; si falta, por defecto es simulado) usa `src/lib/mockBookings.js`, un servicio simulado en el navegador que respeta las reglas del contrato y de la Guía Técnica del Módulo 3. Para usar el Gateway real: `VITE_API_MOCK=false`.
+* Pendiente con el backend real: la ficha del servicio sale de `src/data/mock.js` (reemplazar por `GET /api/catalog/servicios/{id}`) y falta el login (UC2) para obtener el JWT.
