@@ -5,6 +5,8 @@ import { useI18n } from 'vue-i18n'
 const { t, tm, rt } = useI18n()
 
 const base = import.meta.env.BASE_URL
+// Difuminado de los bordes del video: 96 px arriba y 140 px abajo
+const fade = 'linear-gradient(to bottom, transparent 0, #000 96px, #000 calc(100% - 140px), transparent 100%)'
 const story = ref(null)
 const video = ref(null)
 const p = ref(0) // progreso 0..1 del scroll dentro del hero
@@ -57,15 +59,18 @@ onBeforeUnmount(() => {
 <template>
   <!-- Con movimiento reducido: sin altura extra, video detenido (WCAG) -->
   <section ref="story" :style="{ height: reduced ? 'auto' : '320vh' }" aria-label="Inicio">
-    <div class="sticky overflow-hidden bg-navy-darkest" :style="{ top: 'var(--nav-h)', height: 'calc(100vh - var(--nav-h))', minHeight: '560px' }">
-      <video
-        ref="video" :src="`${base}video/hero.mp4`" muted playsinline preload="auto" aria-hidden="true" tabindex="-1"
-        class="absolute inset-0 size-full object-cover"
-      />
-      <!-- Sin velo sobre el video: solo un degradado azul suave a la izquierda para leer el texto -->
-      <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,31,57,.55)_0%,rgba(2,31,57,.25)_40%,rgba(2,31,57,0)_70%),linear-gradient(0deg,rgba(2,31,57,.35)_0%,rgba(2,31,57,0)_35%)]" />
+    <!-- Fondo crema -> blanco: el video se difumina hacia el color de la barra (arriba) y de la sección siguiente (abajo) -->
+    <div class="sticky overflow-hidden" :style="{ top: 'var(--nav-h)', height: 'calc(100vh - var(--nav-h))', minHeight: '560px', background: 'linear-gradient(180deg, #FAF6ED 0%, #FFFFFF 100%)' }">
+      <div class="absolute inset-0" :style="{ maskImage: fade, WebkitMaskImage: fade }">
+        <video
+          ref="video" :src="`${base}video/hero.mp4`" muted playsinline preload="auto" aria-hidden="true" tabindex="-1"
+          class="absolute inset-0 size-full object-cover"
+        />
+        <!-- Sin velo sobre el video: solo un degradado azul suave a la izquierda para leer el texto -->
+        <div class="absolute inset-0 bg-[linear-gradient(90deg,rgba(2,31,57,.55)_0%,rgba(2,31,57,.25)_40%,rgba(2,31,57,0)_70%),linear-gradient(0deg,rgba(2,31,57,.35)_0%,rgba(2,31,57,0)_35%)]" />
+      </div>
 
-      <div class="relative mx-auto flex h-full max-w-[1400px] flex-col justify-center gap-[clamp(10px,2.4vh,28px)] px-[clamp(20px,5vw,64px)] pb-[72px] pt-4 sm:pb-6 sm:pt-6">
+      <div class="relative mx-auto flex h-full max-w-[1400px] flex-col justify-center gap-[clamp(10px,2.4vh,28px)] px-[clamp(20px,5vw,64px)] pb-[72px] pt-4 sm:pb-24 sm:pt-6">
         <p class="kicker inline-flex w-fit items-center gap-2 rounded-full border border-sand/40 bg-white/85 px-3 py-1 text-[10px] tracking-[.12em] text-ink-control sm:px-4 sm:py-1.5 sm:text-[11px] sm:tracking-[.22em]">
           <span class="size-1.5 rounded-full bg-teal" />{{ t('hero.eyebrow') }}
         </p>

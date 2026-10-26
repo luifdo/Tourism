@@ -36,7 +36,7 @@ const links = [['catalog', '#catalogo'], ['map', '#mapa'], ['routes', '#rutas'],
   </div>
 
   <!-- Barra principal fija -->
-  <header class="sticky top-0 z-50 border-b border-sand/20 bg-cream/90 px-[clamp(16px,3vw,32px)] backdrop-blur-xl" style="height: var(--nav-h)">
+  <header class="sticky top-0 z-50 bg-cream/90 px-[clamp(16px,3vw,32px)] backdrop-blur-xl" style="height: var(--nav-h)">
     <nav class="mx-auto flex h-full max-w-[1400px] items-center justify-between gap-4" aria-label="Principal">
       <RouterLink :to="{ name: 'home' }" class="shrink-0" aria-label="Samaland adventure"><BrandLogo /></RouterLink>
 
